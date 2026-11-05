@@ -44,7 +44,7 @@ questbridge/
 ├── apps/
 │   └── web-app/                 # Svelte 5 + SvelteKit scaffold
 │       ├── AGENTS.md
-│       ├── package.json        # npm-based; not yet in an npm workspace
+│       ├── package.json        # npm workspace member
 │       ├── vite.config.ts
 │       ├── tsconfig.json
 │       ├── src/
@@ -94,9 +94,9 @@ Notes:
 
 - **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
 - **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
-- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares no FTB Quests, FTB Teams, or FTB Library dependencies yet.
-- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is a standalone npm-based scaffold and is not yet part of an npm workspace.
-- No `packages/` and no root-level `package.json` exist yet. The root project plan (AGENTS.md) uses npm workspaces; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
+- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares the exact FTB Quests, FTB Teams, and FTB Library dependencies.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is an npm workspace member.
+- No `packages/` exists yet. The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
 
