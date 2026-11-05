@@ -58,6 +58,8 @@ questbridge/
 
 The Java package name (`xyz.jxcb.ftbquestoverlay`), mod ID (`questbridge`), mod name, and source files remain unchanged. This is a directory move, not a rename.
 
+The diagram shows the planned `apps/web` name. The Svelte scaffold currently lives at `apps/web-app/` (moved there in commit `8807147`); `apps/web` is not the current path.
+
 ### Rationale
 
 - `AGENTS.md` defines `minecraft-mod/` as a separate top-level component.
@@ -313,9 +315,10 @@ This was part of the deferred Phase 0 proposal.
 ### Verified current state
 
 - The root `.gitignore` exists.
-- `.gradle/` and `build/` are ignored and no longer tracked.
+- `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
 - pnpm is not on `PATH`; Corepack is available.
 - The Java project is in `minecraft-mod/` and compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
+- The Svelte scaffold is at `apps/web-app/`; `AGENTS.md` section 5 and `docs/architecture.md` now use that path.
 
 ### Rationale
 

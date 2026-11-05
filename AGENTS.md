@@ -290,7 +290,7 @@ questbridge/
 │       └── tests/
 │
 ├── apps/
-│   └── web/
+│   └── web-app/
 │       ├── src/
 │       │   ├── lib/
 │       │   │   ├── api/

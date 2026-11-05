@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, baseline Java mod skeleton (NeoForge), and loopback-only build are implemented; the shared protocol package, mock publisher, host, and FTB Quests adapter are not yet implemented.  **Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`. Where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the baseline Java mod skeleton (NeoForge, compiles against 21.1.250), and the SvelteKit scaffold are implemented; the shared protocol package, mock publisher, host, and FTB Quests adapter are not yet implemented.  **Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`. Where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -16,7 +16,7 @@ The frontend never parses FTB data. The host never depends on Minecraft or Java 
 
 ## 1. Repository layout
 
-Proposal A is approved and applied. The Java project now lives in a dedicated `minecraft-mod/` directory, and a Svelte scaffold lives at the repository root as `web-app/`. The planned `packages/` (protocol, host, mock-publisher) and `apps/` (web overlay/dashboard) directories do not exist yet.
+Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the SvelteKit scaffold lives at `apps/web-app/`. The planned `packages/` (protocol, host, mock-publisher) directory does not exist yet; `apps/` contains only the `apps/web-app` scaffold.
 
 **Current layout (implemented as of 2026-11-06):**
 
@@ -24,7 +24,6 @@ Proposal A is approved and applied. The Java project now lives in a dedicated `m
 questbridge/
 ├── AGENTS.md
 ├── .gitignore
-├── .gradle/                     # Gradle state (ignored, not tracked)
 │
 ├── minecraft-mod/
 │   ├── build.gradle
@@ -39,15 +38,16 @@ questbridge/
 │   │       └── templates/META-INF/neoforge.mods.toml
 │   └── TEMPLATE_LICENSE.txt
 │
-├── web-app/                     # Svelte 5 + SvelteKit scaffold
-│   ├── AGENTS.md
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── src/
-│   │   ├── lib/
-│   │   └── routes/
-│   └── ...
+├── apps/
+│   └── web-app/                 # Svelte 5 + SvelteKit scaffold
+│       ├── AGENTS.md
+│       ├── package.json        # npm-based; not yet in a pnpm workspace
+│       ├── vite.config.ts
+│       ├── tsconfig.json
+│       ├── src/
+│       │   ├── lib/
+│       │   └── routes/
+│       └── ...
 │
 ├── docs/
 │   ├── architecture.md
@@ -58,7 +58,7 @@ questbridge/
 └── ...
 ```
 
-**Planned layout (not yet implemented):**
+**Planned layout (packages and remaining docs not yet implemented):**
 
 ```text
 questbridge/
@@ -73,8 +73,8 @@ questbridge/
 │   ├── host/                    # Node.js host
 │   └── mock-publisher/          # protocol-level mock Minecraft publisher
 │
-├── apps/                        # planned
-│   └── web/                     # Svelte 5 overlay and dashboard
+├── apps/
+│   └── web-app/                 # Svelte 5 overlay and dashboard (scaffold exists)
 │
 ├── docs/
 │   ├── architecture.md
@@ -90,15 +90,11 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, root `package.json`, `pnpm-workspace.yaml`, `scripts/`, `packages/` (protocol, host, mock-publisher), `apps/` (web), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
-- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class), a build that compiles successfully against NeoForge `21.1.250`, and no FTB Quests/Teams/Library dependencies yet.
-- `web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented.
-- The root project plan (AGENTS.md) uses pnpm; `web-app` is a standalone scaffold whose own AGENTS.md documents npm as its package manager.
-
-- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class), a build that compiles successfully against NeoForge `21.1.250`, and no FTB Quests/Teams/Library dependencies yet.
-- `web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented.
-- No `packages/`, `apps/`, or root-level `package.json`/`pnpm-workspace.yaml` exist yet. The root project plan (AGENTS.md) uses pnpm; `web-app` is a standalone scaffold whose own `AGENTS.md` documents npm as its package manager.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, root `package.json`, `pnpm-workspace.yaml`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
+- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares no FTB Quests, FTB Teams, or FTB Library dependencies yet.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is a standalone npm-based scaffold and is not yet part of a pnpm workspace.
+- No `packages/` and no root-level `package.json` or `pnpm-workspace.yaml` exist yet. The root project plan (AGENTS.md) uses pnpm; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
 
@@ -109,7 +105,7 @@ The Java project is isolated from the TypeScript packages:
 Repository hygiene is partially complete:
 
 - The root `.gitignore` exists and is tracked.
-- `.gradle/` and `build/` are ignored and no longer tracked.
+- `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
 - Pinning pnpm and declaring the exact FTB build dependencies remain part of Proposal D, which is pending review.
 
 The Java build compiles against NeoForge `21.1.250` with JDK 21. FTB Quests, FTB Teams, and FTB Library dependencies are not yet declared.
@@ -871,7 +867,7 @@ BUILD SUCCESSFUL (compileJava UP-TO-DATE)
 
 The NeoForge baseline compiles against `21.1.250` with JDK 21. The build does not yet declare the FTB Quests, FTB Teams, or FTB Library dependencies required for the adapter (Proposal D, pending review).
 
-The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `web-app/` is built with Vite (its own `package.json` chooses npm as its package manager, not pnpm).
+The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` chooses npm as its package manager, not pnpm).
 
 The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented, so the full monorepo build and `corepack pnpm mock` commands do not yet exist.
 
