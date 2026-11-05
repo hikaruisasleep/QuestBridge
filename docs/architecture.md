@@ -1,9 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Proposed architecture, not yet implemented  
-**Proposal status:** Proposals A–D in `docs/proposals.md` are pending review, not rejected. Where a proposal affects this document, the current state and the proposed state are both noted.  
-**Date:** 2026-11-06  
-**Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, baseline Java mod skeleton (NeoForge), and loopback-only build are implemented; the shared protocol package, mock publisher, host, and FTB Quests adapter are not yet implemented.  **Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`. Where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -19,54 +16,67 @@ The frontend never parses FTB data. The host never depends on Minecraft or Java 
 
 ## 1. Repository layout
 
-The repository currently contains only the NeoForge MDK template at the repository root. Proposal A would move the Java project into a dedicated `minecraft-mod/` directory. That proposal is pending review and has not been applied.
+Proposal A is approved and applied. The Java project now lives in a dedicated `minecraft-mod/` directory, and a Svelte scaffold lives at the repository root as `web-app/`. The planned `packages/` (protocol, host, mock-publisher) and `apps/` (web overlay/dashboard) directories do not exist yet.
 
-**Proposed target layout, conditional on Proposal A:**
+**Current layout (as of 2026-11-06):**
 
 ```text
 questbridge/
 ├── AGENTS.md
-├── README.md
-├── package.json                 # pnpm workspace root
-├── pnpm-workspace.yaml
 ├── .gitignore
-│
-├── packages/
-│   ├── protocol/                # shared versioned protocol and schemas
-│   ├── host/                    # Node.js host
-│   └── mock-publisher/          # protocol-level mock Minecraft publisher
-│
-├── apps/
-│   └── web/                     # Svelte 5 overlay and dashboard
+├── .gradle/                     # Gradle state (ignored, not tracked)
 │
 ├── minecraft-mod/
 │   ├── build.gradle
-│   ├── gradle.properties        # NeoForge version aligned to 21.1.250
+│   ├── gradle.properties        # NeoForge 21.1.250, Minecraft 1.21.1
 │   ├── settings.gradle
 │   ├── gradlew
-│   └── src/                     # existing Java mod sources
+│   ├── gradlew.bat
+│   ├── gradle/wrapper/
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/xyz/jxcb/ftbquestoverlay/QuestBridge.java
+│   │       └── templates/META-INF/neoforge.mods.toml
+│   └── TEMPLATE_LICENSE.txt
+│
+├── web-app/                     # Svelte 5 + SvelteKit scaffold
+│   ├── AGENTS.md
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── src/
+│   │   ├── lib/
+│   │   └── routes/
+│   └── ...
 │
 ├── docs/
 │   ├── architecture.md
-│   ├── proposals.md             # re-submitted proposals, pending review
-│   ├── protocol.md              # planned
+│   ├── proposals.md
 │   ├── ftb-quests-integration.md
-│   ├── chapter-pinning.md
-│   ├── development.md           # planned
-│   └── troubleshooting.md       # planned
+│   └── chapter-pinning.md
 │
-└── scripts/
+└── ...
 ```
 
-If Proposal A is not adopted, `build.gradle`, `gradle.properties`, `settings.gradle`, `gradlew`, and `src/` remain at the repository root. The TypeScript workspace (`package.json`, `pnpm-workspace.yaml`, `packages/`, `apps/`), `docs/`, and `scripts/` are added alongside them.
+Notes on the actual state:
 
-Under either layout, the Java project must remain isolated from the TypeScript packages:
+- `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class), a build that compiles successfully against NeoForge `21.1.250`, and no FTB Quests/Teams/Library dependencies yet.
+- `web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented.
+- No `packages/`, `apps/`, or root-level `package.json`/`pnpm-workspace.yaml` exist yet. The root project plan (AGENTS.md) uses pnpm; `web-app` is a standalone scaffold whose own `AGENTS.md` documents npm as its package manager.
+
+The Java project is isolated from the TypeScript packages:
 
 - Java does not import TypeScript code.
 - TypeScript does not import Java classes.
-- The only contract between them is the versioned WebSocket protocol.
+- The only contract between them is the versioned WebSocket protocol (planned, not yet implemented).
 
-Proposal D adds the root `.gitignore`, untracks `.gradle/` and `build/`, pins pnpm, and declares the exact FTB build dependencies. Proposal D is also pending review. The current repository still tracks `.gradle/` and `build/` and does not declare the FTB dependencies.
+Repository hygiene is partially complete:
+
+- The root `.gitignore` exists and is tracked.
+- `.gradle/` and `build/` are ignored and no longer tracked.
+- Pinning pnpm and declaring the exact FTB build dependencies remain part of Proposal D, which is pending review.
+
+The Java build compiles against NeoForge `21.1.250` with JDK 21. FTB Quests, FTB Teams, and FTB Library dependencies are not yet declared.
 
 ---
 
@@ -140,7 +150,7 @@ Non-responsibilities:
 - Quest pin mutation.
 - Quest completion or reward claiming.
 
-### 3.2 Protocol package
+### 3.2 Protocol package (planned)
 
 Responsibilities:
 
@@ -153,7 +163,7 @@ Responsibilities:
 
 The Java adapter does not use this package. It must implement the same wire format manually and declare its supported protocol version.
 
-### 3.3 Host
+### 3.3 Host (planned)
 
 Responsibilities:
 
@@ -175,7 +185,7 @@ Non-responsibilities:
 - Reimplementing quest progression.
 - Allowing browsers to publish progression.
 
-### 3.4 Mock publisher
+### 3.4 Mock publisher (planned)
 
 Responsibilities:
 
@@ -186,7 +196,7 @@ Responsibilities:
 
 Mock IDs must be synthetic. Real ATM10 TTS IDs are only used in recorded fixtures after runtime verification.
 
-### 3.5 Svelte frontend
+### 3.5 Svelte frontend (planned)
 
 Two routes:
 
@@ -521,7 +531,7 @@ Tokens would be random, generated on first run, and persisted in the host config
 
 Proposed flow:
 
-1. OBS opens `/overlay?token=<overlayToken>`.
+1. OBS or the user opens `/overlay?token=<overlayToken>`.
 2. Host validates the token.
 3. Host sets an `HttpOnly`, `SameSite=Strict` overlay cookie.
 4. Host redirects to `/overlay` without the token in the visible URL.
@@ -539,7 +549,7 @@ The Minecraft adapter would connect with a bearer token or a dedicated header. I
 
 ### 8.4 Origin rules
 
-- Allow browser connections from the host’s own loopback origins.
+- Allow browser connections from the host's own loopback origins.
 - Allow native Minecraft connections with no Origin header.
 - Reject all other origins.
 - Reject cross-origin mutation requests.
@@ -814,9 +824,22 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-The implementation order follows Proposal C, which is pending review. The commands below assume Proposal A is adopted and the Java project lives in `minecraft-mod/`.
+Implementation order follows Proposal C, which is pending review. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`.
 
-Planned commands:
+Current build state, verified 2026-11-06:
+
+```text
+minecraft-mod$ ./gradlew compileJava
+BUILD SUCCESSFUL (compileJava UP-TO-DATE)
+```
+
+The NeoForge baseline compiles against `21.1.250` with JDK 21. The build does not yet declare the FTB Quests, FTB Teams, or FTB Library dependencies required for the adapter (Proposal D, pending review).
+
+The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `web-app/` is built with Vite (its own `package.json` chooses npm as its package manager, not pnpm).
+
+The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented, so the full monorepo build and `corepack pnpm mock` commands do not yet exist.
+
+Planned (for later phases):
 
 ```text
 corepack pnpm install
@@ -825,14 +848,6 @@ corepack pnpm -r test
 cd minecraft-mod && ./gradlew compileJava
 corepack pnpm mock -- --scenario=basic
 ```
-
-If Proposal A is not adopted, run `./gradlew compileJava` from the repository root instead.
-
-The host serves the production web build. Vite dev mode proxies API/WebSocket traffic to the host.
-
-Under the proposed layout, the Java build lives in `minecraft-mod/` and can be compiled independently of the TypeScript workspace. Under the current layout, it remains at the repository root.
-
-Compiling the adapter against FTB Quests, FTB Teams, and FTB Library requires the dependency changes in Proposal D, which is also pending review. The current build does not declare those dependencies.
 
 ---
 

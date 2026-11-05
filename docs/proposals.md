@@ -1,16 +1,15 @@
 # Re-submitted Proposals
 
-**Status:** Awaiting decision  
+**Status:** Proposal A approved and applied; Proposals B–D awaiting decision  
 **Date:** 2026-11-06  
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.
 
-The only earlier proposal already approved and applied is the NeoForge alignment:
+Approved and applied so far:
 
-```text
-neo_version: 21.1.265 -> 21.1.250
-```
+- NeoForge alignment: `21.1.265` → `21.1.250`.
+- Proposal A: the Java project was moved into `minecraft-mod/`.
 
-That change is in `gradle.properties` and is not part of this re-submission.
+The remaining proposals are B–D.
 
 ---
 
@@ -18,17 +17,19 @@ That change is in `gradle.properties` and is not part of this re-submission.
 
 | Proposal | Earlier response | Current status |
 |---|---|---|
-| Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Re-submitted |
+| Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Approved and applied |
 | Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Re-submitted |
 | Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
-| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin pnpm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Re-submitted |
+| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin pnpm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Partially applied; remaining items pending |
 | Align NeoForge to `21.1.250` | Approved | Applied |
 
-The working documents now mark the affected layout and authentication choices as pending review rather than settled.
+The working documents now mark Proposal A as applied and Proposals B–D as pending review rather than settled.
 
 ---
 
 ## 2. Proposal A — Move the Java project into `minecraft-mod/`
+
+**Status:** Approved and applied.
 
 ### Proposal
 
@@ -65,30 +66,31 @@ The Java package name (`xyz.jxcb.ftbquestoverlay`), mod ID (`questbridge`), mod 
 - It makes the “Java adapter must not know about Svelte/OBS” boundary visible in the layout.
 - It allows the Java build to be opened, built, and version-pinned independently.
 
-### What was rejected
+### What happened earlier
 
 The earlier response was:
 
 > Keep the layout as-is.
 
-That is the current state. `build.gradle`, `gradle.properties`, `gradlew`, and `src/` remain at the repository root.
+At that time `build.gradle`, `gradle.properties`, `gradlew`, and `src/` remained at the repository root. The proposal was later approved and applied; those files now live under `minecraft-mod/`.
 
-### Impact if adopted
+### Applied changes
 
-- Move the Gradle wrapper and Java sources into `minecraft-mod/`.
-- Update repository documentation and build commands.
-- Update `.gitignore` paths.
+- Moved the Gradle wrapper and Java sources into `minecraft-mod/`.
+- Updated repository documentation and build commands.
+- `.gitignore` patterns already match nested Gradle output.
 - No Java package changes.
-- Git history is preserved by using file moves rather than delete-and-recreate.
+- Git history was preserved by using file moves rather than delete-and-recreate.
+- `./gradlew compileJava` succeeds from `minecraft-mod/`.
 
 ### Impact if not adopted
 
-- Keep documenting the root-level Java project as the accepted exception.
-- Root-level Gradle and pnpm files will coexist, which is workable but less isolated.
+- The root-level Java project would have remained the accepted exception.
+- Root-level Gradle and pnpm files would coexist, which is workable but less isolated.
 
 ### Recommendation
 
-Adopt. The separation matches the documented architecture and reduces accidental coupling. The move is mechanical and does not change Java code.
+Applied. The separation matches the documented architecture and reduces accidental coupling. The move was mechanical and did not change Java code.
 
 ---
 
@@ -286,6 +288,8 @@ Adopt. The order matches `AGENTS.md` and keeps the highest-risk integration behi
 
 ## 5. Proposal D — Repository hygiene and build dependencies
 
+**Status:** Partially applied; pnpm pinning and FTB build dependencies remain pending.
+
 This was part of the deferred Phase 0 proposal.
 
 ### Proposal
@@ -308,10 +312,10 @@ This was part of the deferred Phase 0 proposal.
 
 ### Verified current state
 
-- `.gitignore` is missing.
-- `.gradle/` and `build/` are tracked in Git.
+- The root `.gitignore` exists.
+- `.gradle/` and `build/` are ignored and no longer tracked.
 - pnpm is not on `PATH`; Corepack is available.
-- The Java build currently compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
+- The Java project is in `minecraft-mod/` and compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
 
 ### Rationale
 
@@ -346,10 +350,10 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 
 | ID | Proposal | Recommendation | Decision |
 |---|---|---|---|
-| A | Move Java project to `minecraft-mod/` | Adopt | Pending |
+| A | Move Java project to `minecraft-mod/` | Adopt | Approved and applied |
 | B | Cookie-after-token-redirect authentication with three roles | Adopt | Pending |
 | C | Phased implementation order | Adopt | Pending |
-| D | Repository hygiene and exact FTB build dependencies | Adopt | Pending |
+| D | Repository hygiene and exact FTB build dependencies | Adopt | Partially applied; remaining pending |
 
 A decision can be:
 
@@ -358,4 +362,4 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-If Proposal A is adopted, `docs/architecture.md` must be updated to match the new layout. If Proposal B is adopted, its security section becomes the implemented design rather than a recommendation. If Proposal C is adopted, the phase plan can move into `docs/development.md` during Phase 0. If Proposal D is adopted, it should be completed before protocol implementation begins.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. If Proposal B is adopted, its security section becomes the implemented design rather than a recommendation. If Proposal C is adopted, the phase plan can move into `docs/development.md` during Phase 0. If Proposal D is adopted, its remaining items should be completed before protocol implementation begins.

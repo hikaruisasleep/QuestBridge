@@ -1,7 +1,7 @@
 # FTB Quests Integration
 
 **Status:** Reconnaissance complete; runtime integration not yet verified  
-**Proposal status:** Proposals A–D in `docs/proposals.md` are pending review, not rejected. Proposals C and D affect adapter implementation timing and build dependencies.  
+**Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`; Proposals C and D affect adapter implementation timing and build dependencies.  
 **Date:** 2026-11-06  
 **Target pack:** All the Mods 10: To the Sky (ATM10 TTS / ATM10SKY) 2.3.1  
 **Minecraft:** 1.21.1  

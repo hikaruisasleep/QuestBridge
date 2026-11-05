@@ -1,7 +1,7 @@
 # Chapter Pinning
 
 **Status:** Specification, not yet implemented  
-**Proposal status:** Proposals A–D in `docs/proposals.md` are pending review, not rejected. Implementation timing is subject to Proposal C, and dashboard access control is subject to Proposal B.  
+**Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`. Implementation timing is subject to Proposal C, and dashboard access control is subject to Proposal B.  
 **Date:** 2026-11-06
 
 Chapter pins are QuestBridge’s only quest-related selection mechanism. They represent long-term pack progression and are managed exclusively through the QuestBridge dashboard.
