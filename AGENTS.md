@@ -1151,6 +1151,58 @@ All agents must:
 17. Never silently discard unresolved chapter pins.
 18. Never automatically select chapters.
 19. Never automatically modify FTB quest pins.
+20. Check out a new branch before starting every session.
+21. Commit changes after every major action.
+
+## 17.1 Git workflow
+
+### Branch per session
+
+Every coding session must begin on a new branch:
+
+1. Inspect `git status` before changing anything.
+2. Preserve any existing uncommitted work. Never discard or overwrite unrelated changes.
+3. Create and switch to a new branch from the current base branch:
+
+```text
+git switch -c <type>/<short-description>
+```
+
+Use a descriptive name, for example:
+
+```text
+feat/protocol-package
+fix/chapter-pin-reorder
+docs/ftb-reconnaissance
+```
+
+Do not work directly on `main` or `master`. Do not reuse a branch from a previous session unless the user explicitly asks.
+
+### Commit after every major action
+
+Commit after each coherent, independently reviewable unit of work. Major actions include:
+
+- Adding or changing a protocol message, schema, or state model.
+- Implementing or changing a host operation, route, or persistence behavior.
+- Implementing or changing an overlay or dashboard route/component.
+- Changing the Minecraft adapter or FTB integration.
+- Adding or updating tests.
+- Changing build configuration or dependencies.
+- Adding or updating documentation.
+
+Rules:
+
+- Do not batch unrelated changes into one commit.
+- Do not leave a session with uncommitted changes unless the user explicitly asks to stop.
+- If a task is intentionally incomplete, commit the working increment and report the remaining work.
+- Run the relevant build or tests before committing when practical.
+- Never claim a successful build or test without actually running it.
+
+### Commit hygiene
+
+- Use an imperative commit subject and include a body explaining what and why when needed.
+- Do not commit generated build output, dependency caches, secrets, tokens, or local configuration.
+- Do not rewrite history or force-push unless the user explicitly requests it.
 
 At the end of each milestone report:
 
