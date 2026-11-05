@@ -20,7 +20,7 @@ The remaining proposals are B–D.
 | Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Approved and applied |
 | Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Re-submitted |
 | Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
-| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin pnpm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Partially applied; remaining items pending |
+| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin npm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Partially applied; remaining items pending |
 | Align NeoForge to `21.1.250` | Approved | Applied |
 
 The working documents now mark Proposal A as applied and Proposals B–D as pending review rather than settled.
@@ -38,7 +38,6 @@ Move the existing NeoForge project out of the repository root into a dedicated d
 ```text
 questbridge/
 ├── package.json
-├── pnpm-workspace.yaml
 ├── .gitignore
 ├── packages/
 │   ├── protocol/
@@ -64,7 +63,7 @@ The diagram shows the planned `apps/web` name. The Svelte scaffold currently liv
 
 - `AGENTS.md` defines `minecraft-mod/` as a separate top-level component.
 - It creates a hard filesystem boundary between the Java adapter and the TypeScript workspace.
-- It prevents Gradle and pnpm build outputs, lockfiles, and tooling from sharing the repository root.
+- It prevents Gradle and npm build outputs, lockfiles, and tooling from sharing the repository root.
 - It makes the “Java adapter must not know about Svelte/OBS” boundary visible in the layout.
 - It allows the Java build to be opened, built, and version-pinned independently.
 
@@ -88,7 +87,7 @@ At that time `build.gradle`, `gradle.properties`, `gradlew`, and `src/` remained
 ### Impact if not adopted
 
 - The root-level Java project would have remained the accepted exception.
-- Root-level Gradle and pnpm files would coexist, which is workable but less isolated.
+- Root-level Gradle and npm files would coexist, which is workable but less isolated.
 
 ### Recommendation
 
@@ -179,12 +178,12 @@ Implement in this order:
 
 - Add `.gitignore`.
 - Untrack `.gradle/` and `build/`.
-- Pin pnpm `10.20.0` with Corepack.
+- Pin the npm and Node versions for the workspace.
 - Add FTB Maven and Architectury repositories.
 - Add exact FTB Quests, FTB Teams, and FTB Library dependencies.
 - Keep the three reconnaissance documents.
 
-**Exit criterion:** clean workspace, pnpm install works, Java compiles against exact pack dependencies.
+**Exit criterion:** clean workspace, npm install works, Java compiles against exact pack dependencies.
 
 ### Phase 1 — Shared protocol and mock publisher
 
@@ -290,7 +289,7 @@ Adopt. The order matches `AGENTS.md` and keeps the highest-risk integration behi
 
 ## 5. Proposal D — Repository hygiene and build dependencies
 
-**Status:** Partially applied; pnpm pinning and FTB build dependencies remain pending.
+**Status:** Partially applied; npm pinning and FTB build dependencies remain pending.
 
 This was part of the deferred Phase 0 proposal.
 
@@ -300,12 +299,12 @@ This was part of the deferred Phase 0 proposal.
    - Gradle build outputs.
    - IDE files.
    - Node modules.
-   - pnpm store.
+   - npm cache and debug logs.
    - Vite build output.
    - Local QuestBridge configuration and tokens.
    - Recorded snapshots containing server-specific data, until sanitized.
 2. Untrack `.gradle/` and `build/`.
-3. Pin pnpm `10.20.0` with Corepack.
+3. Pin the npm and Node versions for the workspace.
 4. Add the FTB Maven and Architectury repositories.
 5. Declare exact compile dependencies:
    - FTB Quests `2101.1.30`
@@ -316,7 +315,7 @@ This was part of the deferred Phase 0 proposal.
 
 - The root `.gitignore` exists.
 - `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
-- pnpm is not on `PATH`; Corepack is available.
+- npm is the package manager; pnpm is not used.
 - The Java project is in `minecraft-mod/` and compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
 - The Svelte scaffold is at `apps/web-app/`; `AGENTS.md` section 5 and `docs/architecture.md` now use that path.
 

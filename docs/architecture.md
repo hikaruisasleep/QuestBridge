@@ -41,7 +41,7 @@ questbridge/
 ├── apps/
 │   └── web-app/                 # Svelte 5 + SvelteKit scaffold
 │       ├── AGENTS.md
-│       ├── package.json        # npm-based; not yet in a pnpm workspace
+│       ├── package.json        # npm-based; not yet in an npm workspace
 │       ├── vite.config.ts
 │       ├── tsconfig.json
 │       ├── src/
@@ -64,8 +64,7 @@ questbridge/
 questbridge/
 ├── README.md                    # planned
 ├── LICENSE                      # planned
-├── package.json                 # planned pnpm workspace root
-├── pnpm-workspace.yaml          # planned
+├── package.json                 # planned npm workspace root
 ├── scripts/                     # planned
 │
 ├── packages/                    # planned
@@ -91,10 +90,10 @@ questbridge/
 Notes:
 
 - **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, root `package.json`, `pnpm-workspace.yaml`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, root `package.json`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
 - `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares no FTB Quests, FTB Teams, or FTB Library dependencies yet.
-- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is a standalone npm-based scaffold and is not yet part of a pnpm workspace.
-- No `packages/` and no root-level `package.json` or `pnpm-workspace.yaml` exist yet. The root project plan (AGENTS.md) uses pnpm; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is a standalone npm-based scaffold and is not yet part of an npm workspace.
+- No `packages/` and no root-level `package.json` exist yet. The root project plan (AGENTS.md) uses npm workspaces; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
 
@@ -106,7 +105,7 @@ Repository hygiene is partially complete:
 
 - The root `.gitignore` exists and is tracked.
 - `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
-- Pinning pnpm and declaring the exact FTB build dependencies remain part of Proposal D, which is pending review.
+- Pinning npm and declaring the exact FTB build dependencies remain part of Proposal D, which is pending review.
 
 The Java build compiles against NeoForge `21.1.250` with JDK 21. FTB Quests, FTB Teams, and FTB Library dependencies are not yet declared.
 
@@ -867,18 +866,18 @@ BUILD SUCCESSFUL (compileJava UP-TO-DATE)
 
 The NeoForge baseline compiles against `21.1.250` with JDK 21. The build does not yet declare the FTB Quests, FTB Teams, or FTB Library dependencies required for the adapter (Proposal D, pending review).
 
-The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` chooses npm as its package manager, not pnpm).
+The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` uses npm as its package manager).
 
-The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented, so the full monorepo build and `corepack pnpm mock` commands do not yet exist.
+The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented, so the full monorepo build and `npm run mock` commands do not yet exist.
 
 Planned (for later phases):
 
 ```text
-corepack pnpm install
-corepack pnpm -r build
-corepack pnpm -r test
+npm install
+npm run build --workspaces --if-present
+npm test --workspaces --if-present
 cd minecraft-mod && ./gradlew compileJava
-corepack pnpm mock -- --scenario=basic
+npm run mock -- --scenario=basic
 ```
 
 ---
