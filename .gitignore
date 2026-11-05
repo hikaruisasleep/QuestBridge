@@ -1,0 +1,98 @@
+# QuestBridge .gitignore
+#
+# The Gradle wrapper (gradlew, gradlew.bat, and gradle/wrapper/*) is committed
+# intentionally. Do not ignore it.
+
+# ---------------------------------------------------------------------------
+# Operating system and editors
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Eclipse / other Java IDEs
+.classpath
+.project
+.settings/
+bin/
+out/
+
+# ---------------------------------------------------------------------------
+# Java, Gradle, and NeoForge
+# ---------------------------------------------------------------------------
+.gradle/
+build/
+.kotlin/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# Minecraft / NeoForge development runtime
+run/
+runs/
+logs/
+crash-reports/
+.mixin.out/
+
+# ---------------------------------------------------------------------------
+# Node.js, pnpm, Vite, and Svelte
+# ---------------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.npm/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.vite/
+.svelte-kit/
+.cache/
+dist/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.eslintcache
+
+# Test and browser-automation output
+playwright-report/
+test-results/
+
+# ---------------------------------------------------------------------------
+# Local configuration, credentials, and runtime state
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.token
+secrets/
+.questbridge/
+
+# Raw recorded snapshots may contain server-specific information.
+# Sanitized fixtures intended for the repository should use a different path.
+recorded-snapshots/
+snapshots/recorded/
+fixtures/recorded/
+
+# ---------------------------------------------------------------------------
+# Temporary files
+# ---------------------------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.bak
