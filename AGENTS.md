@@ -9,7 +9,7 @@
 **Minecraft integration:** Java  
 **Companion host:** Node.js + TypeScript  
 **Frontend:** Svelte 5 + TypeScript + Vite  
-**Package manager:** pnpm  
+**Package manager:** npm  
 **Deployment:** Local desktop application
 
 ---
@@ -183,7 +183,7 @@ Do not blindly use the latest standalone FTB Quests release.
 - CSS.
 - Vitest.
 
-Use pnpm workspaces.
+Use npm workspaces.
 
 Keep the Java project separate from the TypeScript workspace.
 
