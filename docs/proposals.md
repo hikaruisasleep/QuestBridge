@@ -1,6 +1,6 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposals B–D awaiting decision  
+**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 applied; Proposal D applied; Proposal B awaiting decision  
 **Date:** 2026-11-06  
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.
 
@@ -20,10 +20,10 @@ The remaining proposals are B–D.
 | Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Approved and applied |
 | Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Re-submitted |
 | Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
-| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin npm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Partially applied; remaining items pending |
+| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin npm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Applied |
 | Align NeoForge to `21.1.250` | Approved | Applied |
 
-The working documents now mark Proposal A as applied and Proposals B–D as pending review rather than settled.
+The working documents now mark Proposal A as applied, Proposal C as adopted with Phase 0 applied, Proposal D as applied, and Proposal B as pending review rather than settled.
 
 ---
 
@@ -268,7 +268,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-No implementation phases have started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied. Later phases have not started. The three documents are now written.
 
 ### Impact if adopted
 
@@ -289,7 +289,7 @@ Adopt. The order matches `AGENTS.md` and keeps the highest-risk integration behi
 
 ## 5. Proposal D — Repository hygiene and build dependencies
 
-**Status:** Partially applied; npm pinning and FTB build dependencies remain pending.
+**Status:** Applied; npm and Node are pinned and the exact FTB build dependencies are declared and verified.
 
 This was part of the deferred Phase 0 proposal.
 
@@ -316,7 +316,8 @@ This was part of the deferred Phase 0 proposal.
 - The root `.gitignore` exists.
 - `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
 - npm is the package manager; pnpm is not used.
-- The Java project is in `minecraft-mod/` and compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
+- The Java project is in `minecraft-mod/`, compiles against NeoForge `21.1.250`, and declares the exact FTB dependencies; `./gradlew dependencies --configuration compileClasspath` resolves them.
+- The root `package.json` declares npm workspaces (`packages/*`, `apps/*`) and pins Node `24.22.1` and npm `11.19.1` via `engines` and `.nvmrc`.
 - The Svelte scaffold is at `apps/web-app/`; `AGENTS.md` section 5 and `docs/architecture.md` now use that path.
 
 ### Rationale
@@ -354,8 +355,8 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 |---|---|---|---|
 | A | Move Java project to `minecraft-mod/` | Adopt | Approved and applied |
 | B | Cookie-after-token-redirect authentication with three roles | Adopt | Pending |
-| C | Phased implementation order | Adopt | Pending |
-| D | Repository hygiene and exact FTB build dependencies | Adopt | Partially applied; remaining pending |
+| C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
+| D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
 
 A decision can be:
 
@@ -364,4 +365,4 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-Proposal A has already been applied and `docs/architecture.md` reflects the new layout. If Proposal B is adopted, its security section becomes the implemented design rather than a recommendation. If Proposal C is adopted, the phase plan can move into `docs/development.md` during Phase 0. If Proposal D is adopted, its remaining items should be completed before protocol implementation begins.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B remains pending; if adopted, its security section becomes the implemented design rather than a recommendation.

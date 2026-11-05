@@ -1,7 +1,7 @@
 # FTB Quests Integration
 
 **Status:** Reconnaissance complete; runtime integration not yet verified  
-**Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`; Proposals C and D affect adapter implementation timing and build dependencies.  
+**Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`.  
 **Date:** 2026-11-06  
 **Target pack:** All the Mods 10: To the Sky (ATM10 TTS / ATM10SKY) 2.3.1  
 **Minecraft:** 1.21.1  
@@ -19,7 +19,7 @@ The following sources were inspected:
 2. Its `manifest.json`, `overrides/config/ftbquests/quests`, and language files.
 3. FTB Quests source at tag `v2101.1.30`, commit `89b7a6d7acf86f02aa399b941f1e7d6b8d8476de`.
 4. The published FTB Quests, FTB Teams, and FTB Library JARs, inspected with `javap`.
-5. The NeoForge MDK build in this repository, compiled with JDK 21. This verifies the baseline NeoForge toolchain only; the FTB Quests, Teams, and Library build dependencies are not yet declared (Proposal D, pending review).
+5. The NeoForge MDK build in this repository, compiled with JDK 21. The build declares the exact FTB Quests, Teams, and Library dependencies from Proposal D (applied).
 
 No Minecraft client or ATM10 TTS installation exists in the development environment used for this reconnaissance. Runtime behavior therefore remains unverified until Phase 5.
 
@@ -506,7 +506,7 @@ Requirements:
 - Fail gracefully when FTB data or translations are unavailable.
 - Log FTB version mismatches clearly.
 
-Implementation timing follows Proposal C, which is pending review and places the adapter after the protocol, mock publisher, host, and dashboard. Compiling this adapter requires adding the exact FTB build dependencies from Proposal D, which is also pending review; the current build does not declare them.
+Implementation timing follows Proposal C, which is adopted and places the adapter after the protocol, mock publisher, host, and dashboard. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them.
 
 ---
 
@@ -522,7 +522,7 @@ Implementation timing follows Proposal C, which is pending review and places the
 - Chapter progress semantics and optional-quest exclusion.
 - Chapter descriptions are not exposed.
 - Single-player uses the same synchronization path as multiplayer.
-- Baseline NeoForge build succeeds with JDK 21. FTB dependency compilation remains pending Proposal D.
+- Baseline NeoForge build succeeds with JDK 21. The exact FTB dependency compilation is declared and resolves (Proposal D applied).
 
 ### Assumptions / unverified
 

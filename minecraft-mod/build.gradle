@@ -26,7 +26,10 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Add here additional repositories if required by some of the dependencies below.
+    // FTB artifacts (FTB Quests, FTB Teams, FTB Library).
+    maven { url = "https://maven.ftb.dev/releases" }
+    // Architectury, a transitive dependency of FTB Library.
+    maven { url = "https://maven.architectury.dev/" }
 }
 
 base {
@@ -115,6 +118,17 @@ configurations {
 }
 
 dependencies {
+    // FTB Quests, FTB Teams, and FTB Library at the exact versions shipped by
+    // ATM10 TTS 2.3.1. Compile-time only: the target pack provides them at runtime.
+    compileOnly "dev.ftb.mods:ftb-quests-neoforge:2101.1.30"
+    compileOnly "dev.ftb.mods:ftb-teams-neoforge:2101.1.10"
+    compileOnly "dev.ftb.mods:ftb-library-neoforge:2101.1.35"
+
+    // Present for local runtime testing; not published as a dependency.
+    localRuntime "dev.ftb.mods:ftb-quests-neoforge:2101.1.30"
+    localRuntime "dev.ftb.mods:ftb-teams-neoforge:2101.1.10"
+    localRuntime "dev.ftb.mods:ftb-library-neoforge:2101.1.35"
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

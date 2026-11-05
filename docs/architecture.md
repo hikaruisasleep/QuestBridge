@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the baseline Java mod skeleton (NeoForge, compiles against 21.1.250), and the SvelteKit scaffold are implemented; the shared protocol package, mock publisher, host, and FTB Quests adapter are not yet implemented.  **Proposal status:** Proposal A is approved and applied. Proposals B–D remain pending review in `docs/proposals.md`. Where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the baseline Java mod skeleton (NeoForge, compiles against 21.1.250), and the SvelteKit scaffold are implemented; the shared protocol package, mock publisher, host, and FTB Quests adapter are not yet implemented.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -24,6 +24,9 @@ Proposal A is approved and applied. The Java project lives in a dedicated `minec
 questbridge/
 ├── AGENTS.md
 ├── .gitignore
+├── .nvmrc                     # pinned Node version
+├── package.json               # npm workspace root
+├── package-lock.json
 │
 ├── minecraft-mod/
 │   ├── build.gradle
@@ -64,7 +67,7 @@ questbridge/
 questbridge/
 ├── README.md                    # planned
 ├── LICENSE                      # planned
-├── package.json                 # planned npm workspace root
+├── package.json                 # npm workspace root
 ├── scripts/                     # planned
 │
 ├── packages/                    # planned
@@ -89,8 +92,8 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, root `package.json`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
 - `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares no FTB Quests, FTB Teams, or FTB Library dependencies yet.
 - `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is a standalone npm-based scaffold and is not yet part of an npm workspace.
 - No `packages/` and no root-level `package.json` exist yet. The root project plan (AGENTS.md) uses npm workspaces; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
@@ -101,13 +104,13 @@ The Java project is isolated from the TypeScript packages:
 - TypeScript does not import Java classes.
 - The only contract between them is the versioned WebSocket protocol (planned, not yet implemented).
 
-Repository hygiene is partially complete:
+Repository hygiene is complete (Phase 0):
 
 - The root `.gitignore` exists and is tracked.
 - `minecraft-mod/.gradle/` and `minecraft-mod/build/` are ignored and no longer tracked.
-- Pinning npm and declaring the exact FTB build dependencies remain part of Proposal D, which is pending review.
+- Pinning npm and declaring the exact FTB build dependencies are applied (Phase 0).
 
-The Java build compiles against NeoForge `21.1.250` with JDK 21. FTB Quests, FTB Teams, and FTB Library dependencies are not yet declared.
+The Java build compiles against NeoForge `21.1.250` with JDK 21 and declares the exact FTB Quests, FTB Teams, and FTB Library dependencies.
 
 ---
 
@@ -855,28 +858,39 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-Implementation order follows Proposal C, which is pending review. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`.
+Implementation order follows Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) is applied: the npm workspace root, pinned toolchain versions, and exact FTB build dependencies are in place.
 
 Current build state, verified 2026-11-06:
 
 ```text
 minecraft-mod$ ./gradlew compileJava
 BUILD SUCCESSFUL (compileJava UP-TO-DATE)
+
+minecraft-mod$ ./gradlew dependencies --configuration compileClasspath
++--- dev.ftb.mods:ftb-quests-neoforge:2101.1.30
++--- dev.ftb.mods:ftb-teams-neoforge:2101.1.10
++--- dev.ftb.mods:ftb-library-neoforge:2101.1.35
 ```
 
-The NeoForge baseline compiles against `21.1.250` with JDK 21. The build does not yet declare the FTB Quests, FTB Teams, or FTB Library dependencies required for the adapter (Proposal D, pending review).
+The NeoForge baseline compiles against `21.1.250` with JDK 21. The build declares the exact FTB Quests `2101.1.30`, FTB Teams `2101.1.10`, and FTB Library `2101.1.35` dependencies as `compileOnly` plus `localRuntime`, matching ATM10 TTS 2.3.1.
 
 The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` uses npm as its package manager).
 
-The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented, so the full monorepo build and `npm run mock` commands do not yet exist.
+The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work; `npm run mock` does not exist yet.
 
-Planned (for later phases):
+Available now:
 
 ```text
 npm install
 npm run build --workspaces --if-present
 npm test --workspaces --if-present
 cd minecraft-mod && ./gradlew compileJava
+./gradlew dependencies --configuration compileClasspath
+```
+
+Planned (for later phases):
+
+```text
 npm run mock -- --scenario=basic
 ```
 
