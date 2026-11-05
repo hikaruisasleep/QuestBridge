@@ -1,0 +1,361 @@
+# Re-submitted Proposals
+
+**Status:** Awaiting decision  
+**Date:** 2026-11-06  
+**Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.
+
+The only earlier proposal already approved and applied is the NeoForge alignment:
+
+```text
+neo_version: 21.1.265 -> 21.1.250
+```
+
+That change is in `gradle.properties` and is not part of this re-submission.
+
+---
+
+## 1. Summary of earlier dispositions
+
+| Proposal | Earlier response | Current status |
+|---|---|---|
+| Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Re-submitted |
+| Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Re-submitted |
+| Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
+| Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin pnpm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Re-submitted |
+| Align NeoForge to `21.1.250` | Approved | Applied |
+
+The working documents now mark the affected layout and authentication choices as pending review rather than settled.
+
+---
+
+## 2. Proposal A — Move the Java project into `minecraft-mod/`
+
+### Proposal
+
+Move the existing NeoForge project out of the repository root into a dedicated directory:
+
+```text
+questbridge/
+├── package.json
+├── pnpm-workspace.yaml
+├── .gitignore
+├── packages/
+│   ├── protocol/
+│   ├── host/
+│   └── mock-publisher/
+├── apps/
+│   └── web/
+├── minecraft-mod/
+│   ├── build.gradle
+│   ├── gradle.properties
+│   ├── settings.gradle
+│   ├── gradlew
+│   └── src/
+├── docs/
+└── scripts/
+```
+
+The Java package name (`xyz.jxcb.ftbquestoverlay`), mod ID (`questbridge`), mod name, and source files remain unchanged. This is a directory move, not a rename.
+
+### Rationale
+
+- `AGENTS.md` defines `minecraft-mod/` as a separate top-level component.
+- It creates a hard filesystem boundary between the Java adapter and the TypeScript workspace.
+- It prevents Gradle and pnpm build outputs, lockfiles, and tooling from sharing the repository root.
+- It makes the “Java adapter must not know about Svelte/OBS” boundary visible in the layout.
+- It allows the Java build to be opened, built, and version-pinned independently.
+
+### What was rejected
+
+The earlier response was:
+
+> Keep the layout as-is.
+
+That is the current state. `build.gradle`, `gradle.properties`, `gradlew`, and `src/` remain at the repository root.
+
+### Impact if adopted
+
+- Move the Gradle wrapper and Java sources into `minecraft-mod/`.
+- Update repository documentation and build commands.
+- Update `.gitignore` paths.
+- No Java package changes.
+- Git history is preserved by using file moves rather than delete-and-recreate.
+
+### Impact if not adopted
+
+- Keep documenting the root-level Java project as the accepted exception.
+- Root-level Gradle and pnpm files will coexist, which is workable but less isolated.
+
+### Recommendation
+
+Adopt. The separation matches the documented architecture and reduces accidental coupling. The move is mechanical and does not change Java code.
+
+---
+
+## 3. Proposal B — Cookie-after-token-redirect authentication
+
+### Proposal
+
+Keep the host bound exclusively to loopback and use three separate random tokens:
+
+```text
+overlayToken    read-only overlay access
+controlToken    dashboard read/write access
+minecraftToken  Minecraft publisher access
+```
+
+Browser flow:
+
+1. OBS or the user opens `/overlay?token=<overlayToken>` or `/control?token=<controlToken>`.
+2. The host validates the token.
+3. The host sets an `HttpOnly`, `SameSite=Strict` cookie scoped to the relevant role.
+4. The host redirects to the clean URL without the token.
+5. The page’s WebSocket authenticates using the cookie.
+
+Minecraft flow:
+
+- The adapter connects with a dedicated bearer token or header.
+- It does not use browser cookies.
+- Native connections without an `Origin` header are allowed only with the Minecraft token.
+
+Additional rules:
+
+- Bind only to `127.0.0.1`.
+- Validate the HTTP `Host` header against `127.0.0.1` and `localhost`.
+- Restrict WebSocket origins.
+- Read-only overlay.
+- Dashboard-only configuration mutations.
+- Validate every message.
+- Enforce message-size and rate limits.
+- No filesystem, shell, or arbitrary HTTP endpoints.
+- No tokens in frontend bundles, rendered HTML, or logs.
+
+### Rationale
+
+- OBS can load a tokenized URL once and then use a clean URL.
+- Tokens do not need to be embedded in the Svelte bundle.
+- Overlay and dashboard permissions remain separate.
+- The Minecraft publisher is authenticated independently from browsers.
+- The strategy works with OBS Browser Source and normal Chromium.
+
+### What was deferred
+
+The earlier response was:
+
+> Leave everything else as-is, for now.
+
+No authentication implementation exists yet. `docs/architecture.md` now records this strategy as Proposal B, pending review, rather than as a final design.
+
+### Impact if adopted
+
+- Implement token generation and persistence with mode `0600`.
+- Implement the token-to-cookie redirect.
+- Implement role checks on WebSocket connections.
+- Add tests for missing, invalid, and cross-role tokens.
+- Add origin and `Host` header tests.
+
+### Impact if not adopted
+
+- An alternative authentication design must be chosen before the host is implemented.
+- The overlay and dashboard still require some local protection, because any local process could otherwise read or mutate state.
+
+### Recommendation
+
+Adopt. It satisfies the local-only security requirements without exposing credentials in the frontend.
+
+---
+
+## 4. Proposal C — Phased implementation order
+
+### Proposal
+
+Implement in this order:
+
+### Phase 0 — Baseline and repository hygiene
+
+- Add `.gitignore`.
+- Untrack `.gradle/` and `build/`.
+- Pin pnpm `10.20.0` with Corepack.
+- Add FTB Maven and Architectury repositories.
+- Add exact FTB Quests, FTB Teams, and FTB Library dependencies.
+- Keep the three reconnaissance documents.
+
+**Exit criterion:** clean workspace, pnpm install works, Java compiles against exact pack dependencies.
+
+### Phase 1 — Shared protocol and mock publisher
+
+- Create `packages/protocol`.
+- Define the versioned envelope, IDs, chapter/quest/task models, snapshots, updates, configuration, and errors.
+- Add Zod validation and protocol tests.
+- Create synthetic deterministic fixtures.
+- Implement mock publisher scenarios for the full FTB lifecycle.
+
+**Exit criterion:** protocol tests pass; mock scenarios reproduce the full lifecycle without Minecraft.
+
+### Phase 2 — Host core
+
+- Configuration store with atomic persistence and migrations.
+- State store and revision tracking.
+- Chapter resolver with unresolved entries.
+- Pin/unpin/reorder validation.
+- WebSocket roles, sequence numbers, resync, heartbeats, and stale detection.
+- HTTP static server and local authentication.
+- Host tests, including startup with no Minecraft data.
+
+**Exit criterion:** host and mock publisher work end-to-end; configuration survives restart; duplicates and more than five pins are rejected.
+
+### Phase 3 — Svelte overlay and dashboard
+
+- `/overlay` and `/control`.
+- Chapter catalog search, pin/unpin, reordering, and live preview.
+- Display settings.
+- Shared selectors.
+- Tests for empty state, one through five pins, unresolved chapters, completed/locked chapters, stale/disconnected states, and task progress.
+
+**Exit criterion:** OBS Browser Source displays the overlay with transparency and correct state; refresh restores state.
+
+### Phase 4 — Minecraft adapter
+
+- Client-only NeoForge mod.
+- Isolated FTB adapter interface and exact-version implementation.
+- Snapshot capture on the client thread.
+- Automatic pin filtering.
+- Chapter, quest, and task mapping.
+- Background serialization and WebSocket transmission.
+- Event hooks plus two-second reconciliation.
+- Reconnection with a fresh snapshot.
+
+**Exit criterion:** mod compiles against exact ATM10 TTS dependencies; snapshots validate against the shared protocol; no FTB access occurs off the client thread.
+
+### Phase 5 — Real ATM10 TTS integration
+
+- Single-player verification.
+- Multiplayer verification.
+- Five initial chapters.
+- Manual pins and automatic-pin exclusion.
+- Task counts and numeric progress.
+- Completed pinned quests.
+- Team changes, quest reloads, world changes, disconnects, and reconnects.
+- Record a sanitized real snapshot fixture.
+- Update documentation with runtime results.
+
+**Exit criterion:** the Definition of Done items that require a real client are actually verified.
+
+### Phase 6 — Hardening and release
+
+- Token, origin, `Host`, and message-limit tests.
+- Logging and redaction review.
+- Error states and recovery.
+- README, troubleshooting, and OBS setup documentation.
+- Full build and test pass.
+
+**Exit criterion:** installation, known limitations, and manual verification instructions are documented.
+
+### Rationale
+
+- The protocol is the contract between all components.
+- The mock publisher proves the lifecycle before Minecraft is involved.
+- The host and dashboard can be completed and tested without a live client.
+- The adapter is the highest-risk component and is isolated behind a stable protocol.
+- Real integration is verified before release rather than assumed from mock success.
+
+### What was deferred
+
+The earlier response was:
+
+> Leave everything else as-is, for now. Prioritize writing the documents.
+
+No implementation phases have started. The three documents are now written.
+
+### Impact if adopted
+
+- Implementation begins with Phase 0 and Phase 1.
+- The mock publisher is built before the Minecraft adapter.
+- The Java adapter is not required to test the host or frontend.
+
+### Impact if not adopted
+
+- Implementation order remains undecided.
+- Starting with the Minecraft adapter would increase risk because the protocol and presentation layers would be unproven.
+
+### Recommendation
+
+Adopt. The order matches `AGENTS.md` and keeps the highest-risk integration behind a tested protocol.
+
+---
+
+## 5. Proposal D — Repository hygiene and build dependencies
+
+This was part of the deferred Phase 0 proposal.
+
+### Proposal
+
+1. Add a root `.gitignore` covering at least:
+   - Gradle build outputs.
+   - IDE files.
+   - Node modules.
+   - pnpm store.
+   - Vite build output.
+   - Local QuestBridge configuration and tokens.
+   - Recorded snapshots containing server-specific data, until sanitized.
+2. Untrack `.gradle/` and `build/`.
+3. Pin pnpm `10.20.0` with Corepack.
+4. Add the FTB Maven and Architectury repositories.
+5. Declare exact compile dependencies:
+   - FTB Quests `2101.1.30`
+   - FTB Teams `2101.1.10`
+   - FTB Library `2101.1.35`
+
+### Verified current state
+
+- `.gitignore` is missing.
+- `.gradle/` and `build/` are tracked in Git.
+- pnpm is not on `PATH`; Corepack is available.
+- The Java build currently compiles against NeoForge `21.1.250`, but does not yet declare the FTB dependencies.
+
+### Rationale
+
+- Tracked build outputs create noisy diffs and accidental commits.
+- A missing `.gitignore` risks committing local tokens or generated configuration.
+- Pinning the package manager keeps installs reproducible.
+- Exact FTB dependencies are required before adapter code can compile.
+- The adapter must compile against the same versions installed in ATM10 TTS 2.3.1, not the latest standalone releases.
+
+### What was deferred
+
+This was folded into the earlier “leave everything else as-is” response. No cleanup or FTB dependency declarations have been applied.
+
+### Impact if adopted
+
+- A repository cleanup commit is required.
+- Java compile dependencies are pinned to the target pack.
+- Future build outputs stop appearing in Git status.
+
+### Impact if not adopted
+
+- Build artifacts and local configuration remain at risk of being committed.
+- Adapter implementation cannot compile against FTB APIs without adding dependencies later.
+
+### Recommendation
+
+Adopt. This is low-risk prerequisite work for any implementation phase.
+
+---
+
+## 6. Decisions requested
+
+| ID | Proposal | Recommendation | Decision |
+|---|---|---|---|
+| A | Move Java project to `minecraft-mod/` | Adopt | Pending |
+| B | Cookie-after-token-redirect authentication with three roles | Adopt | Pending |
+| C | Phased implementation order | Adopt | Pending |
+| D | Repository hygiene and exact FTB build dependencies | Adopt | Pending |
+
+A decision can be:
+
+- **Adopt** — apply as proposed.
+- **Adopt with changes** — specify changes.
+- **Keep deferred** — leave the current state and revisit later.
+- **Reject** — do not apply.
+
+If Proposal A is adopted, `docs/architecture.md` must be updated to match the new layout. If Proposal B is adopted, its security section becomes the implemented design rather than a recommendation. If Proposal C is adopted, the phase plan can move into `docs/development.md` during Phase 0. If Proposal D is adopted, it should be completed before protocol implementation begins.
