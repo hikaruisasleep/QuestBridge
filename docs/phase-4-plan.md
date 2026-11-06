@@ -215,10 +215,16 @@ Before readiness, publish `minecraft.status` with `unavailable` or `synchronizin
 | `order` | index in `file.getAllChapters()` |
 | `progress` | `teamData.getRelativeProgress(chapter)` |
 | `status.completed` | `teamData.isCompleted(chapter)` |
-| `status.available` | `chapter.isVisible(teamData)` |
-| `status.locked` | neither completed nor visible |
+| `status.available` | chapter started, or any required quest `teamData.canStartTasks(quest)`, or no required quests |
+| `status.locked` | otherwise, when required quests exist |
+| `visible` (4A probe only) | `chapter.isVisible(teamData)` |
+| `explicitlyHidden` (4A probe only) | `chapter.isAlwaysInvisible()` |
 
-Chapter completion is never derived from `progress == 100`.
+Chapter completion is never derived from `progress == 100`. Chapter visibility is
+not progression availability. A chapter can be intentionally hidden and still
+have startable quests. The Stage 4A probe reports both properties separately;
+protocol v1 currently carries only `status` and would require a version change to
+add visibility to the wire contract.
 
 ### 5.3 Manual pins
 
@@ -351,9 +357,9 @@ Each milestone has a real-data exit criterion. Do not build later milestones bef
 
 ### 4A — Live FTB probe, no network
 
-**Implementation status (2026-11-06):** Implemented in `minecraft-mod/` on branch
-`feat/stage-4a-live-probe`; `./gradlew build` succeeds and produces
-`build/libs/questbridge-1.0.0.jar`. Live client capture has not been run yet.
+**Implementation status (2026-11-06):** Implemented in `minecraft-mod/`;
+`./gradlew build` succeeds and produces `build/libs/questbridge-0pre.2.jar`.
+Live client capture has not been run yet.
 
 Implemented pieces:
 

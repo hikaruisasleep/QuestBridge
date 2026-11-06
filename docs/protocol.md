@@ -300,6 +300,7 @@ interface Chapter {
 - `subtitle` exists because FTB Quests 2101.1.30 exposes chapter subtitles and no chapter description accessor. Do not call it a description.
 - `progress` is FTB's authoritative relative progress. `null` means unavailable, never zero.
 - `status === "completed"` comes from FTB completion state, not from `progress === 100`.
+- `status` describes progression availability, not visibility. A hidden chapter must not be reported as `locked` merely because it is hidden. Protocol v1 has no chapter visibility field; adding one requires a protocol version change.
 - `order` is derived from the complete chapter catalog, not from visibility.
 
 ### 8.2 Chapter pins

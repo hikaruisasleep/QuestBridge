@@ -492,6 +492,8 @@ The host does not delete a configured chapter ID if the catalog no longer contai
 
 Chapter completion is FTB’s `TeamData.isCompleted(chapter)`. It is not derived from `progress === 100`: empty, `alwaysInvisible`, and all-optional chapters can report 100 without being completed. The overlay should present completion as the primary chapter state, with progress as secondary information.
 
+Chapter visibility and progression availability are separate properties. `Chapter.isVisible(teamData)` reports whether the chapter is presented (and is false for `alwaysInvisible` chapters or chapters with no visible quests); it must not be used to derive `locked`. FTB has no chapter-level lock API, so availability is derived from chapter start state and quest-level `TeamData.canStartTasks(quest)`.
+
 ### 6.3 Manual objectives
 
 Manual quest pin IDs come from FTB. The host resolves them against the quest catalog.

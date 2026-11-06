@@ -332,12 +332,35 @@ Important consequences:
 
 ### 5.3 Recommended status mapping
 
+FTB exposes chapter visibility and quest-level progression availability, but it
+does not expose a chapter-level lock API. These are separate properties and must
+not be conflated.
+
+Visibility:
+
 ```text
-completed  -> TeamData.isCompleted(chapter)
-available  -> Chapter.isVisible(teamData)
-locked     -> otherwise
-unknown    -> FTB data unavailable
+visible          -> Chapter.isVisible(teamData)
+explicitlyHidden -> Chapter.isAlwaysInvisible()
 ```
+
+`Chapter.isVisible(teamData)` is false when `alwaysInvisible` is set or when none
+of the chapter's quests or quest links are visible. A hidden chapter can still
+have startable progression.
+
+Progression availability (`status`):
+
+```text
+completed -> TeamData.isCompleted(chapter)
+available -> TeamData.isStarted(chapter)
+             or any required quest where TeamData.canStartTasks(quest)
+             or no required quests
+locked    -> otherwise
+unknown   -> FTB data unavailable
+```
+
+“Required quest” means `!quest.isOptionalForProgression(teamData)`. Using
+`Chapter.isVisible(teamData)` as the availability signal is incorrect: it would
+turn an intentionally hidden but playable chapter into a locked one.
 
 Do not derive `completed` solely from progress.
 

@@ -109,11 +109,13 @@ public final class QuestBridgeClient {
             }
 
             QuestBridge.LOGGER.info(
-                    "[QuestBridge 4A] chapter id={} title={} progress={} status={}",
+                    "[QuestBridge 4A] chapter id={} title={} progress={} status={} visible={} explicitlyHidden={}",
                     chapter.id(),
                     quote(chapter.title()),
                     chapter.progress(),
-                    chapter.status());
+                    chapter.status(),
+                    chapter.visible(),
+                    chapter.explicitlyHidden());
         }
 
         for (ProbeReport.QuestProbe quest : report.pinnedQuests()) {

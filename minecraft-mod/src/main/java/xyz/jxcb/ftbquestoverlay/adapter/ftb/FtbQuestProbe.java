@@ -109,7 +109,7 @@ public final class FtbQuestProbe {
             Chapter chapter = numericId.map(file::getChapter).orElse(null);
 
             if (chapter == null) {
-                chapters.add(new ProbeReport.ChapterProbe(id, null, null, "missing", false));
+                chapters.add(new ProbeReport.ChapterProbe(id, null, null, "missing", false, false, false));
                 continue;
             }
 
@@ -118,20 +118,41 @@ public final class FtbQuestProbe {
                     chapter.getTitle().getString(),
                     teamData.getRelativeProgress(chapter),
                     chapterStatus(chapter, teamData),
+                    chapter.isVisible(teamData),
+                    chapter.isAlwaysInvisible(),
                     true));
         }
 
         return List.copyOf(chapters);
     }
 
+    /**
+     * Chapter progression availability, independent of whether the chapter is
+     * visible. FTB has no chapter-level lock API: a chapter is treated as
+     * available when it is started, when at least one required quest can start,
+     * or when it has no required quests to block. Visibility is reported
+     * separately by {@link ProbeReport.ChapterProbe#visible()}.
+     */
     private static String chapterStatus(Chapter chapter, TeamData teamData) {
         if (teamData.isCompleted(chapter)) {
             return "completed";
         }
-        if (chapter.isVisible(teamData)) {
+        if (teamData.isStarted(chapter)) {
             return "available";
         }
-        return "locked";
+
+        boolean hasRequiredQuest = false;
+        for (Quest quest : chapter.getQuests()) {
+            if (quest.isOptionalForProgression(teamData)) {
+                continue;
+            }
+            hasRequiredQuest = true;
+            if (teamData.canStartTasks(quest)) {
+                return "available";
+            }
+        }
+
+        return hasRequiredQuest ? "locked" : "available";
     }
 
     private static Pins capturePins(BaseQuestFile file, TeamData teamData, Player player) {
@@ -277,6 +298,8 @@ public final class FtbQuestProbe {
                     .append(chapter.id())
                     .append(':').append(chapter.progress())
                     .append(':').append(chapter.status())
+                    .append(':').append(chapter.visible())
+                    .append(':').append(chapter.explicitlyHidden())
                     .append(':').append(chapter.title());
         }
 

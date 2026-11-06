@@ -25,6 +25,8 @@ public record ProbeReport(
             String title,
             Integer progress,
             String status,
+            boolean visible,
+            boolean explicitlyHidden,
             boolean present) {
     }
 
