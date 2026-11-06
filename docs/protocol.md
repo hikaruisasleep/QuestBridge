@@ -1,6 +1,6 @@
 # QuestBridge Protocol v1
 
-**Status:** Draft specification informed by the FTB Quests `v2101.1.30` source. Nothing in this document is implemented or runtime-verified yet. MVP priority is reading FTB’s manually pinned quests from client memory and displaying completion for the selected chapters; auto-pin behavior is explicitly deferred.
+**Status:** Protocol v1 is implemented in `@questbridge/protocol` and exercised by `@questbridge/mock-publisher` (Phase 1). The FTB Quests adapter is not yet implemented; runtime compatibility is Phase 4–5 work. The specification is informed by the FTB Quests `v2101.1.30` source. MVP priority is reading FTB’s manually pinned quests from client memory and displaying completion for the selected chapters; auto-pin behavior is explicitly deferred.
 **Date:** 2026-11-06
 **Applies to:** the Minecraft adapter, the mock publisher, the host, and the Svelte frontend.
 **Security note:** Proposal B (token and cookie transport authentication) remains pending in `docs/proposals.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
@@ -1098,9 +1098,9 @@ The `role` in `browser.hello` is a permission claim, not proof of identity. It i
 
 ---
 
-## 13. Phase 1 implementation plan
+## 13. Phase 1 implementation
 
-This section turns the contract into the Phase 1 work. It is a plan, not a description of existing code.
+This section records the Phase 1 work. The protocol package and mock publisher are implemented; the host, Svelte routes, and FTB adapter remain later phases.
 
 Scope priority for the MVP:
 
@@ -1140,7 +1140,7 @@ Dependency choices:
 - `vitest` and `typescript` from the existing workspace toolchain.
 - No `tsx`, no build framework, no other runtime dependencies. Packages compile with `tsc` and run from `dist/`.
 
-The root build script must build `@questbridge/protocol` before `@questbridge/mock-publisher`; npm's `--workspaces` order is not guaranteed to be dependency order. Phase 1 should add an explicit root build/test order or use TypeScript project references.
+The root build and test scripts run `@questbridge/protocol` before `@questbridge/mock-publisher`, because npm's `--workspaces` order is not guaranteed to be dependency order. The mock package also uses a TypeScript project reference to the protocol package, so `tsc -b` builds the dependency first.
 
 Package output is ESM (`"type": "module"`), consumed by Vite, Node 24, and the host. `@questbridge/protocol` publishes both runtime schemas and types from one entry point.
 
@@ -1167,7 +1167,7 @@ Fixtures must be frozen data with a fixed timestamp so tests are reproducible.
 
 ### 13.3 Mock scenarios
 
-Each scenario is a deterministic script of protocol messages with injected timing. The CLI plays them against a host; tests drive them with a fake clock.
+Each scenario is a deterministic script of protocol messages with injected timing. The CLI plays them against a host; tests replay the same scripts with an immediate sleep function and validate the emitted events without a clock or network. The WebSocket collector test exercises the real transport.
 
 | Scenario | Behavior |
 |---|---|
@@ -1230,15 +1230,15 @@ At minimum:
 
 Phase 1 is complete when:
 
-1. `@questbridge/protocol` builds and its tests pass.
-2. `@questbridge/mock-publisher` builds and its tests pass.
-3. Every mock scenario is deterministic and emits only valid v1 messages.
-4. A test-only collector can consume the mock lifecycle end to end.
-5. `npm run build --workspaces --if-present` and `npm test --workspaces --if-present` pass.
-6. No real ATM10 TTS identifiers appear in mock fixtures.
-7. The P0 scenarios `ready`, `progress`, `chapter-completion`, and `pins` pass; auto-pin mode remains out of scope.
+1. [x] `@questbridge/protocol` builds and its tests pass (85 tests).
+2. [x] `@questbridge/mock-publisher` builds and its tests pass (22 tests).
+3. [x] Every mock scenario is deterministic and emits only valid v1 messages.
+4. [x] A test-only collector can consume the mock lifecycle end to end.
+5. [x] `npm run build --workspaces --if-present` and `npm test --workspaces --if-present` pass.
+6. [x] No real ATM10 TTS identifiers appear in mock fixtures.
+7. [x] The P0 scenarios `ready`, `progress`, `chapter-completion`, and `pins` pass; auto-pin mode remains out of scope.
 
-Passing Phase 1 does not establish FTB Quests compatibility. That requires Phase 5.
+Verified on 2026-11-06. Passing Phase 1 does not establish FTB Quests compatibility. That requires Phase 5.
 
 ---
 
