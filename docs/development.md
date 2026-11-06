@@ -62,15 +62,18 @@ cd minecraft-mod
 
 ## 3.1 Versioning
 
-Pre-Done development builds use the mod version schema `0pre.<increment>`. The
-current Stage 4 development thread stays on `0pre.1`; do not bump the version for
-individual commits, fixes, or rebuilds within the thread. Increment only when a
-new pre-Done version is explicitly chosen. `1.0.0` is reserved for a build that
-satisfies the project Definition of Done; do not use it while Phase 4/5
-verification is incomplete.
+The full policy is in [`docs/versioning.md`](versioning.md). In short:
 
-The Gradle `mod_version` value flows into both the jar filename
-(`questbridge-0pre.<increment>.jar`) and `META-INF/neoforge.mods.toml`.
+- Pre-Done versions use `0pre.<minor>`, for example `0pre.1`.
+- Each new conversation reads the documented version and increments the minor
+  component by exactly one, then stays on that version for the whole thread.
+- Do not increment for individual commits, fixes, or rebuilds.
+- When the conversation closes, update the documented version.
+- Major bumps happen only on explicit user request; `1.0.0` is not automatic.
+
+The current Stage 4 thread is on `0pre.1`. The Gradle `mod_version` value flows
+into both the jar filename (`questbridge-0pre.1.jar`) and
+`META-INF/neoforge.mods.toml`.
 
 ---
 

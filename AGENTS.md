@@ -315,6 +315,7 @@ questbridge/
 │   ├── ftb-quests-integration.md
 │   ├── chapter-pinning.md
 │   ├── development.md
+│   ├── versioning.md
 │   └── troubleshooting.md
 │
 └── scripts/
@@ -1213,6 +1214,17 @@ At the end of each milestone report:
 - Known limitations.
 - Outstanding issues.
 - Manual verification instructions.
+
+### Versioning
+
+Follow `docs/versioning.md`.
+
+- Read the last documented version before changing the mod version.
+- At the start of a new conversation, bump only the minor component by exactly one and keep that version for the entire conversation.
+- Do not bump the version for individual commits, fixes, or rebuilds.
+- Update the documented version when the conversation closes.
+- Major version bumps require an explicit user request. Never infer a major bump from completing a phase or the Definition of Done.
+- The current Stage 4 conversation stays on `0pre.1`.
 
 ---
 
