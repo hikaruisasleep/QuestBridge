@@ -52,6 +52,34 @@ function contentTypeFor(path: string): string {
 }
 
 /**
+ * `Cache-Control` for a served file, chosen from its build-relative path.
+ *
+ * A single blanket value would be wrong in one direction or the other, so the
+ * three cases are separated deliberately:
+ *
+ * - **Content-hashed assets** (`_app/immutable/…`, SvelteKit's convention) can
+ *   never change under the same name, so they are cached for a year. Serving
+ *   them `no-store` would re-download the whole bundle on every OBS refresh.
+ * - **HTML entry points** are the opposite: they name the current asset hashes,
+ *   so a stale copy can reference files a newer build no longer ships. They are
+ *   never stored. This is also the only file class a browser might otherwise
+ *   cache heuristically, which is what could leave a user looking at a shell
+ *   that the running host no longer serves.
+ * - **Everything else** (favicons, `robots.txt`, arbitrary assets) revalidates.
+ */
+export function cacheControlFor(relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+
+  if (normalized.startsWith("_app/immutable/")) {
+    return "public, max-age=31536000, immutable";
+  }
+  if (normalized.endsWith(".html")) {
+    return "no-store";
+  }
+  return "no-cache";
+}
+
+/**
  * Resolve a request path to an absolute path inside `root`.
  *
  * Returns `null` when the path would leave the root, which is what keeps this
@@ -161,6 +189,7 @@ function sendPlaceholder(route: string, res: ServerResponse, headOnly: boolean):
 
 async function sendFile(
   path: string,
+  relativePath: string,
   res: ServerResponse,
   headOnly: boolean,
 ): Promise<StaticResult> {
@@ -168,6 +197,7 @@ async function sendFile(
   res.writeHead(200, {
     "content-type": contentTypeFor(path),
     "content-length": info.size,
+    "cache-control": cacheControlFor(relativePath),
     // A tokenized URL is a credential; never let it travel as a referrer.
     "referrer-policy": "no-referrer",
     "x-content-type-options": "nosniff",
@@ -212,8 +242,15 @@ export async function serveStatic(
   }
 
   // Candidate relative paths, tried in order.
+  //
+  // A route accepts both SvelteKit prerender layouts, because the filename it
+  // emits depends on the route's `trailingSlash` setting, which is a frontend
+  // concern the host must not have to know: `trailingSlash: 'always'` produces
+  // `overlay/index.html`, while the default `'never'` produces `overlay.html`.
+  // Trying both keeps the host independent of that choice.
+  const routeName = requestPath.slice(1);
   const candidates: string[] = isRoute
-    ? [`${requestPath.slice(1)}/index.html`, "index.html"]
+    ? [`${routeName}/index.html`, `${routeName}.html`, "index.html"]
     : [requestPath];
 
   for (const relative of candidates) {
@@ -222,7 +259,7 @@ export async function serveStatic(
       continue;
     }
     if (await isFile(candidate)) {
-      return sendFile(candidate, res, headOnly);
+      return sendFile(candidate, relative, res, headOnly);
     }
   }
 

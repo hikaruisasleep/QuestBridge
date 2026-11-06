@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BROWSER_ROUTES } from "../src/constants.js";
 import { createHost, type Host } from "../src/host.js";
 import { SILENT_LOGGER } from "../src/logging.js";
-import { placeholderHtml, resolveWithinRoot } from "../src/static.js";
+import { cacheControlFor, placeholderHtml, resolveWithinRoot } from "../src/static.js";
 
 /**
  * Static serving and the Phase 2 placeholder.
@@ -148,6 +148,33 @@ describe("browser routes with a build", () => {
     expect(await response.text()).toContain("overlay");
   });
 
+  it("serves a flat <route>.html, which is what adapter-static emits by default", async () => {
+    // SvelteKit's prerender filename depends on the route's trailingSlash:
+    // 'never' (the default) writes `overlay.html`, 'always' writes
+    // `overlay/index.html`. The host must serve either, so that the frontend's
+    // trailing-slash choice stays a frontend concern.
+    const buildDir = join(directory, "build");
+    await mkdir(buildDir, { recursive: true });
+    await writeFile(join(buildDir, "overlay.html"), "<h1>flat overlay</h1>", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    const response = await fetch(`${host.url}/overlay`);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("flat overlay");
+  });
+
+  it("prefers a directory index over a flat file when both exist", async () => {
+    const buildDir = join(directory, "build");
+    await mkdir(join(buildDir, "control"), { recursive: true });
+    await writeFile(join(buildDir, "control", "index.html"), "nested", "utf8");
+    await writeFile(join(buildDir, "control.html"), "flat", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    expect(await (await fetch(`${host.url}/control`)).text()).toContain("nested");
+  });
+
   it("falls back to the root index.html for a route without its own", async () => {
     const buildDir = join(directory, "build");
     await mkdir(buildDir, { recursive: true });
@@ -198,5 +225,50 @@ describe("browser routes with a build", () => {
     const response = await fetch(`${host.url}/overlay`);
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("not built");
+  });
+});
+
+describe("cache control", () => {
+  it("caches content-hashed assets for a year", () => {
+    expect(cacheControlFor("_app/immutable/chunks/app.ABC123.js")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(cacheControlFor("_app/immutable/assets/0.j9Vgsf0k.css")).toContain("immutable");
+  });
+
+  it("never stores an HTML entry point", () => {
+    // A stale shell names asset hashes the running host may no longer ship.
+    expect(cacheControlFor("overlay.html")).toBe("no-store");
+    expect(cacheControlFor("overlay/index.html")).toBe("no-store");
+    expect(cacheControlFor("index.html")).toBe("no-store");
+  });
+
+  it("revalidates anything else rather than guessing", () => {
+    expect(cacheControlFor("robots.txt")).toBe("no-cache");
+    expect(cacheControlFor("favicon.ico")).toBe("no-cache");
+  });
+
+  it("normalizes separators and leading slashes", () => {
+    expect(cacheControlFor("/_app/immutable/x.js")).toContain("immutable");
+    expect(cacheControlFor("_app\\immutable\\x.js")).toContain("immutable");
+    expect(cacheControlFor("/overlay.html")).toBe("no-store");
+  });
+
+  it("sends the documented header on a real asset and a real page", async () => {
+    const buildDir = join(directory, "build");
+    await mkdir(join(buildDir, "_app", "immutable", "chunks"), { recursive: true });
+    await writeFile(join(buildDir, "_app", "immutable", "chunks", "app.js"), "export {}", "utf8");
+    await writeFile(join(buildDir, "overlay.html"), "<h1>overlay</h1>", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    const asset = await fetch(`${host.url}/_app/immutable/chunks/app.js`);
+    expect(asset.headers.get("cache-control")).toContain("immutable");
+
+    const page = await fetch(`${host.url}/overlay`);
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    // The credential must not travel as a referrer from any served file.
+    expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(asset.headers.get("referrer-policy")).toBe("no-referrer");
   });
 });
