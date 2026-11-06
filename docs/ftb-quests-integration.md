@@ -1,6 +1,6 @@
 # FTB Quests Integration
 
-**Status:** Reconnaissance complete; runtime integration not yet verified  
+**Status:** Reconnaissance complete against pack files; the target pack is now installed locally, and its identity, exact mod versions, chapter catalog, and FTB API class availability are verified from that installation; live quest synchronization in a running client is not yet verified  
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`.  
 **Date:** 2026-11-06  
 **Target pack:** All the Mods 10: To the Sky (ATM10 TTS / ATM10SKY) 2.3.1  
@@ -21,7 +21,7 @@ The following sources were inspected:
 4. The published FTB Quests, FTB Teams, and FTB Library JARs, inspected with `javap`.
 5. The NeoForge MDK build in this repository, compiled with JDK 21. The build declares the exact FTB Quests, Teams, and Library dependencies from Proposal D (applied).
 
-No Minecraft client or ATM10 TTS installation exists in the development environment used for this reconnaissance. Runtime behavior therefore remains unverified until Phase 5.
+The target pack is installed locally as a Prism Launcher instance and was inspected directly on 2026-11-06; see section 1.1. Pack identity, mod versions, chapter catalog, and API class availability are therefore verified. Live quest synchronization in a running client remains unverified until Phase 5.
 
 ### Artifacts used
 
@@ -58,6 +58,89 @@ https://maven.architectury.dev/
 
 ---
 
+### 1.1 Installed instance
+
+The target pack is installed locally and was inspected directly on 2026-11-06:
+
+```text
+D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky
+```
+
+That path is specific to this development machine. The findings below are properties of the pack and its mods, not of the path.
+
+Verified from the instance:
+
+| Property | Value | Source |
+|---|---|---|
+| Pack | ATM10SKY 2.3.1 | `instance.cfg` (`ManagedPackName`, `ManagedPackVersionName`) |
+| CurseForge file ID | 9368148 | `instance.cfg` (`ManagedPackVersionID`) |
+| Minecraft | 1.21.1 | `mmc-pack.json`, `flame/manifest.json` |
+| NeoForge | 21.1.250 | `mmc-pack.json`, `flame/manifest.json` |
+| Mod count | 330 | `minecraft/mods` |
+| Java | Oracle JDK 25.0.2 | `logs/debug.log` ModLauncher banner |
+
+The instance overrides the Java location and sets `IgnoreJavaCompatibility=true`. It therefore runs on JDK 25.0.2 even though NeoForge 21.1.250 targets Java 21. A QuestBridge mod compiled for Java 21 will load on this runtime, but the adapter must not assume the client JVM is Java 21.
+
+FTB mod versions were confirmed from each jar's `META-INF/neoforge.mods.toml`, not from filenames:
+
+| Mod | Version | modId |
+|---|---:|---|
+| FTB Quests | 2101.1.30 | `ftbquests` |
+| FTB Teams | 2101.1.10 | `ftbteams` |
+| FTB Library | 2101.1.35 | `ftblibrary` |
+
+These match the dependency versions declared in `minecraft-mod/build.gradle`.
+
+The pack also ships `ftbquestslangsplitter-1.0.6.jar`, which splits the quest language file into per-chapter files under `config/ftbquests/quests/lang/en_us/chapters/`. The merged `lang/en_us.snbt` remains present alongside them. The adapter must resolve titles through FTB's translation manager and must not read language files directly.
+
+---
+
+### 1.2 Chapter catalog and quest volume
+
+Measured from the installed instance:
+
+- 55 chapter SNBT files in `config/ftbquests/quests/chapters`.
+- 3,834 quest definitions, counted as quest objects inside the top-level `quests: [...]` array of each chapter file. All 3,834 quest IDs are distinct.
+- 688 chapter images.
+- 25 quest links.
+
+`config/ftbquests/quests` is the only quest definition directory in the instance. The only other FTB Quests data present is per-world progression under `saves/<world>/ftbquests/`, which is runtime state, not definitions.
+
+The earlier estimate of "roughly 3,800 quest definitions" is confirmed. The exact count is a pack property and will change with pack updates; it must not become a protocol constant.
+
+---
+
+### 1.3 Runtime evidence from the installed client
+
+The instance has been launched at least twice, on 2026-11-04 and 2026-11-05. Logs from both sessions were inspected. The 2026-11-05 session loaded all mods and shut down cleanly at 18:27:31; no crash report is present in the instance.
+
+The pack's own KubeJS client script, `kubejs/client_scripts/att_rpc.js`, loads FTB Quests classes during mod loading:
+
+```text
+[modloading-worker-0/INFO] [KubeJS Client/]: client_scripts:att_rpc.js#1: Loaded Java class 'dev.ftb.mods.ftbquests.client.ClientQuestFile'
+[modloading-worker-0/INFO] [KubeJS Client/]: client_scripts:att_rpc.js#5: Loaded Java class 'dev.ftb.mods.ftbquests.events.ObjectCompletedEvent'
+```
+
+That script is part of the shipped pack and reaches this code path on every launch, so it is runtime confirmation that both classes exist and are loadable in ATM10 TTS 2.3.1 on NeoForge 21.1.250.
+
+The same script is a working reference for the client-side access pattern this project needs:
+
+- `ClientQuestFile.exists()` gates on the quest file having been received from the server.
+- `ClientQuestFile.getInstance().selfTeamData` gates on team data having been received. The script's own comments distinguish "Quests not received from server yet" from "Quest player data not received from server yet".
+- `file.getAllChapters()` and `chapter.getQuests()` enumerate the catalog and its quests.
+- `file.getQuest(file.getID("504DEB70D9DAA547"))` resolves a quest from its string ID.
+- `data.isCompleted(quest)` reads team completion state.
+- `quest.hasTag("arr")` reads quest tags.
+- `ObjectCompletedEvent.QUEST.register(...)` subscribes to quest completion and returns `EventResult.pass()`.
+- World-join detection uses `Minecraft.getInstance().level` transitioning from null to non-null.
+- The script polls every 40 ticks (2 seconds) with a 30-second fallback, matching the reconciliation interval recommended in this document.
+
+What this establishes: the class names, the access pattern, and the readiness semantics in this document are correct for this exact pack and loader version.
+
+What it does not establish: that quest data actually synchronizes in a live world, that progress values match the quest book, or that the QuestBridge adapter works. Those require Phase 5.
+
+---
+
 ## 2. Verified ATM10 TTS chapter identifiers
 
 The initial five chapters suggested by `AGENTS.md` were verified against the exact 2.3.1 pack files and its English language file.
@@ -74,7 +157,7 @@ All five belong to chapter group `029264819125415F`, titled `Skyblock Quests`.
 
 A stale `chapter.1A5BA37AB2194685` title entry also exists in the language file. The installed Chapter 5 file uses `571D32BADC77CDD0`. Chapter IDs must come from live FTB data, never from language-file inference.
 
-The pack contains 55 chapter files. Those files contain roughly 3,800 quest definitions in 2.3.1. The exact number is not a protocol constant and will change with pack updates.
+The pack contains 55 chapter files and 3,834 quest definitions in 2.3.1, measured from the installed instance (section 1.2). The exact number is not a protocol constant and will change with pack updates.
 
 ---
 
@@ -515,6 +598,10 @@ Implementation timing follows Proposal C, which is adopted and places the adapte
 ### Verified facts
 
 - Exact ATM10 TTS 2.3.1 dependency versions.
+- The target pack is installed locally and is exactly ATM10SKY 2.3.1 on Minecraft 1.21.1 and NeoForge 21.1.250 (section 1.1).
+- The installed instance ships FTB Quests 2101.1.30, FTB Teams 2101.1.10, and FTB Library 2101.1.35, confirmed from each jar's mod manifest (section 1.1).
+- `dev.ftb.mods.ftbquests.client.ClientQuestFile` and `dev.ftb.mods.ftbquests.events.ObjectCompletedEvent` exist and load at runtime in this pack (section 1.3).
+- The installed chapter catalog contains 55 chapters and 3,834 quests (section 1.2).
 - Exact five initial chapter IDs and titles.
 - `AUTO_PIN_ID` is `1`.
 - Manual pins are per-player and stored in team data.
@@ -526,9 +613,9 @@ Implementation timing follows Proposal C, which is adopted and places the adapte
 
 ### Assumptions / unverified
 
-- The user’s installed pack is exactly ATM10SKY 2.3.1.
-- Translation data arrives reliably after quest sync.
-- Client-side FTB events fire as expected in the real client.
+- The pack installed on this machine is ATM10SKY 2.3.1; that is verified here but remains an assumption on any other machine.
+- Translation data arrives reliably after quest sync. The pack ships a language splitter and keeps the merged file, so the translation source is not a single file.
+- Client-side FTB events fire as expected in the real client. `ObjectCompletedEvent` is confirmed to exist and be loadable; its firing behaviour is not.
 - Java’s WebSocket client works reliably inside the Minecraft client.
 - OBS 33.0.1 behaves correctly with the chosen local authentication flow.
 - Future FTB Quests updates may change internal classes or behavior.
@@ -541,7 +628,9 @@ QuestBridge should compile against the exact installed FTB Quests release and de
 
 ## 13. Runtime verification checklist
 
-Phase 5 must verify:
+Already established by inspection and client logs: the five chapter IDs and their titles exist in the pack data (section 2), the title and description accessors are documented from the FTB source and jars (section 4.3), and the client-side access pattern is loadable in this pack (section 1.3).
+
+The remaining items require a live client and must be verified in Phase 5:
 
 - [ ] Data unavailable during client startup.
 - [ ] Data becomes ready after quest and team synchronization.

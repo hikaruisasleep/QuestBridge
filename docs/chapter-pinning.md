@@ -1,6 +1,7 @@
 # Chapter Pinning
 
 **Status:** Specification, not yet implemented  
+**Chapter data:** The chapter IDs and titles in section 2.1 were verified against the installed ATM10 TTS 2.3.1 instance on 2026-11-06.  
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; dashboard access control is subject to Proposal B.  
 **Date:** 2026-11-06
 
