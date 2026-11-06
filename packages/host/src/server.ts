@@ -4,19 +4,25 @@ import { once } from "node:events";
 import { HOST_VERSION, LOOPBACK_ADDRESS } from "./constants.js";
 import { createHttpHandler } from "./http.js";
 import { SILENT_LOGGER, type Logger } from "./logging.js";
+import type { TokenStore } from "./auth.js";
 
 /**
  * Host process lifecycle.
  *
- * Phase 2A owns the loopback HTTP listener and graceful shutdown. The
- * WebSocket server attaches to this same listener in milestone 2E, which is why
- * the listener is exposed rather than hidden.
+ * Owns the loopback HTTP listener and graceful shutdown. The WebSocket server
+ * attaches to this same listener in milestone 2E, which is why the listener is
+ * exposed rather than hidden.
  */
 
 export interface StartHostOptions {
   /** TCP port. `0` requests an ephemeral port, which tests rely on. */
   port: number;
   logger?: Logger;
+  /**
+   * Token store used to authorise connections. Omitted only by tests that
+   * exercise the listener before 2D wiring; the WebSocket layer requires it.
+   */
+  tokens?: TokenStore;
   /** Override for tests that need deterministic uptime output. */
   now?: () => number;
 }
@@ -30,6 +36,8 @@ export interface HostHandle {
   /** The underlying HTTP server, for attaching the WebSocket server later. */
   readonly server: Server;
   readonly logger: Logger;
+  /** Token store backing this host, when one was supplied. */
+  readonly tokens: TokenStore | undefined;
   /** Idempotent. Resolves once the listener is released. */
   close(): Promise<void>;
 }
@@ -111,6 +119,7 @@ export async function startHost(options: StartHostOptions): Promise<HostHandle> 
     version: HOST_VERSION,
     server,
     logger,
+    tokens: options.tokens,
     close,
   };
 }

@@ -39,7 +39,30 @@ describe("CLI parsing", () => {
     if (parsed.kind === "help") {
       expect(parsed.text).toContain("questbridge-host");
       expect(parsed.text).toContain("127.0.0.1");
+      expect(parsed.text).toContain("--print-urls");
     }
+  });
+
+  it("recognises --print-urls", () => {
+    const parsed = parseCliOptions(["--print-urls"]);
+    expect(parsed.kind).toBe("print-urls");
+    if (parsed.kind === "print-urls") {
+      expect(parsed.port).toBe(DEFAULT_PORT);
+      expect(parsed.configDir).toBeUndefined();
+    }
+  });
+
+  it("combines --print-urls with a port and config directory", () => {
+    const parsed = parseCliOptions(["--print-urls", "--port", "9000", "--config-dir", "/tmp/qb"]);
+    expect(parsed.kind).toBe("print-urls");
+    if (parsed.kind === "print-urls") {
+      expect(parsed.port).toBe(9000);
+      expect(parsed.configDir).toBe("/tmp/qb");
+    }
+  });
+
+  it("lets --help win over --print-urls", () => {
+    expect(parseCliOptions(["--print-urls", "--help"]).kind).toBe("help");
   });
 
   it("rejects invalid ports", () => {

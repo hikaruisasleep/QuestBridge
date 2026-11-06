@@ -5,14 +5,14 @@ import { parseArgs } from "node:util";
 import { CONFIG_DIR_ENV, resolveConfigPaths } from "./paths.js";
 import { DEFAULT_PORT, HEALTH_PATH } from "./constants.js";
 import { createLogger } from "./logging.js";
+import { TokenStore, formatAccessUrls } from "./auth.js";
 import { startHost, type HostHandle } from "./server.js";
 
 /**
  * Host CLI entry point.
  *
- * Phase 2A: start the loopback listener, report `/health`, and shut down
- * cleanly on a signal. Configuration, WebSocket roles, and authentication are
- * added in later milestones.
+ * Milestone 2A added the process shell; 2D adds token generation and
+ * `--print-urls`. WebSocket roles follow in 2E and 2F.
  */
 
 const USAGE = `QuestBridge host
@@ -23,6 +23,7 @@ Usage:
 Options:
   --port <number>        Loopback port (default: ${DEFAULT_PORT}; 0 chooses a free port)
   --config-dir <path>    Configuration directory (overrides ${CONFIG_DIR_ENV})
+  --print-urls           Print the overlay and dashboard access URLs, then exit
   --help                 Show this help
 
 The host binds 127.0.0.1 only and never 0.0.0.0.
@@ -33,7 +34,7 @@ export interface CliOptions {
   configDir: string | undefined;
 }
 
-export interface ParsedCli {
+export interface ParsedCliRun {
   kind: "run";
   options: CliOptions;
 }
@@ -43,7 +44,13 @@ export interface ParsedCliHelp {
   text: string;
 }
 
-export type CliParseResult = ParsedCli | ParsedCliHelp;
+export interface ParsedCliPrintUrls {
+  kind: "print-urls";
+  configDir: string | undefined;
+  port: number;
+}
+
+export type CliParseResult = ParsedCliRun | ParsedCliHelp | ParsedCliPrintUrls;
 
 function parsePort(raw: string | undefined): number {
   if (raw === undefined) {
@@ -70,6 +77,7 @@ export function parseCliOptions(argv: string[]): CliParseResult {
     options: {
       port: { type: "string" },
       "config-dir": { type: "string" },
+      "print-urls": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
     strict: true,
@@ -80,13 +88,41 @@ export function parseCliOptions(argv: string[]): CliParseResult {
     return { kind: "help", text: USAGE };
   }
 
-  return {
-    kind: "run",
-    options: {
-      port: parsePort(values.port),
-      configDir: values["config-dir"],
-    },
-  };
+  const configDir = values["config-dir"];
+  const port = parsePort(values.port);
+
+  if (values["print-urls"] === true) {
+    return { kind: "print-urls", configDir, port };
+  }
+
+  return { kind: "run", options: { port, configDir } };
+}
+
+/** Resolve the configuration directory, honouring the CLI override. */
+function pathsFor(configDir: string | undefined): ReturnType<typeof resolveConfigPaths> {
+  return resolveConfigPaths(
+    configDir === undefined
+      ? {}
+      : { env: { ...process.env, [CONFIG_DIR_ENV]: configDir } },
+  );
+}
+
+/**
+ * Print the access URLs to stdout only.
+ *
+ * Never written to a log file: the tokenized URL is a credential
+ * (`docs/local-authentication.md` §2.1).
+ *
+ * Logging is limited to warnings and errors so the output stays pipeable. A
+ * recovery warning still surfaces, because a user whose tokens were just
+ * regenerated must be told that previously issued URLs no longer work.
+ */
+export async function printUrls(configDir: string | undefined, port: number): Promise<void> {
+  const paths = pathsFor(configDir);
+  const logger = createLogger({ minLevel: "warn" });
+  const tokens = await TokenStore.load({ filePath: paths.tokensFile, logger });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  process.stdout.write(`${formatAccessUrls(baseUrl, tokens.tokens)}\n`);
 }
 
 /**
@@ -96,19 +132,17 @@ export function parseCliOptions(argv: string[]): CliParseResult {
  */
 export async function run(options: CliOptions): Promise<HostHandle> {
   const logger = createLogger();
-
-  const paths = resolveConfigPaths(
-    options.configDir === undefined
-      ? {}
-      : { env: { ...process.env, [CONFIG_DIR_ENV]: options.configDir } },
-  );
+  const paths = pathsFor(options.configDir);
 
   logger.info(`config directory: ${paths.directory} (${paths.source})`);
 
-  const host = await startHost({ port: options.port, logger });
+  const tokens = await TokenStore.load({ filePath: paths.tokensFile, logger });
+
+  const host = await startHost({ port: options.port, logger, tokens });
 
   logger.info(`QuestBridge host ${host.version} listening on ${host.url}`);
   logger.info(`health: ${host.url}${HEALTH_PATH}`);
+  logger.info("run with --print-urls to display the overlay and dashboard URLs");
 
   return host;
 }
@@ -146,8 +180,14 @@ export function installSignalHandlers(host: HostHandle): void {
 
 export async function main(argv: string[]): Promise<void> {
   const parsed = parseCliOptions(argv);
+
   if (parsed.kind === "help") {
     process.stdout.write(parsed.text);
+    return;
+  }
+
+  if (parsed.kind === "print-urls") {
+    await printUrls(parsed.configDir, parsed.port);
     return;
   }
 
