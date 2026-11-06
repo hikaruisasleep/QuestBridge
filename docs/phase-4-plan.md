@@ -458,25 +458,62 @@ change-only logging, client-side FTB metadata dependencies, FTB imports isolated
 
 ### 4B — Normalized snapshot and JSON
 
-**The first milestone that should be started.** No network yet.
+**Status (2026-11-07): implemented on `feat/phase-4b-snapshot`; live-data exit
+criterion not yet met.** The encoder is proven against
+`minecraftSnapshotPayloadSchema` via `scripts/validate-snapshot.mjs`, but no
+snapshot has been captured from the ATM10 client in this conversation. That is
+recorded below.
 
-Scope:
+Delivered:
 
-- `QuestSnapshot` and nested DTOs, extended per §2.3.
-- `FtbSnapshotMapper` producing them from live FTB state on the client thread.
-- v1 JSON encoder for `minecraft.hello`, `minecraft.status`, `minecraft.snapshot`.
-- Keep the 4A logger as the observation channel; the encoder's output is the artifact.
+- `adapter/QuestSnapshot.java` — immutable DTOs. Chapter `progress` is
+  `Integer`, task `current`/`target` are `Long`, so "unavailable" can be
+  represented instead of a fabricated `0`. `QuestSnapshot.Identity` carries the
+  file/team/world keys that force a full snapshot.
+- `adapter/QuestProgressProvider.java` — FTB-free capture interface, including
+  the `Unavailable` phase that maps to `minecraft.status`.
+- `adapter/ftb/FtbQuestProgressProvider.java` — readiness gate, pin capture with
+  the automatic ID removed before resolution, fallback ordering, and event
+  hooks. Listeners increment an atomic counter only; they never touch FTB state.
+- `adapter/ftb/FtbSnapshotMapper.java` — the field mapping in §5. All FTB imports
+  stay in `adapter.ftb`.
+- `protocol/ProtocolJson.java`, `protocol/JsonObjectBuilder.java`,
+  `protocol/ProtocolMessages.java` — the v1 encoder. Gson is on the compile
+  classpath (`com.google.code.gson:gson:2.10.1`, via NeoForge/FML), so no
+  handwritten encoder and no added runtime dependency.
+- `protocol/Sanitizer.java` — coerces values into schema-legal ranges (ID
+  length, empty titles, percentage bounds, non-negative task counts).
+- `scripts/validate-snapshot.mjs` — validates files through the same
+  `parseFrame(text, "minecraft_to_host")` path the host uses, printing every
+  issue rather than the first.
 
-Exit criterion:
+Decisions taken during implementation:
 
-- A snapshot captured from the live ATM10 client validates against
-  `minecraftSnapshotPayloadSchema` from `@questbridge/protocol`.
-- Validation is run for real — write the JSON to a file and check it with a Node
-  script, rather than eyeballing it.
-- At least one chapter arrives with `progress: null` and one with
-  `status: completed` if the live data exposes them.
-- At least one pinned quest carries a `subtitle`-bearing chapter and one task with
-  `current`/`target` present.
+1. **Encode by hand, not with reflection.** Protocol objects are strict; a field
+   written by a reflective serializer cannot be audited against the schema. Every
+   field is written explicitly in `ProtocolMessages`.
+2. **Sanitize at capture, not at encode.** An out-of-range value must not reach
+   the encoder at all.
+3. **A pinned quest that cannot be represented is withheld from all three
+   objective arrays at once**, not just from one. `quests`,
+   `manualPinIds` and `unresolvedPinnedQuestIds` are validated as a partition;
+   dropping an entry from only one breaks the invariant and rejects the whole
+   snapshot. Withheld quests are counted in a warning log.
+
+Exit criterion status:
+
+- [x] Real encoder output validates against `minecraftSnapshotPayloadSchema` —
+      proven by `scripts/validate-snapshot.mjs` over messages produced by the
+      actual Java encoder (`EncoderHarness`), and the validator was itself proven
+      to reject a missing required field, an extra field, and auto pin ID `1`.
+- [ ] A **live ATM10 capture** validates. Requires launching the Prism instance
+      with the jar and `-Dquestbridge.dumpSnapshot=<path>`.
+- [ ] At least one chapter with `progress: null` and one `status: completed`
+      from live data.
+- [ ] One task with `current`/`target` from live data.
+
+The three unchecked items need a running Minecraft client, which this
+conversation did not have. They are not claimed.
 
 Do not proceed to 4C on the strength of "it looks right"; the schema is strict and
 will reject a missing required field.
