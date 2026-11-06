@@ -60,6 +60,18 @@ cd minecraft-mod
 
 ---
 
+## 3.1 Versioning
+
+Pre-Done development builds use the mod version schema `0pre.<increment>`, for
+example `0pre.1`. Increment the trailing number for each distributed
+development build. `1.0.0` is reserved for a build that satisfies the project
+Definition of Done; do not use it while Phase 4/5 verification is incomplete.
+
+The Gradle `mod_version` value flows into both the jar filename
+(`questbridge-0pre.<increment>.jar`) and `META-INF/neoforge.mods.toml`.
+
+---
+
 ## 4. Mock publisher
 
 The mock publisher implements the Minecraft side of the protocol. It needs a collector or host to connect to; the QuestBridge host is Phase 2 work.
