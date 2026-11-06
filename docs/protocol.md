@@ -3,7 +3,7 @@
 **Status:** Protocol v1 is implemented in `@questbridge/protocol` and exercised by `@questbridge/mock-publisher` (Phase 1). The FTB Quests adapter is not yet implemented; runtime compatibility is Phase 4–5 work. The specification is informed by the FTB Quests `v2101.1.30` source. MVP priority is reading FTB’s manually pinned quests from client memory and displaying completion for the selected chapters; auto-pin behavior is explicitly deferred.
 **Date:** 2026-11-06
 **Applies to:** the Minecraft adapter, the mock publisher, the host, and the Svelte frontend.
-**Security note:** Proposal B (token and cookie transport authentication) remains pending in `docs/proposals.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
+**Security note:** Proposal B (token and cookie transport authentication) was adopted with revisions on 2026-11-06; the normative design is `docs/local-authentication.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
 
 This document is the normative contract between the four components. Where it disagrees with `docs/architecture.md`, this document is more specific; where it disagrees with `AGENTS.md`, `AGENTS.md` wins.
 
@@ -26,7 +26,7 @@ The protocol does **not** carry:
 - The full FTB quest book. Only the pinned objectives travel in full. ATM10 TTS 2.3.1 has roughly 3,834 quests, and transmitting all of them is unnecessary and risks message-size limits.
 - Quest pin mutations. FTB Quests is the only interface that changes quest pins.
 - Chapter pin configuration from Minecraft. Chapter pins belong to QuestBridge.
-- Authentication credentials. These are transport concerns and remain subject to Proposal B.
+- Authentication credentials. These are transport concerns, defined in `docs/local-authentication.md`.
 - Binary payloads, file paths, or commands.
 
 ---
@@ -58,7 +58,7 @@ The role is established by the first message on the connection:
 
 Any other first message is a protocol error and the host closes the connection. A connection that does not send a valid first message within 5 seconds is closed.
 
-Until Proposal B is implemented, the host may run without transport authentication for local development and tests. That state is not release-ready: role claims in the first message are not trustworthy without transport authentication.
+The host may run without transport authentication for local development and tests. That state is not release-ready: role claims in the first message are not trustworthy without transport authentication.
 
 ### 2.1 Endpoint discovery
 
@@ -735,7 +735,7 @@ Sent every 5 seconds. `ready` is `false` while FTB data is unavailable or synchr
 
 `role` is `overlay` or `control`. `clientName` is optional display text, maximum 64 characters. The host replies with `state.snapshot`, or closes with `host.error` if the role is invalid or the version is unsupported.
 
-Transport authentication is applied before the host trusts this role; see Proposal B.
+Transport authentication is applied before the host trusts this role; see `docs/local-authentication.md`.
 
 ### 9.11 `state.snapshot`
 
@@ -1089,7 +1089,7 @@ This document defines no credentials. The host must enforce, independently of th
 - Loopback binding.
 - `Host` header validation.
 - WebSocket origin restrictions.
-- Transport authentication and role separation, per Proposal B once adopted.
+- Transport authentication and role separation, per `docs/local-authentication.md`.
 - Per-role permissions as described in section 5.2.
 - Message-size limits.
 - Mutation rate limits.
@@ -1250,7 +1250,7 @@ Verified on 2026-11-06. Passing Phase 1 does not establish FTB Quests compatibil
 
 These are intentionally unresolved and must not be silently decided during implementation:
 
-1. **Transport authentication (Proposal B).** Tokens, cookie flow, endpoint paths, and origin rules are not final. The protocol assumes an authenticated role.
+1. **Transport authentication.** Token set, cookie flow, endpoint paths, and origin rules are specified in `docs/local-authentication.md`. Role claims are enforced, but tokens are not bound to roles (accepted risk R1), and origin matching ignores the port (accepted risk R2). The protocol assumes an authenticated role.
 2. **WebSocket paths.** One `/ws` endpoint with a role hello is assumed; separate per-role paths are possible without changing payloads.
 3. **`state.update` duplication.** The host may send section-specific messages in addition to `state.update`. Browsers must remain idempotent; a later cleanup may choose one form.
 4. **Optimistic concurrency.** `stale_revision` is reserved but unused; reorders currently apply to current state.

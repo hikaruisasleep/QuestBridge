@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is planned in `docs/phase-2-plan.md` but not started; Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is planned but not started; Phase 3 is deferred. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is planned in `docs/phase-2-plan.md` but not started; Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is planned but not started; Phase 3 is deferred. Proposal D is applied. Proposal B was adopted with revisions on 2026-11-06 and is specified in `docs/local-authentication.md`.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -77,6 +77,7 @@ questbridge/
 │   ├── ftb-quests-integration.md
 │   ├── chapter-pinning.md
 │   ├── protocol.md
+│   ├── local-authentication.md
 │   ├── development.md
 │   ├── versioning.md
 │   ├── phase-2-plan.md
@@ -559,17 +560,17 @@ These values are implementation defaults and may be tuned.
 
 ## 8. Security
 
-The host is local-only. The requirements in this section are target security properties. The specific token and browser-authentication mechanism that implements them is Proposal B, which is pending review and is not final.
+The host is local-only. Proposal B was adopted with revisions on 2026-11-06; the normative design, including the accepted risks below, is `docs/local-authentication.md`.
 
 Requirements:
 
 - Bind exclusively to `127.0.0.1`.
 - Never bind to `0.0.0.0`.
 - Validate the HTTP `Host` header against `127.0.0.1` and `localhost`.
-- Restrict WebSocket origins.
-- Separate permissions for Minecraft, overlay, and dashboard.
+- Restrict WebSocket origins to loopback hostnames, matching the hostname only and ignoring the port (accepted risk R2).
+- Separate the Minecraft, overlay, and control transports by credential.
 - Read-only overlay.
-- Dashboard-only configuration changes.
+- Dashboard-only configuration mutations.
 - Validate every message.
 - Enforce message-size limits.
 - No arbitrary filesystem access.
@@ -577,9 +578,15 @@ Requirements:
 - No credentials in frontend bundles.
 - Redact tokens from logs.
 
-### 8.1 Tokens — Proposal B, pending review
+Accepted risks, stated plainly and not to be tightened without an explicit product decision:
 
-Proposed tokens:
+- **R1** — Tokens are not bound to roles. An authenticated browser connection may declare `overlay` or `control`, so either browser token yields control permission. The overlay/control split is a UI convention, not a security boundary.
+- **R2** — Origin allowlisting ignores the port, so any page served from a loopback hostname may connect given a token.
+- **R3** — Browsers do not scope cookies by port, so a QuestBridge cookie is also sent to other services on `127.0.0.1`.
+
+These follow from the product being a private, single-user, loopback-only application that prioritises speed and ease of use over defence in depth.
+
+### 8.1 Tokens
 
 ```text
 overlayToken    read-only overlay access
@@ -587,45 +594,41 @@ controlToken    dashboard read/write access
 minecraftToken  Minecraft publisher access
 ```
 
-Tokens would be random, generated on first run, and persisted in the host configuration with mode `0600`.
+Tokens are 256-bit random values generated on first run and persisted in a dedicated `tokens.json` with mode `0600`, separate from `config.json`. They are compared with a timing-safe comparison, printed only to stdout by `--print-urls`, and never appear in rendered HTML, JavaScript bundles, or logs.
 
-### 8.2 Browser authentication — Proposal B, pending review
+Unlike `config.json`, which fails closed and is never overwritten when invalid, a corrupt `tokens.json` is backed up and regenerated, so a damaged token file cannot lock the user out permanently.
 
-Proposed flow:
+### 8.2 Browser authentication
 
 1. OBS or the user opens `/overlay?token=<overlayToken>`.
 2. Host validates the token.
-3. Host sets an `HttpOnly`, `SameSite=Strict` overlay cookie.
-4. Host redirects to `/overlay` without the token in the visible URL.
+3. Host sets an `HttpOnly`, `SameSite=Strict`, role-specific cookie (`qb_overlay` or `qb_control`). `Secure` is deliberately omitted because the host serves plain HTTP over loopback.
+4. Host redirects to the clean URL without the token in the visible URL.
 5. Overlay WebSocket authenticates with the cookie.
 
-The same pattern applies to the dashboard with the control token.
+`Referrer-Policy: no-referrer` is set on the bootstrap redirect and on the pages so the tokenized URL does not leak through a referrer. The tokenized URL is the permanent recovery path if OBS clears cookies.
 
-If OBS clears cookies, the original tokenized URL still works.
+An authorization rejection is distinguishable from absent data, and the overlay renders a visible, actionable state rather than a blank frame; see `docs/local-authentication.md` §6.
 
-The page must never embed tokens in JavaScript bundles or rendered HTML.
+### 8.3 Minecraft authentication
 
-### 8.3 Minecraft authentication — Proposal B, pending review
-
-The Minecraft adapter would connect with a bearer token or a dedicated header. It would not use browser cookies or origin handling.
+The Minecraft adapter connects with the dedicated `minecraftToken` as a bearer token or dedicated header. It does not use browser cookies or origin handling.
 
 ### 8.4 Origin rules
 
-- Allow browser connections from the host's own loopback origins.
-- Allow native Minecraft connections with no Origin header.
+- Allow browser connections whose `Origin` has a loopback hostname, on any port (R2).
+- Allow native Minecraft connections with no `Origin` header only with a valid `minecraftToken`.
 - Reject all other origins.
 - Reject cross-origin mutation requests.
 
 ### 8.5 Limits
 
-Suggested defaults:
+Defaults:
 
 - Maximum WebSocket message: 256 KiB.
 - Maximum HTTP request body: 64 KiB.
-- Rate limit dashboard mutations.
-- Limit concurrent browser connections.
-
-If Proposal B is not adopted, an alternative mechanism must still provide equivalent role separation, loopback-only access, and credential protection before the host is implemented.
+- Rate limit dashboard mutations: 10 per second per connection.
+- Limit concurrent browser connections: 20 new per minute.
 
 ---
 

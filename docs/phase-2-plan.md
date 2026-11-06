@@ -1,6 +1,6 @@
 # Phase 2 Plan — Host Core and Local Transport
 
-**Status:** Planning only. No Phase 2 implementation has started.  
+**Status:** Planning only. No Phase 2 implementation has started. Proposal B authentication is settled: adopted with revisions on 2026-11-06 and specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
 **Target:** QuestBridge host on Node 24, protocol v1, ATM10 TTS 2.3.1 data supplied by the future adapter or the existing mock publisher.  
 **Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package will use its own SemVer version (`0.1.0` at first implementation).
@@ -99,17 +99,23 @@ WebSockets, configuration survives restart, and all host/auth tests pass.
 
 ## 5. Decisions to settle before implementation
 
-### 5.1 Proposal B authentication
+### 5.1 Proposal B authentication — settled
 
-Proposal B is still marked pending in `docs/proposals.md`. Phase 2 assumes it is
-adopted. If it is not, an equivalent design must provide:
+Proposal B was adopted with revisions on 2026-11-06. The normative design is
+`docs/local-authentication.md`; milestone 2D implements it. The decision is
+settled and is no longer a gate.
 
-- separate overlay, control, and Minecraft roles;
-- loopback-only access;
-- no credentials in bundles or rendered HTML;
-- OBS-compatible browser authentication.
+Two revisions affect 2D specifically:
 
-Recommended decision: adopt Proposal B before milestone 2D.
+- a corrupt `tokens.json` is backed up and regenerated rather than failing closed;
+- authorization failures are distinguishable from absent data, so the overlay
+  never renders as a blank frame when rejected.
+
+Two behaviours are adopted as intended rather than as defects, and must not be
+"fixed" during implementation:
+
+- tokens are not bound to roles (accepted risk R1);
+- origin matching ignores the port (accepted risk R2).
 
 ### 5.2 Static frontend strategy
 
@@ -476,21 +482,30 @@ Never broadcast unchanged state on a timer.
 
 ### 13.2 Token bootstrap
 
-Adopt Proposal B:
+Implement Proposal B as adopted with revisions. The normative design is
+`docs/local-authentication.md`; the summary below is the implementation checklist.
 
 - `overlayToken`, `controlToken`, `minecraftToken` generated on first run.
-- Stored in `tokens.json` with mode `0600`.
+- 32 random bytes as `base64url`, stored in `tokens.json` with mode `0600`.
 - Browser opens `/overlay?token=<overlayToken>` or
   `/control?token=<controlToken>`.
-- Host validates the token, sets an `HttpOnly`, `SameSite=Strict` role cookie,
+- Host validates the token, sets an `HttpOnly`, `SameSite=Strict` role cookie
+  (`qb_overlay` or `qb_control`; `Secure` deliberately omitted on loopback HTTP),
   and redirects to the clean URL.
 - WebSocket authenticates from the cookie.
+- Enforce the declared role for the life of the connection, but do not bind a
+  token to a role (accepted risk R1).
 - Minecraft uses a dedicated bearer token and no browser cookie.
 - Compare tokens with a timing-safe comparison.
 - Set `Referrer-Policy: no-referrer` on the bootstrap redirect and pages so the
   tokenized URL does not leak through referrers.
 - Tokens never appear in rendered HTML, JavaScript bundles, or logs.
 - If OBS clears cookies, the tokenized URL remains the recovery path.
+- A documented `--print-urls` command prints bootstrap URLs to stdout only.
+- A corrupt `tokens.json` is backed up and regenerated; a corrupt `config.json`
+  is preserved and fails closed. The asymmetry is intentional.
+- Reject unauthorized upgrades with `401` and disallowed origins with `403`, so
+  the overlay can tell an auth failure apart from absent data.
 
 ### 13.3 Static frontend
 
@@ -549,13 +564,16 @@ Use an ephemeral loopback port and a temporary config directory.
 
 - Missing/invalid overlay token.
 - Missing/invalid control token.
-- Control token cannot authorize overlay-only actions incorrectly.
-- Cross-role token rejected.
+- Valid token reaches the intended role.
+- An `overlay`-role connection cannot mutate; a `control`-role connection can.
+- A loopback Origin on a non-default port is accepted (accepted risk R2).
 - Invalid `Host` header rejected.
 - Disallowed Origin rejected.
 - Oversized message rejected.
 - Mutation rate limit.
 - Tokens never logged.
+- Corrupt `tokens.json` is backed up and regenerated; the host still starts.
+- Invalid `config.json` is preserved and reported, not overwritten.
 
 ### 14.4 Test tools
 
@@ -605,15 +623,17 @@ cases; revisions only move on real changes.
 
 ### 2D — Authentication and HTTP security
 
-- Token generation/storage.
-- Token-to-cookie bootstrap.
-- Role cookies and Minecraft bearer token.
+- Token generation/storage, plus the `--print-urls` command.
+- Token-to-cookie bootstrap with role-specific cookie names.
+- Token-file recovery: back up and regenerate a corrupt `tokens.json`.
+- Role cookies (per-role names) and the Minecraft bearer token.
+- Distinguishable `401`/`403` responses and, if adopted, `/auth/status`.
 - `Host` and Origin checks.
 - Message and mutation limits.
 - Security tests.
 
-**Exit:** missing/cross-role tokens fail; valid tokens reach the correct role;
-tokens never appear in logs or static output.
+**Exit:** missing/invalid tokens fail; valid tokens connect and reach the intended
+role; tokens never appear in logs or static output.
 
 ### 2E — Minecraft WebSocket session
 
@@ -658,7 +678,8 @@ Phase 3 can point a Svelte build at the host without changing the transport.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Proposal B remains undecided | Host cannot be release-ready | Resolve before 2D; treat auth as a gate, not a follow-up |
+| Token-file corruption locks the user out | No browser can connect | Regenerate `tokens.json` and back up the bad file, unlike `config.json` |
+| Overlay renders blank on an auth failure | Silent mid-stream failure | Distinguishable `401`/`403` plus an actionable overlay state |
 | Web-app uses `adapter-node` | Host cannot serve a static bundle | Switch to static output in Phase 3; Phase 2 placeholder |
 | Config corruption | User loses pins | Atomic write, validate-before-save, preserve invalid file |
 | Windows permission semantics | `0600` not fully enforceable | Use best-effort mode; restrict directory; document limitation |
@@ -685,6 +706,8 @@ Phase 2 is complete when:
 - [ ] Overlay cannot mutate; control can.
 - [ ] Invalid versions, roles, sessions, messages, origins, and tokens are
       rejected with the documented errors.
+- [ ] A corrupt `tokens.json` regenerates; a corrupt `config.json` is preserved.
+- [ ] An authorization failure is distinguishable from absent data.
 - [ ] Stale and disconnected states are represented, not silently shown as live.
 - [ ] Sequence and revision gaps trigger a resync/snapshot request.
 - [ ] No tokens or sensitive data appear in logs.

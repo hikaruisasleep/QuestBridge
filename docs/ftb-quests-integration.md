@@ -2,7 +2,7 @@
 
 **Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources. Stage 4A verified live quest and team synchronization in the installed client on 2026-11-06 (`docs/testing-logs/2026-11-06-1.log`); the network adapter is not yet implemented
 
-**Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`.  
+**Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B was adopted with revisions on 2026-11-06 and is specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
 **Target pack:** All the Mods 10: To the Sky (ATM10 TTS / ATM10SKY) 2.3.1  
 **Minecraft:** 1.21.1  

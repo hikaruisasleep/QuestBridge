@@ -184,7 +184,7 @@ The Java adapter must implement the same wire format manually. It cannot import 
 - No host, so no live end-to-end browser session yet.
 - No `/overlay` or `/control` routes.
 - No FTB Quests network adapter. Stage 4A is a client-thread diagnostic probe only; it has not yet been verified against a live client.
-- Transport authentication (Proposal B) is still pending; the protocol assumes an authenticated role.
+- Transport authentication (Proposal B, adopted with revisions) is specified in `docs/local-authentication.md` but not yet implemented; the protocol assumes an authenticated role.
 - Mock chapter progress is fixed fixture data, not derived from a live quest book.
 
 See `docs/protocol.md` section 13 for the Phase 1 acceptance results and `docs/architecture.md` for component responsibilities.

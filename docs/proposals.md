@@ -1,6 +1,6 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied and Phase 2 planned; Proposal D applied; Proposal B awaiting decision
+**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied and Phase 2 planned; Proposal D applied; Proposal B **adopted with revisions on 2026-11-06**
 **Date:** 2026-11-06  
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.  
 **Phase 5 prerequisite:** The target pack is now installed locally as a Prism Launcher instance (ATM10SKY 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250). The Phase 5 exit criterion no longer depends on obtaining a pack installation; it depends on running the adapter against this one. See `docs/ftb-quests-integration.md` sections 1.1-1.3.  
@@ -19,12 +19,12 @@ The remaining proposals are B–D.
 | Proposal | Earlier response | Current status |
 |---|---|---|
 | Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Approved and applied |
-| Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Re-submitted |
+| Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Adopted with revisions |
 | Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
 | Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin npm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Applied |
 | Align NeoForge to `21.1.250` | Approved | Applied |
 
-The working documents now mark Proposal A as applied, Proposal C as adopted with Phase 0 applied, Proposal D as applied, and Proposal B as pending review rather than settled.
+The working documents now mark Proposal A as applied, Proposal C as adopted with Phase 0 applied, Proposal D as applied, and Proposal B as adopted with revisions. The normative design is `docs/local-authentication.md`.
 
 ---
 
@@ -98,6 +98,8 @@ Applied. The separation matches the documented architecture and reduces accident
 
 ## 3. Proposal B — Cookie-after-token-redirect authentication
 
+**Status:** Adopted with revisions on 2026-11-06. The normative design is `docs/local-authentication.md`; this section records the proposal as submitted and the decision taken.
+
 ### Proposal
 
 Keep the host bound exclusively to loopback and use three separate random tokens:
@@ -138,9 +140,26 @@ Additional rules:
 
 - OBS can load a tokenized URL once and then use a clean URL.
 - Tokens do not need to be embedded in the Svelte bundle.
-- Overlay and dashboard permissions remain separate.
+- The overlay and dashboard are distinguished by token and by route.
 - The Minecraft publisher is authenticated independently from browsers.
 - The strategy works with OBS Browser Source and normal Chromium.
+
+### Decision — 2026-11-06
+
+**Adopted with revisions.** The token set, the cookie-after-token-redirect flow, loopback binding, and `SameSite=Strict` stand as proposed. Three revisions were folded in, and two clarifications were accepted as intended behaviour rather than defects.
+
+Revisions:
+
+1. **Token-file recovery.** `tokens.json` is backed up and regenerated when corrupt, unlike `config.json`, which fails closed and is never overwritten. Tokens are regenerable; chapter pins are not.
+2. **Authorization failure states.** An authorization failure must be distinguishable from “no data yet”, and the overlay must render a visible, actionable state rather than an empty frame when rejected.
+3. **Cookie naming and attributes.** Distinct cookie names per role (`qb_overlay`, `qb_control`), and `Secure` is deliberately omitted because the host serves plain HTTP over loopback.
+
+Accepted as intended (single-user, loopback-only product; ease of use prioritised over defence in depth):
+
+1. Tokens are not bound to roles. An authenticated browser may declare either `overlay` or `control`. The overlay/control split is a UI convention, not a security boundary.
+2. Origin allowlisting matches the loopback hostname only and ignores the port.
+
+Both are recorded as accepted risks R1 and R2 in `docs/local-authentication.md` §1 and must not be tightened without an explicit product decision.
 
 ### What was deferred
 
@@ -148,20 +167,22 @@ The earlier response was:
 
 > Leave everything else as-is, for now.
 
-No authentication implementation exists yet. `docs/architecture.md` now records this strategy as Proposal B, pending review, rather than as a final design.
+No authentication implementation exists yet. `docs/architecture.md` previously recorded this strategy as Proposal B, pending review. It is now adopted and specified in `docs/local-authentication.md`.
 
-### Impact if adopted
+### Impact of adoption
 
 - Implement token generation and persistence with mode `0600`.
 - Implement the token-to-cookie redirect.
-- Implement role checks on WebSocket connections.
-- Add tests for missing, invalid, and cross-role tokens.
-- Add origin and `Host` header tests.
+- Implement role enforcement on WebSocket connections, and document R1.
+- Add tests for missing and invalid tokens, and for overlay mutation rejection.
+- Add origin and `Host` header tests, including the accepted any-port loopback rule.
+- Add a `--print-urls` bootstrap command and the token-file recovery path.
+- Add a distinguishable `401`/`403` response and, if adopted, a read-only `/auth/status` probe.
 
 ### Impact if not adopted
 
-- An alternative authentication design must be chosen before the host is implemented.
-- The overlay and dashboard still require some local protection, because any local process could otherwise read or mutate state.
+- An alternative authentication design would be required before the host is implemented.
+- The overlay and dashboard would remain unprotected, because any local process could otherwise read or mutate state.
 
 ### Recommendation
 
@@ -361,7 +382,7 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 | ID | Proposal | Recommendation | Decision |
 |---|---|---|---|
 | A | Move Java project to `minecraft-mod/` | Adopt | Approved and applied |
-| B | Cookie-after-token-redirect authentication with three roles | Adopt | Pending |
+| B | Cookie-after-token-redirect authentication with three roles | Adopt | Adopted with revisions (2026-11-06) |
 | C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
 | D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
 
@@ -372,4 +393,4 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B remains pending; if adopted, its security section becomes the implemented design rather than a recommendation.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted with revisions on 2026-11-06; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.

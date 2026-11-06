@@ -2,7 +2,7 @@
 
 **Status:** Specification, not yet implemented  
 **Chapter data:** The chapter IDs and titles in section 2.1 were verified against the installed ATM10 TTS 2.3.1 instance on 2026-11-06.  
-**Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; dashboard access control is subject to Proposal B.  
+**Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B was adopted with revisions on 2026-11-06 and is specified in `docs/local-authentication.md`; dashboard access control follows it.  
 **Date:** 2026-11-06
 
 Chapter pins are QuestBridge’s only quest-related selection mechanism. They represent long-term pack progression and are managed exclusively through the QuestBridge dashboard.
@@ -199,7 +199,7 @@ Request:
 }
 ```
 
-Only the dashboard may perform this operation. The authorization mechanism is subject to Proposal B, which is pending review; the proposed design uses a separate control token and dashboard cookie.
+Only the dashboard may perform this operation. The authorization mechanism is specified in `docs/local-authentication.md`: a separate control token and a `qb_control` cookie, with token-to-role binding deliberately not enforced (accepted risk R1).
 
 ### 4.6 Response
 
