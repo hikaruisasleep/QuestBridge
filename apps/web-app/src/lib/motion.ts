@@ -49,12 +49,42 @@ export const motion = Object.freeze({
    * pinning around the 2 s reconciliation interval looks unstable.
    */
   maxReflowMs: 400,
+
+  /**
+   * Progress-bar fill travel when a value changes.
+   *
+   * Kept shorter than the completion pulse: a bar that chases its target for
+   * longer than the highlight plays would still be moving after the row has
+   * stopped being the thing the viewer is looking at.
+   */
+  progressFillMs: 420,
+
+  /** Row and control hover/selection feedback on the dashboard. */
+  hoverMs: 120,
+
+  /** Playful easing on dashboard option rows. */
+  controlSelectionMs: 140,
+
+  /** Quest row background and opacity shift when its completion state changes. */
+  rowStateMs: 260,
+
+  /** Progress-bar fill transitions use the same easing everywhere. */
+  easing: "ease-out",
 } as const);
 
 /** Promptness for the dashboard, where motion is feedback rather than content. */
 export const controlMotion = Object.freeze({
   feedbackMs: 180,
   dragLiftMs: 120,
+  /**
+   * How long the dashboard waits for the host to answer a mutation before
+   * re-enabling the control.
+   *
+   * A backstop, not the primary signal: the host's broadcast or its
+   * `request.error` normally clears the pending state first. Without a bound, a
+   * silently dead socket would leave a button disabled forever.
+   */
+  mutationPendingBackstopMs: 3_000,
 } as const);
 
 /**
@@ -70,5 +100,9 @@ export function motionCssVariables(): string {
     `--qb-zoom-ms:${motion.questZoomMs}ms`,
     `--qb-reflow-ms:${motion.questReflowMs}ms`,
     `--qb-pulse-ms:${motion.completionPulseMs}ms`,
+    `--qb-progress-fill-ms:${motion.progressFillMs}ms`,
+    `--qb-hover-ms:${motion.hoverMs}ms`,
+    `--qb-row-state-ms:${motion.rowStateMs}ms`,
+    `--qb-easing:${motion.easing}`,
   ].join(";");
 }

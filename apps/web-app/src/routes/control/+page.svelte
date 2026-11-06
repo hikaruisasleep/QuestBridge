@@ -14,6 +14,7 @@
 	import { onMount } from 'svelte';
 
 	import type { ClientAppState, PinnedChapter } from '#lib/stores/app-state.ts';
+	import { controlMotion } from '#lib/motion.ts';
 	import { getAppContext } from '#lib/stores/app-context.svelte.ts';
 	import {
 		chromaBackground,
@@ -90,7 +91,7 @@
 			if (busyChapterId === chapterId) {
 				busyChapterId = null;
 			}
-		}, 3_000);
+		}, controlMotion.mutationPendingBackstopMs);
 	}
 
 	function unpin(chapterId: string): void {
@@ -104,7 +105,7 @@
 			if (busyChapterId === chapterId) {
 				busyChapterId = null;
 			}
-		}, 3_000);
+		}, controlMotion.mutationPendingBackstopMs);
 	}
 
 	function reorder(chapterIds: string[]): void {

@@ -55,7 +55,7 @@
 		/* Width changes are structural, not decorative; a short transition keeps
 		   two progress updates from looking like a jump without animating for
 		   longer than a viewer would tolerate. */
-		transition: width 420ms ease-out;
+		transition: width var(--qb-progress-fill-ms, 420ms) var(--qb-easing, ease-out);
 	}
 
 	.track[data-complete='true'] .fill {

@@ -267,7 +267,7 @@
 		padding: 7px 9px;
 		border-radius: 6px;
 		background: rgba(255, 255, 255, 0.045);
-		transition: background 120ms ease-out;
+		transition: background var(--qb-hover-ms, 120ms) var(--qb-easing, ease-out);
 	}
 
 	/* The drag module writes these attributes directly on the elements it is

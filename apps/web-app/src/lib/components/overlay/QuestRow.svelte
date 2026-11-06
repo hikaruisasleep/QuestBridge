@@ -75,8 +75,8 @@
 		   by the parent's transition/animate directives so they cannot fight
 		   with these. */
 		transition:
-			background var(--qb-zoom-ms, 260ms) ease-out,
-			opacity var(--qb-zoom-ms, 260ms) ease-out;
+			background var(--qb-row-state-ms, 260ms) var(--qb-easing, ease-out),
+			opacity var(--qb-row-state-ms, 260ms) var(--qb-easing, ease-out);
 	}
 
 	.quest[data-completed='true'] {
