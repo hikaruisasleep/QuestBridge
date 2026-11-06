@@ -65,64 +65,74 @@ export async function playScenario(
     }
   };
 
-  for (const event of scenario.events) {
-    checkAbort();
-
-    const waitMs = event.atMs - previousAtMs;
-    if (waitMs > 0) {
-      await options.sleep(waitMs);
+  try {
+    for (const event of scenario.events) {
       checkAbort();
-    }
-    previousAtMs = event.atMs;
 
-    options.onEvent?.(event);
+      const waitMs = event.atMs - previousAtMs;
+      if (waitMs > 0) {
+        await options.sleep(waitMs);
+        checkAbort();
+      }
+      previousAtMs = event.atMs;
 
-    if (event.kind === "open") {
-      if (transport !== null) {
+      options.onEvent?.(event);
+
+      if (event.kind === "open") {
+        if (transport !== null) {
+          throw new Error(
+            `Scenario "${scenario.name}" opened connection ${event.connection} without closing the previous one`,
+          );
+        }
+        if (event.connection !== connection + 1) {
+          throw new Error(
+            `Scenario "${scenario.name}" opened connection ${event.connection} after ${connection}`,
+          );
+        }
+        transport = await options.open(event.connection);
+        connection = event.connection;
+        continue;
+      }
+
+      if (event.connection !== connection) {
         throw new Error(
-          `Scenario "${scenario.name}" opened connection ${event.connection} without closing the previous one`,
+          `Scenario "${scenario.name}" event for connection ${event.connection} arrived while connection ${connection} is active`,
         );
       }
-      if (event.connection !== connection + 1) {
-        throw new Error(
-          `Scenario "${scenario.name}" opened connection ${event.connection} after ${connection}`,
-        );
+
+      if (event.kind === "send") {
+        if (transport === null) {
+          throw new Error(
+            `Scenario "${scenario.name}" sent ${event.message.type} on a closed connection`,
+          );
+        }
+        transport.send(event.message);
+      } else if (event.kind === "close") {
+        if (transport === null) {
+          throw new Error(`Scenario "${scenario.name}" closed an already closed connection`);
+        }
+        await transport.close();
+        transport = null;
       }
-      transport = await options.open(event.connection);
-      connection = event.connection;
-      continue;
     }
 
-    if (event.connection !== connection) {
-      throw new Error(
-        `Scenario "${scenario.name}" event for connection ${event.connection} arrived while connection ${connection} is active`,
-      );
+    const remainingMs = scenario.durationMs - previousAtMs;
+    if (remainingMs > 0) {
+      await options.sleep(remainingMs);
     }
 
-    if (event.kind === "send") {
-      if (transport === null) {
-        throw new Error(`Scenario "${scenario.name}" sent ${event.message.type} on a closed connection`);
-      }
-      transport.send(event.message);
-    } else if (event.kind === "close") {
-      if (transport === null) {
-        throw new Error(`Scenario "${scenario.name}" closed an already closed connection`);
-      }
-      await transport.close();
+    checkAbort();
+  } finally {
+    // Release the socket on normal completion, abort, or a transport failure.
+    if (transport !== null) {
+      const openTransport = transport;
       transport = null;
+      try {
+        await openTransport.close();
+      } catch {
+        // Closing is best-effort; the original error, if any, is more useful.
+      }
     }
-  }
-
-  const remainingMs = scenario.durationMs - previousAtMs;
-  if (remainingMs > 0) {
-    await options.sleep(remainingMs);
-  }
-
-  checkAbort();
-
-  // Release the socket when the script ends without an explicit close.
-  if (transport !== null) {
-    await transport.close();
   }
 }
 
