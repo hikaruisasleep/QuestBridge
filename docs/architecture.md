@@ -83,7 +83,7 @@ questbridge/
 │   ├── proposals.md
 │   ├── ftb-quests-integration.md
 │   ├── chapter-pinning.md
-│   ├── protocol.md              # planned
+│   ├── protocol.md              # draft specification
 │   ├── development.md           # planned
 │   └── troubleshooting.md       # planned
 │
@@ -92,8 +92,8 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (4 files), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/protocol.md`, `docs/development.md`, `docs/troubleshooting.md`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `docs/` (5 files, including the protocol draft), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/` (protocol, host, mock-publisher), `docs/development.md`, `docs/troubleshooting.md`. `docs/protocol.md` now exists as a draft specification but is not implemented.
 - `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares the exact FTB Quests, FTB Teams, and FTB Library dependencies.
 - `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is an npm workspace member.
 - No `packages/` exists yet. The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
@@ -876,7 +876,7 @@ The NeoForge baseline compiles against `21.1.250` with JDK 21. The build declare
 
 The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` uses npm as its package manager).
 
-The shared protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work; `npm run mock` does not exist yet.
+The shared protocol contract is drafted in `docs/protocol.md`. The protocol package, mock publisher, host, and the `/overlay` and `/control` dashboard are planned but not implemented. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work; `npm run mock` does not exist yet.
 
 Available now:
 
