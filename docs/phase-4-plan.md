@@ -1,8 +1,9 @@
 # Stage 4 Plan — Minecraft Adapter
 
-**Status:** Stage 4A implemented and verified against the live client. **Stage 4B–4F
-have not started.** Phases 2 (host) and 3 (frontend) are complete, so this plan is
-now the only thing standing between the mock-driven pipeline and real data.
+**Status:** Stage 4A implemented and verified against the live client. **Stage 4B–4E
+are implemented and verified against the real host where no Minecraft client is
+needed (`§8`); Stage 4F, the live ATM10 verification, has not started.** Phases 2
+(host) and 3 (frontend) are complete.
 **Date:** 2026-11-07 (rewritten; originally 2026-11-06, before Phases 2 and 3 existed)
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
 **Version:** `0pre.2` — the Stage 4B conversation's single bump from `0pre.1`
@@ -520,83 +521,96 @@ will reject a missing required field.
 
 ### 4C — Minimal WebSocket publisher
 
-Scope:
+**Status (2026-11-07): implemented and verified against the real host.**
+Verified without a Minecraft client, using the transport classes directly.
 
-- `java.net.http.WebSocket`, authenticated per §2.2.
-- `minecraft.hello` + `minecraft.status` + full snapshot.
-- Heartbeat at the host-declared interval.
-- Session ID and per-connection sequence.
-- Configuration via `-Dquestbridge.wsUrl` (default `ws://127.0.0.1:8765/ws`) and the
-  token. Until a config file exists, the token comes from
-  `-Dquestbridge.minecraftToken` or the `QUESTBRIDGE_MINECRAFT_TOKEN` environment
-  variable, mirroring the mock publisher.
+Delivered:
 
-Exit criterion:
+- `transport/WebSocketConnection.java` — `java.net.http.WebSocket`, bearer
+  token on the upgrade, no `Origin` header.
+- `transport/ConnectionController.java` — connect, hello, welcome, status,
+  heartbeat, reconnect with backoff, and coalescing of client captures.
+- `transport/SnapshotDiffer.java` — message selection and per-connection
+  sequence numbering.
+- `transport/TransportExecutor.java` — the single transport thread.
+- `transport/TransportLog.java` — transport logging with no dependency on the
+  mod entry class.
+- `QuestBridgeConfig.java` — `config/questbridge-client.toml`, with system
+  property and environment variable overrides.
 
-- The **real host** (`npm run host -- --build-dir apps/web-app/build`), not the
-  standalone collector, accepts every message with no protocol errors.
-- A browser at `/control` shows the real catalog; the overlay renders the real
-  pinned objectives.
-- The host log reports the hello versions.
+**Three defects were found during 4C, all of which presented identically as "the
+host accepted the hello and then received nothing".** They are recorded because
+each one is a silent failure with no stack trace:
 
-The collector remains useful as a first smoke test because it prints every message,
-but it is no longer the target.
+1. **Transport code logged through `QuestBridge.LOGGER`.** A log call made from a
+   socket callback that ran where FML classes were not resolvable threw
+   `NoClassDefFoundError`, which ended the connection with no diagnostic.
+   Transport classes now use `TransportLog`, which reaches the mod logger
+   reflectively and falls back to stdout.
+2. **The WebSocket listener returned `null` after re-requesting.** Handled
+   frames now return a completed future.
+3. **A silent failure was also an unlogged one**, because no SLF4J binding was
+   present outside the game. Diagnostics had to be added before any of the
+   above could be seen.
+
+Evidence against the real host (`packages/host`, not the collector):
+
+| Check | Result |
+|---|---|
+| hello accepted | Host logs `publisher hello: MC 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30, FTB Teams 2101.1.10, mod 0pre.2` |
+| `Authorization: Bearer` on upgrade | Works; a missing token is reported as HTTP 401 |
+| snapshot / progress / pins | All accepted, no `host.error`, no `host.request_snapshot` |
+| persistent connection | `connection=ready, stale=false`; 1 snapshot, 2 status, 4 heartbeats, 10 progress messages, 0 closes |
+| reconnect | 4 failed handshakes backed off 1, 2, 4, 8 s, then connected and published a fresh snapshot |
+| host down 20 s | 5 attempts across 20 s, routine log volume ~0 lines |
 
 ### 4D — Incremental updates and lifecycle
 
-Scope:
+**Status (2026-11-07): implemented; the parts that need a real client are not
+verified.** Implemented and exercised against the host with synthetic captures
+through the real transport.
 
-- Reconciliation on the host-declared interval.
-- `minecraft.progress` and `minecraft.pins`.
-- Full snapshots on reload, world change, team change, reconnect, and request.
-- Event hooks for start/completion.
-- Reconnect with backoff.
+- `SnapshotDiffer` sends `minecraft.progress` for changed chapters and changed
+  pinned quests, and `minecraft.pins` for a changed objective set, so unchanged
+  data is never resent.
+- A full snapshot is forced on a new connection, a `host.request_snapshot`, or a
+  change of quest-file, team, or world identity.
+- `QuestBridgeClient` invalidates on `LevelEvent.Load`/`Unload` and
+  `ClientPlayerNetworkEvent.LoggingIn`/`LoggingOut`.
+- Reconnect backoff is 1, 2, 4, 8, 16, 30 s, capped; a closed socket resets it.
 
-Exit criterion:
-
-- Pinning a quest in FTB appears in the overlay within one reconciliation interval.
-- Unpinning removes it.
-- Completing a pinned quest removes the objective, as FTB does.
-- Completing a chapter updates status without fabricating progress-only completion.
-- Quest reload and world change produce fresh snapshots and no stale catalog.
-- Pinning a chapter whose ID the adapter stops reporting leaves it pinned and the
-  overlay shows "Unresolved chapter" — configuration is never auto-deleted.
+**Not verified:** pinning a quest in FTB appearing within one interval, completion
+removing an objective, a chapter completing, a quest reload, and a world change.
+All of these require the live client.
 
 ### 4E — Hardening
 
-Scope:
+**Status (2026-11-07): implemented, with the caveats stated.**
 
-- Bounded serialization queue and coalescing.
-- Thread assertions around FTB access.
-- Message-size guard against the 256 KiB host limit.
-- Behaviour before login, during sync, on disconnect, and with the host down.
-- Log redaction; no token or server address in any message or log.
-- Clean listener registration/unregistration across world reloads.
+- **Thread contract.** `adapter/ClientThreadGuard` records a violation when FTB
+  is read off the client thread. It is fail-open by design and identifies the
+  client thread by name (`Render thread`), which is a heuristic: `Minecraft` has
+  no public accessor for its client thread.
+- **Message size.** A frame above 256 KiB is never sent; it is logged and
+  skipped, because the host reacts to an oversize frame by closing the
+  connection.
+- **Coalescing.** At most one handoff is pending; a newer capture replaces an
+  older one.
+- **Bounded queue.** Only pinned quests travel, never the quest book.
+- **Log redaction.** Transport log messages carry only message types, sizes,
+  status phases, and host-declared values. The token and server address are
+  never formatted into a message; the URL is logged only in its configured form,
+  which the user supplied and which contains no credential.
+- **Host down.** Verified: escalating backoff, no routine log spam, and no
+  client-thread blocking, since every offer is a single reference store.
 
-Exit criterion:
-
-- No client-thread FTB access from transport code.
-- No crash, stall, or log spam when the host is absent.
-- Restarting the host restores a fresh snapshot without restarting Minecraft.
-- The host's own `--print-urls` output and `tokens.json` never appear in logs.
+**Not verified:** no crash or stall in a live client with the host absent, and
+listener registration across repeated world reloads.
 
 ### 4F — ATM10 verification and recorded fixtures
 
-Scope:
-
-- Single-player and multiplayer runs with the built jar in Prism.
-- Five initial chapters; manual pins and automatic ID `1` exclusion.
-- Completion-driven pin removal.
-- Team change; quest reload; world change.
-- Export one sanitized real snapshot for reference fixtures
-  (`AGENTS.md` §11.1).
-
-Exit criterion:
-
-- The Definition of Done items that require a real client are genuinely verified.
-  These currently all sit unchecked in `AGENTS.md` §18, and are the reason the
-  release is not complete.
-- The recorded snapshot contains no player names, server addresses, or tokens.
+**Status (2026-11-07): not started.** This requires launching the Prism instance
+with the built jar, which this conversation could not do. Nothing here is claimed.
 
 ---
 
