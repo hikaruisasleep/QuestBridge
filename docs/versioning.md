@@ -1,8 +1,8 @@
 # QuestBridge Versioning
 
 **Status:** Active policy  
-**Current documented version:** `0pre.1`  
-**Date:** 2026-11-06  
+**Current documented version:** `0pre.2`  
+**Date:** 2026-11-07  
 **Applies to:** the Minecraft mod version and its artifact name. Private npm workspace packages keep independent SemVer versions; they do not use `0pre.<minor>`.
 
 This project does not use SemVer during pre-Done development. Use the custom
@@ -20,7 +20,7 @@ form below exactly; do not normalize it to `0.0.0-pre.N`.
 |---|---|
 | `0` | Current major line. Pre-Done development is on major line `0`. |
 | `pre` | Marks a pre-Done development version. |
-| `.<minor>` | Positive integer identifying the development thread. |
+| `.<minor>` | Positive integer identifying the conversation that produced the build. |
 
 Examples:
 
@@ -80,15 +80,31 @@ When the conversation is closed, update the **Current documented version** in
 this document to the active version. The next conversation will read that value
 and bump it once more.
 
-### 3.4 Current Stage 4 thread
+### 3.4 A phase name is not a development thread
 
-The Stage 4 thread is already on `0pre.1`. It has already had its single minor
-bump for this thread. Do not increment it again, even when the Stage 4 work
-continues across several builds or fixes.
+Earlier revisions of this document declared a single "Stage 4 thread" frozen on
+`0pre.1`, and told agents continuing Stage 4 work not to increment again. That
+rule was wrong and has been removed.
 
-- Active version for this thread: `0pre.1`
-- On close of this thread: document `0pre.1`
-- Next thread: read `0pre.1`, bump once to `0pre.2`, and stay on `0pre.2`
+- **The thread is the conversation.** A development thread is one conversation,
+  not a phase. Stage 4, Phase 4, and any later stage are areas of work that
+  span many conversations.
+- **If you have no prior knowledge of ever working on Stage 4, you are a new
+  thread.** Your conversation did not write `0pre.1`, so §3.1 applies to you:
+  read the documented version and bump the minor component by exactly one.
+- **Never infer the active version from a phase name.** "This is still Stage 4"
+  is not a reason to keep an earlier thread's version, and it must never be used
+  to skip the bump.
+- **Confirm the version with the user before starting work.** A one-line
+  agreement here prevents a whole session from being built on the wrong version.
+
+Example, which is how `0pre.2` came to be:
+
+```text
+0pre.1  written by the Stage 4A conversation
+0pre.2  written by the Stage 4B conversation, even though it is still "Stage 4"
+0pre.3  written by the next conversation, however it is described
+```
 
 ---
 
@@ -120,7 +136,8 @@ Before changing code or building an artifact:
 
 - [ ] Read the **Current documented version** in this document.
 - [ ] If this is a new conversation, bump only the minor component by one.
-- [ ] If this is the current Stage 4 thread, keep `0pre.1`.
+- [ ] Do not freeze the version because the work is still "Stage 4" (§3.4).
+- [ ] Confirm the active version with the user.
 - [ ] Confirm `mod_version` matches the active version.
 - [ ] Confirm the artifact name will be `questbridge-<active-version>.jar`.
 

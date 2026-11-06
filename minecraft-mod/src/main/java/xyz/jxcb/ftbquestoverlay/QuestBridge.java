@@ -4,6 +4,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -23,7 +24,8 @@ public class QuestBridge {
     // The constructor for the mod class is the first code that is run when your mod is loaded.
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public QuestBridge(IEventBus modEventBus, ModContainer modContainer) {
+        modContainer.registerConfig(ModConfig.Type.CLIENT, QuestBridgeConfig.SPEC);
         this.client = new QuestBridgeClient();
-        LOGGER.info("[QuestBridge] client probe initialized");
+        LOGGER.info("[QuestBridge] client adapter initialized ({})", MODID);
     }
 }
