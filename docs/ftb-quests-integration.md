@@ -1,6 +1,6 @@
 # FTB Quests Integration
 
-**Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources; live quest synchronization in a running client is not yet verified
+**Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources. Stage 4A verified live quest and team synchronization in the installed client on 2026-11-06 (`docs/testing-logs/2026-11-06-1.log`); the network adapter is not yet implemented
 
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`.  
 **Date:** 2026-11-06  
@@ -154,7 +154,7 @@ The same script is a working reference for the client-side access pattern this p
 
 What this establishes: the class names, the access pattern, and the readiness semantics in this document are correct for this exact pack and loader version.
 
-What it does not establish: that quest data actually synchronizes in a live world, that progress values match the quest book, or that the QuestBridge adapter works. Those require Phase 5.
+Stage 4A later established that quest and team data synchronize in a live world: the log at `docs/testing-logs/2026-11-06-1.log` shows readiness, 55 chapters, the five expected chapter IDs and titles, a real manual pin, and task progress values. It does not establish the full network adapter, completion-driven pin removal, reload behavior, or multiplayer operation; those remain later Stage 4/Phase 5 work.
 
 ---
 
@@ -691,7 +691,7 @@ Requirements:
 - Fail gracefully when FTB data or translations are unavailable.
 - Log FTB version mismatches clearly.
 
-Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. By explicit product decision, Phase 2 (host) and Phase 3 (dashboard) are now deferred; the adapter proceeds against the standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The detailed Stage 4 plan is in `docs/phase-4-plan.md`.
+Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phase 2 (host core) is now planned; Phase 3 (dashboard) remains deferred; Stage 4B–4F remain pending. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan is in `docs/phase-4-plan.md`.
 
 ---
 
@@ -740,12 +740,12 @@ QuestBridge should compile against the exact installed FTB Quests release and de
 
 Already established by inspection and client logs: the five chapter IDs and their titles exist in the pack data (section 2), the title and description accessors are documented from the FTB source and jars (section 4.3), and the client-side access pattern is loadable in this pack (section 1.3).
 
-The remaining items require a live client and must be verified in Phase 5:
+Stage 4A has now verified the startup/readiness path, all five chapter resolutions and titles, one real manual pin, and real task progress in the live client. The remaining items still require the network adapter or Phase 5 verification:
 
-- [ ] Data unavailable during client startup.
-- [ ] Data becomes ready after quest and team synchronization.
-- [ ] All five ATM10 TTS chapters resolve by ID.
-- [ ] Chapter titles come from FTB, not hardcoded strings.
+- [x] Data unavailable during client startup.
+- [x] Data becomes ready after quest and team synchronization.
+- [x] All five ATM10 TTS chapters resolve by ID.
+- [x] Chapter titles come from FTB, not hardcoded strings.
 - [ ] Chapter progress matches the FTB quest book.
 - [ ] Chapter completion uses `TeamData.isCompleted(chapter)`, not `progress == 100`.
 - [ ] Optional quests are excluded from chapter progress.

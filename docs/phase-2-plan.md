@@ -1,0 +1,710 @@
+# Phase 2 Plan — Host Core and Local Transport
+
+**Status:** Planning only. No Phase 2 implementation has started.  
+**Date:** 2026-11-06  
+**Target:** QuestBridge host on Node 24, protocol v1, ATM10 TTS 2.3.1 data supplied by the future adapter or the existing mock publisher.  
+**Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package will use its own SemVer version (`0.1.0` at first implementation).
+
+---
+
+## 1. Why Phase 2 now
+
+Stage 4A is verified against the real client. The test log at
+`docs/testing-logs/2026-11-06-1.log` records:
+
+- the mod loading as `questbridge-0pre.1`;
+- FTB readiness after synchronization;
+- 55 chapters;
+- the five expected ATM10 TTS chapter IDs and titles;
+- a real manual pin (`Easy Ore Duping`) with two item tasks;
+- chapter progress and task counts.
+
+That establishes the real-data source. It does not provide a production host.
+The standalone collector is a development tool: it has no configuration,
+chapter pins, browser roles, persistence, or authentication.
+
+Phase 2 builds the production host that the overlay, dashboard, mock publisher,
+and eventual real adapter all use.
+
+---
+
+## 2. Goal
+
+Deliver a loopback-only Node host that:
+
+1. Accepts one authenticated Minecraft publisher at a time.
+2. Accepts authenticated overlay and control browser clients.
+3. Validates every message with `@questbridge/protocol`.
+4. Owns persistent chapter-pin and display configuration.
+5. Resolves configured chapter IDs against the live catalog without deleting
+   unresolved entries.
+6. Maintains normalized state with revisions, sequence handling, staleness, and
+   resynchronization.
+7. Serves the production frontend once Phase 3 provides a static build.
+8. Exposes no remote, filesystem, shell, or arbitrary HTTP surface.
+
+Phase 2 ends when the host and the mock publisher work end to end over real
+WebSockets, configuration survives restart, and all host/auth tests pass.
+
+---
+
+## 3. Scope
+
+### In scope
+
+- `packages/host` workspace package.
+- Host process entry point and CLI.
+- Configuration store with atomic persistence and explicit migrations.
+- Chapter-pin operations: read, pin, unpin, reorder.
+- Chapter resolver with unresolved entries.
+- Display configuration.
+- State store, revision tracking, and stale/disconnected lifecycle.
+- HTTP server bound to `127.0.0.1`.
+- WebSocket endpoint at `/ws` with role handshake.
+- Minecraft publisher handling: hello, status, snapshot, progress, pins,
+  heartbeat.
+- Browser handling: hello, initial snapshot, updates, resync, mutations.
+- Proposal B authentication: token-to-cookie browser flow and Minecraft bearer
+  token.
+- Origin, `Host`, message-size, and mutation-rate enforcement.
+- Host unit and integration tests.
+- A minimal mock-publisher extension for the Minecraft bearer token, so the
+  existing scenarios can exercise the authenticated host path.
+- Manual host + mock publisher verification.
+
+### Out of scope
+
+- `/overlay` and `/control` Svelte implementations. Those are Phase 3.
+- The real adapter's WebSocket publisher. That is Stage 4C/4D.
+- Changes to protocol v1 payloads.
+- Chapter auto-selection.
+- Quest-pin management.
+- Auto-pin tracker reconstruction.
+- Cloud access, remote databases, user accounts, and server-side Minecraft code.
+
+---
+
+## 4. Preconditions and assumptions
+
+- Protocol v1 remains stable. Phase 2 must not add fields or message types.
+- The mock publisher already implements the Minecraft side of v1 and its
+  scenarios are deterministic.
+- The host uses `ws`, `zod`, and the shared protocol package only; no web
+  framework is required for the host process.
+- The current web-app scaffold is `adapter-node`; serving it as plain static
+  files requires a Phase 3 build-target change (see §13).
+- The Minecraft mod version remains `0pre.1`; host changes do not touch it.
+
+---
+
+## 5. Decisions to settle before implementation
+
+### 5.1 Proposal B authentication
+
+Proposal B is still marked pending in `docs/proposals.md`. Phase 2 assumes it is
+adopted. If it is not, an equivalent design must provide:
+
+- separate overlay, control, and Minecraft roles;
+- loopback-only access;
+- no credentials in bundles or rendered HTML;
+- OBS-compatible browser authentication.
+
+Recommended decision: adopt Proposal B before milestone 2D.
+
+### 5.2 Static frontend strategy
+
+The host must eventually serve `/overlay` and `/control`. The current web-app
+uses `@sveltejs/adapter-node`, which produces a Node server rather than a static
+bundle. Recommended Phase 3 change: switch the web-app to `adapter-static` (or
+add a static build target) and let the host serve the resulting directory.
+
+Phase 2 should therefore ship with a clear `503` placeholder for browser routes
+when no static build is present, rather than inventing a second frontend server.
+
+### 5.3 Configuration location
+
+Recommended resolution order:
+
+1. `QUESTBRIDGE_CONFIG_DIR`, for tests and development.
+2. Windows: `%APPDATA%\QuestBridge`.
+3. macOS: `~/Library/Application Support/QuestBridge`.
+4. Linux: `$XDG_CONFIG_HOME/questbridge` or `~/.config/questbridge`.
+
+The directory contains:
+
+```text
+config.json     # pins and display settings, mode 0600
+tokens.json     # random role tokens, mode 0600
+```
+
+Tokens are kept out of `config.json` so configuration files can be inspected
+without exposing credentials.
+
+### 5.4 Package version
+
+`@questbridge/host` starts at `0.1.0`. The `0pre.<minor>` policy applies to the
+Minecraft mod artifact, not to private npm packages.
+
+### 5.5 Mock publisher authentication
+
+The collector currently accepts an unauthenticated publisher. Phase 2 needs the
+mock publisher to optionally send the Minecraft bearer token so host integration
+tests can cover the real authenticated path.
+
+Recommended addition:
+
+```text
+npm run mock -- --scenario=ready --token=<minecraftToken>
+```
+
+or a `QUESTBRIDGE_MINECRAFT_TOKEN` environment variable. Without a token, the
+mock keeps working against the unauthenticated collector.
+
+---
+
+## 6. Proposed package layout
+
+```text
+packages/host/
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+├── src/
+│   ├── index.ts              # CLI entry / startup
+│   ├── server.ts             # HTTP + WebSocket lifecycle
+│   ├── config-store.ts       # load, validate, migrate, atomic save
+│   ├── config-schema.ts      # Zod schemas and defaults
+│   ├── paths.ts              # platform config directory resolution
+│   ├── chapter-resolver.ts   # catalog + configured pins
+│   ├── chapter-pins.ts       # pure pin/unpin/reorder operations
+│   ├── state-store.ts        # normalized state, revision, staleness
+│   ├── minecraft-session.ts  # publisher handshake and message handling
+│   ├── browser-session.ts    # browser roles and message handling
+│   ├── auth.ts               # tokens, cookies, role checks
+│   ├── http.ts               # static files, token bootstrap, /health
+│   ├── validation.ts         # direction/domain validation helpers
+│   ├── logging.ts            # redacted structured logging
+│   └── errors.ts             # host error mapping
+└── tests/
+    ├── config-store.test.ts
+    ├── chapter-pins.test.ts
+    ├── chapter-resolver.test.ts
+    ├── state-store.test.ts
+    ├── minecraft-session.test.ts
+    ├── browser-session.test.ts
+    ├── auth.test.ts
+    ├── http.test.ts
+    └── integration.test.ts
+```
+
+The host must not import Minecraft or FTB classes. The only Minecraft-facing
+contract is the v1 JSON protocol.
+
+---
+
+## 7. Runtime architecture
+
+One Node process owns:
+
+- one HTTP server bound to `127.0.0.1`;
+- one WebSocket server attached to `/ws`;
+- one configuration store;
+- one state store;
+- zero or one active Minecraft publisher;
+- zero or more browser clients.
+
+```text
+Minecraft publisher ── WebSocket /ws ──┐
+                                       ├── host process
+Browser (overlay) ─── WebSocket /ws ───┤   ├── auth
+Browser (control) ─── WebSocket /ws ───┘   ├── validation
+                                            ├── state store
+                                            ├── config store
+                                            └── chapter resolver
+```
+
+The host is the only writer of chapter-pin and display configuration. The
+Minecraft publisher is the only writer of quest progression. Browsers never
+publish progression.
+
+Timers:
+
+- heartbeat expectation: 5 s;
+- stale threshold: 10 s without heartbeat;
+- disconnected threshold: 15 s without heartbeat, or socket close;
+- stale-check interval: 1 s;
+- browser mutation rate: 10/s per connection;
+- first-message timeout: 5 s.
+
+---
+
+## 8. Configuration and persistence
+
+### 8.1 File schema
+
+```json
+{
+  "version": 1,
+  "server": {
+    "port": 8765
+  },
+  "chapterPins": {
+    "maxPins": 5,
+    "pinnedChapters": [
+      { "chapterId": "3B0302DB5E77C3A2", "position": 0 }
+    ]
+  },
+  "display": {
+    "showChapterProgress": true,
+    "showQuestTasks": true,
+    "showCompletedQuests": true,
+    "completionAnimation": true,
+    "theme": "minimal",
+    "compactMode": true
+  }
+}
+```
+
+Rules:
+
+- `maxPins` is always `5`.
+- No chapter pins are seeded automatically.
+- Empty pin configuration is valid.
+- Unresolved chapter IDs remain stored.
+- Display settings are always complete; no partial objects.
+- The port is persisted, but the default remains `8765`.
+
+### 8.2 Persistence behavior
+
+- Write to a temporary file in the same directory.
+- Flush, then rename over `config.json`.
+- Set mode `0600` where the platform supports it.
+- Keep the previous file if validation or write fails.
+- Never overwrite an invalid configuration file with defaults.
+- Report the exact path and validation failure at startup.
+- Serialize all writes through one queue; no concurrent partial writes.
+
+### 8.3 Migration
+
+`version: 1` is the initial format. A future migration must:
+
+1. read and validate the old file,
+2. transform explicitly,
+3. write the new version atomically,
+4. preserve unresolved chapter IDs and display settings.
+
+Unknown newer versions fail closed with a clear message.
+
+---
+
+## 9. Chapter pin operations
+
+Pure functions in `chapter-pins.ts` operate on a validated config and return a
+new config or a typed error.
+
+### Pin
+
+- Reject a duplicate chapter ID: `duplicate_chapter`.
+- Reject more than five pins: `too_many_pins`.
+- Reject an ID absent from the live catalog: `unknown_chapter`.
+- Append at the end.
+- Normalize positions.
+
+### Unpin
+
+- Reject an ID not currently pinned: `not_pinned`.
+- Allow unpinning an unresolved ID.
+- Normalize positions.
+
+### Reorder
+
+- Require exactly the current pinned ID set.
+- Reject additions, removals, duplicates, and more than five IDs:
+  `invalid_reorder_set`.
+- Assign positions from array order.
+
+### Persistence and broadcast
+
+For every successful mutation:
+
+1. apply the operation;
+2. validate the complete config;
+3. persist atomically;
+4. update state revision;
+5. broadcast `chapter.pins.update` and/or `state.update`;
+6. let the requesting dashboard learn the authoritative result from the
+   broadcast.
+
+A failed persistence step must leave state unchanged and return
+`invalid_request` or an internal error without a partial broadcast.
+
+### Display configuration
+
+`config.update` from a control client must carry the complete `DisplayConfig`.
+Unknown fields, partial objects, and invalid theme values are rejected. On
+success, persist atomically and broadcast `config.update` plus the new revision.
+
+---
+
+## 10. Chapter resolution
+
+The resolver joins:
+
+- stored `chapterPins.pinnedChapters`;
+- the latest catalog from `minecraft.snapshot` or `chapter.catalog`.
+
+For each configured pin:
+
+- if the ID exists, expose the catalog chapter;
+- if it does not, expose an unresolved entry preserving the ID and position.
+
+Rules:
+
+- Never delete an unresolved pin.
+- Never substitute a different chapter.
+- Never reorder based on catalog order; configuration order wins.
+- If no catalog has ever been received, every pin is unresolved and the UI sees
+  the disconnected/synchronizing state.
+- Resolution is recomputed after a snapshot, catalog change, config mutation, or
+  restart.
+
+---
+
+## 11. State store and broadcasting
+
+### 11.1 State
+
+The host owns one normalized `AppState`:
+
+```typescript
+interface AppState {
+  revision: number;
+  connection: ConnectionState;
+  minecraft: MinecraftIdentity;
+  chapters: Chapter[];
+  quests: Quest[];
+  unresolvedPinnedQuestIds: string[];
+  chapterPins: ChapterPinConfig;
+  display: DisplayConfig;
+}
+```
+
+The state store:
+
+- starts at revision `0`;
+- increments revision once per committed state change;
+- retains the last Minecraft snapshot across disconnect, marked stale;
+- never fabricates progression;
+- clears or replaces data only after a new publisher's first valid snapshot;
+- recomputes chapter-pin resolution on relevant changes.
+
+### 11.2 Update behavior
+
+Send a full `state.snapshot`:
+
+- immediately after a browser hello;
+- after the first Minecraft snapshot;
+- after quest reload, world change, team change, or publisher reconnect;
+- after host recovery;
+- in response to `state.resync`.
+
+Send `state.update` only for changed sections. Section messages
+(`chapter.pins.update`, `config.update`, `connection.status`) are allowed for
+the same change, but the revision must remain consistent.
+
+Never broadcast unchanged state on a timer.
+
+### 11.3 Sequence and revision
+
+- Browser connection sequence starts at `1` and increments per message.
+- Browser revision starts at the host's current revision.
+- A gap in host-to-browser sequence causes `state.resync`.
+- A gap in revision also causes `state.resync`.
+- Duplicate/stale browser requests are rejected or ignored without mutation.
+
+---
+
+## 12. WebSocket roles and lifecycle
+
+### 12.1 Minecraft publisher
+
+- One active publisher. A second connection is rejected with
+  `invalid_request`.
+- First message must be `minecraft.hello`, sequence `1`, within 5 s.
+- Validate protocol version and session ID.
+- Reply with `host.welcome`.
+- Require `minecraft.snapshot` before treating progression as ready.
+- Track sequence gaps; request `host.request_snapshot` with
+  `reason: "sequence_gap"`.
+- Enforce `sessionId` consistency.
+- On socket close: retain the snapshot, mark stale, then disconnected.
+- On heartbeat timeout: stale at 10 s, disconnected at 15 s.
+- A new publisher clears the stale state only after its first valid snapshot.
+- A full snapshot replaces catalog, objectives, identity, and pin IDs
+  atomically.
+
+### 12.2 Browser clients
+
+- First message must be `browser.hello` with `role: "overlay"` or `"control"`.
+- Authenticate the transport before trusting the role.
+- Send `state.snapshot` immediately after hello.
+- Overlay: read-only; mutation attempts return `unauthorized`.
+- Control: may pin, unpin, reorder, and update display config.
+- Browser disconnect never changes host state.
+- OBS refresh must not require a new Minecraft snapshot.
+- At most 20 new browser connections per minute.
+
+### 12.3 Limits
+
+- Maximum WebSocket message: 256 KiB.
+- Maximum HTTP request body: 64 KiB.
+- Reject binary frames.
+- Reject fragmented messages if they exceed the limit.
+- Rate-limit control mutations.
+
+---
+
+## 13. HTTP, authentication, and static serving
+
+### 13.1 Listener
+
+- Bind only to `127.0.0.1`.
+- Default port `8765`.
+- Validate the `Host` header against loopback names.
+- Reject unknown upgrade paths.
+- No arbitrary filesystem paths, shell endpoints, or proxying.
+
+### 13.2 Token bootstrap
+
+Adopt Proposal B:
+
+- `overlayToken`, `controlToken`, `minecraftToken` generated on first run.
+- Stored in `tokens.json` with mode `0600`.
+- Browser opens `/overlay?token=<overlayToken>` or
+  `/control?token=<controlToken>`.
+- Host validates the token, sets an `HttpOnly`, `SameSite=Strict` role cookie,
+  and redirects to the clean URL.
+- WebSocket authenticates from the cookie.
+- Minecraft uses a dedicated bearer token and no browser cookie.
+- Compare tokens with a timing-safe comparison.
+- Set `Referrer-Policy: no-referrer` on the bootstrap redirect and pages so the
+  tokenized URL does not leak through referrers.
+- Tokens never appear in rendered HTML, JavaScript bundles, or logs.
+- If OBS clears cookies, the tokenized URL remains the recovery path.
+
+### 13.3 Static frontend
+
+Phase 2 should:
+
+- serve `index.html`, JS, CSS, and assets from a configured build directory;
+- return a clear placeholder for `/overlay` and `/control` if the build is
+  absent;
+- avoid inventing a second web server;
+- use a static SvelteKit build once Phase 3 provides one.
+
+The placeholder must not contain tokens or fake progression.
+
+### 13.4 Health
+
+Add a minimal loopback `/health` endpoint returning host status and version.
+It must not expose configuration, tokens, player names, or server addresses.
+
+---
+
+## 14. Testing strategy
+
+### 14.1 Unit tests
+
+- Config schema: valid, invalid, missing fields, unknown fields.
+- Atomic save and load round-trip.
+- Invalid config is preserved and reported.
+- Pin, unpin, reorder, duplicate, five-limit, unresolved IDs.
+- Position normalization.
+- Resolver with empty, partial, missing, and full catalogs.
+- State revision increments only on real changes.
+- Staleness transitions.
+- Auth token generation, cookie parsing, role checks.
+- Host/origin validation.
+
+### 14.2 WebSocket integration tests
+
+Use an ephemeral loopback port and a temporary config directory.
+
+- Start host with no Minecraft data; browser receives an empty snapshot.
+- Mock publisher connects; hello/welcome; snapshot reaches a browser.
+- Browser refresh receives the retained snapshot without a new snapshot.
+- Pin/unpin/reorder persists and broadcasts.
+- More than five pins rejected.
+- Duplicate chapter rejected.
+- Unresolved pin survives a catalog reload and restart.
+- Sequence gap triggers `host.request_snapshot`.
+- Browser sequence/revision gap triggers `state.resync`.
+- Overlay mutation rejected.
+- Second publisher rejected.
+- Disconnect retains stale state; reconnect replaces it.
+- Host restart recovers configuration and serves empty state until a new
+  snapshot arrives.
+
+### 14.3 Security tests
+
+- Missing/invalid overlay token.
+- Missing/invalid control token.
+- Control token cannot authorize overlay-only actions incorrectly.
+- Cross-role token rejected.
+- Invalid `Host` header rejected.
+- Disallowed Origin rejected.
+- Oversized message rejected.
+- Mutation rate limit.
+- Tokens never logged.
+
+### 14.4 Test tools
+
+- Small test WebSocket client using `ws`.
+- Shared host factory with injected config directory, clock, and timers.
+- Reuse `@questbridge/mock-publisher` scenarios.
+- No browser test required until Phase 3.
+
+---
+
+## 15. Milestones
+
+Each milestone must be independently testable and committed.
+
+### 2A — Host package and process shell
+
+- Create `packages/host` workspace.
+- Add build/test config.
+- Start HTTP server on loopback with `/health`.
+- Graceful shutdown.
+- CLI and configuration of port/config directory.
+
+**Exit:** host builds, starts, reports health, and exits cleanly; tests cover
+binding and shutdown.
+
+### 2B — Configuration store and chapter-pin operations
+
+- Zod config schema and defaults.
+- Platform config paths.
+- Atomic persistence and invalid-file preservation.
+- Pure pin/unpin/reorder operations.
+- Tests for limits, duplicates, normalization, and unresolved IDs.
+
+**Exit:** configuration survives restart; invalid config is not overwritten;
+five-pin and duplicate rules pass.
+
+### 2C — Chapter resolver and state store
+
+- Catalog/pin resolution.
+- Unresolved entries.
+- Revisioned state store.
+- Staleness and disconnect transitions.
+- Snapshot composition.
+
+**Exit:** state tests cover empty, unresolved, completed, locked, and stale
+cases; revisions only move on real changes.
+
+### 2D — Authentication and HTTP security
+
+- Token generation/storage.
+- Token-to-cookie bootstrap.
+- Role cookies and Minecraft bearer token.
+- `Host` and Origin checks.
+- Message and mutation limits.
+- Security tests.
+
+**Exit:** missing/cross-role tokens fail; valid tokens reach the correct role;
+tokens never appear in logs or static output.
+
+### 2E — Minecraft WebSocket session
+
+- `/ws` upgrade and first-message timeout.
+- Minecraft hello/session/sequence handling.
+- Snapshot/progress/pins/heartbeat ingestion.
+- Single-publisher enforcement.
+- Stale/disconnect lifecycle.
+- Gap-triggered snapshot requests.
+- Optional bearer-token support in the mock publisher.
+
+**Exit:** all mock scenarios connect and update host state; reconnects produce a
+fresh snapshot; no protocol errors.
+
+### 2F — Browser WebSocket session and mutations
+
+- Browser hello and roles.
+- Immediate state snapshot.
+- Sequence/revision tracking.
+- Read-only overlay enforcement.
+- Control mutations and persistence.
+- Broadcasts and resync.
+- Browser refresh behavior.
+
+**Exit:** overlay and control clients can be simulated; pins persist; mutation
+errors are correct; refresh gets current state without a Minecraft snapshot.
+
+### 2G — Static serving, integration, and hardening
+
+- Static build directory support and placeholders.
+- End-to-end host + mock publisher + browser-client tests.
+- Log redaction.
+- Graceful error handling.
+- Documentation and manual verification instructions.
+
+**Exit:** full host test suite passes; manual run with the mock publisher works;
+Phase 3 can point a Svelte build at the host without changing the transport.
+
+---
+
+## 16. Risks and mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Proposal B remains undecided | Host cannot be release-ready | Resolve before 2D; treat auth as a gate, not a follow-up |
+| Web-app uses `adapter-node` | Host cannot serve a static bundle | Switch to static output in Phase 3; Phase 2 placeholder |
+| Config corruption | User loses pins | Atomic write, validate-before-save, preserve invalid file |
+| Windows permission semantics | `0600` not fully enforceable | Use best-effort mode; restrict directory; document limitation |
+| Mutation races | Two dashboards overwrite each other | Serialize mutations; broadcast authoritative config |
+| Stale state shown as live | Incorrect overlay | Revisioned state plus stale/disconnected flags |
+| Mock success mistaken for real integration | False confidence | Keep mock and real adapter verification separate |
+| Sequence/revision gaps | Missed updates | Resync path and explicit tests |
+| Token leakage | Local privilege issue | Separate token file, redacted logs, no bundle embedding |
+
+---
+
+## 17. Acceptance criteria
+
+Phase 2 is complete when:
+
+- [ ] `packages/host` builds and tests pass.
+- [ ] The host binds only to `127.0.0.1`.
+- [ ] A mock publisher connects and its snapshot reaches a browser client.
+- [ ] A browser refresh receives the retained state without a new snapshot.
+- [ ] Chapter pins persist across host restart.
+- [ ] Pin, unpin, and reorder work; duplicates and six pins are rejected.
+- [ ] Display settings persist and broadcast after a valid `config.update`.
+- [ ] Unresolved chapter IDs survive config reload and catalog changes.
+- [ ] Overlay cannot mutate; control can.
+- [ ] Invalid versions, roles, sessions, messages, origins, and tokens are
+      rejected with the documented errors.
+- [ ] Stale and disconnected states are represented, not silently shown as live.
+- [ ] Sequence and revision gaps trigger a resync/snapshot request.
+- [ ] No tokens or sensitive data appear in logs.
+- [ ] Phase 3 can serve the Svelte routes through the host without changing the
+      protocol.
+
+Passing Phase 2 does not complete the UI, the real adapter, or the project
+Definition of Done.
+
+---
+
+## 18. First implementation action when approved
+
+Start with 2A only:
+
+1. Create the `packages/host` skeleton and workspace scripts.
+2. Add the loopback HTTP server and `/health`.
+3. Add graceful shutdown and a configurable port.
+4. Add host lifecycle tests.
+5. Do not add configuration, WebSocket roles, or authentication until 2A
+   passes.
+
+This keeps the first increment small and verifiable.

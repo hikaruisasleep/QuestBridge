@@ -1,20 +1,22 @@
 # Stage 4 Plan — Minecraft Adapter, Real Data First
 
-**Status:** Stage 4A implemented and building; live in-client verification is pending. No network code has been added.
+**Status:** Stage 4A implemented, built, and verified against the live client. Stage 4B–4F are pending; no network code has been added.
 **Date:** 2026-11-06
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
-**Sequencing decision:** Phase 2 (host core) and Phase 3 (Svelte UI) are deferred. Stage 4 proceeds against the standalone mock collector until a host exists.
+**Sequencing decision:** Stage 4A was completed before the host. Phase 2 (host core) is now planned in `docs/phase-2-plan.md`; Phase 3 (Svelte UI) remains deferred.
 
 ---
 
 ## 1. Decision
 
-The normal Proposal C order is protocol → host → dashboard → adapter. That order is now changed by explicit product decision:
+The normal Proposal C order is protocol → host → dashboard → adapter. Stage 4A was started first by explicit product decision:
 
 1. Keep the completed protocol and mock collector.
-2. Defer the host and Svelte routes.
-3. Build the Minecraft adapter next.
-4. Validate it against the standalone collector at `ws://127.0.0.1:8765/ws`.
+2. Build and verify the client-side live probe first.
+3. Defer the host and Svelte routes during Stage 4A.
+4. Validate later adapter stages against the standalone collector at `ws://127.0.0.1:8765/ws`.
+
+Phase 2 planning has now begun; Stage 4B–4F remain pending until the real adapter is resumed.
 
 The protocol does not change. The adapter emits the same v1 messages the mock publisher emits. The collector already validates them, so it is a sufficient first integration target.
 
@@ -357,9 +359,11 @@ Each milestone has a real-data exit criterion. Do not build later milestones bef
 
 ### 4A — Live FTB probe, no network
 
-**Implementation status (2026-11-06):** Implemented in `minecraft-mod/`;
-`./gradlew build` succeeds and produces `build/libs/questbridge-0pre.1.jar`.
-Live client capture has not been run yet.
+**Implementation status (2026-11-06):** Implemented and verified in
+`minecraft-mod/`; `./gradlew build` succeeds and produces
+`build/libs/questbridge-0pre.1.jar`. The live client capture is recorded in
+`docs/testing-logs/2026-11-06-1.log`: 55 chapters, the five expected chapters,
+and a real manual pin with task progress were observed.
 
 Implemented pieces:
 
@@ -390,6 +394,10 @@ Exit criterion:
 - At least one manual pin and one task progress value are real, not fixture data.
 
 This is the fastest point at which “we are reading real Minecraft data” is true.
+
+**Exit criterion status (2026-11-06):** Met. The captured log shows the five
+expected chapter IDs and titles, a real manual pin (`Easy Ore Duping`), and
+task progress values from the installed pack.
 
 ### 4B — Normalized snapshot and JSON
 

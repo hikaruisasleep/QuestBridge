@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 and Phase 3 are deferred by product decision; Stage 4A is implemented and Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phases 2–3 are deferred. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is planned in `docs/phase-2-plan.md` but not started; Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is planned but not started; Phase 3 is deferred. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -78,7 +78,10 @@ questbridge/
 │   ├── chapter-pinning.md
 │   ├── protocol.md
 │   ├── development.md
-│   └── phase-4-plan.md
+│   ├── versioning.md
+│   ├── phase-2-plan.md
+│   ├── phase-4-plan.md
+│   └── testing-logs/
 │
 └── ...
 ```
@@ -883,7 +886,7 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. By explicit product decision, Phase 2 (host) and Phase 3 (dashboard) are deferred; Phase 4 (Minecraft adapter) is planned in `docs/phase-4-plan.md` and targets the standalone collector first. Stage 4A (the client-only live probe) is implemented and builds; live in-client verification and Stage 4B–4F are pending.
+Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. Phase 4 (Minecraft adapter) was started first by explicit product decision and is planned in `docs/phase-4-plan.md`. Stage 4A (the client-only live probe) is implemented, builds, and is verified against the live client. Stage 4B–4F are pending. Phase 2 (host) is now planned in `docs/phase-2-plan.md`; Phase 3 remains deferred.
 
 Current build state, verified 2026-11-06:
 
@@ -930,7 +933,7 @@ The web-app scaffold uses Vitest browser mode. On a fresh machine, install its C
 npx playwright install chromium
 ```
 
-`npm run collect` starts the standalone collector at `ws://127.0.0.1:8765/ws`. Run `npm run mock` in a second terminal to feed it. The actual host is Phase 2 work; the collector is the supported end-to-end path until then.
+`npm run collect` starts the standalone collector at `ws://127.0.0.1:8765/ws`. Run `npm run mock` in a second terminal to feed it. The actual host is Phase 2 work and is not implemented; the collector remains the supported end-to-end path until then.
 
 ---
 

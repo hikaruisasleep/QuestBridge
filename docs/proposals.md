@@ -1,6 +1,6 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied; Proposal D applied; Proposal B awaiting decision  
+**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied and Phase 2 planned; Proposal D applied; Proposal B awaiting decision
 **Date:** 2026-11-06  
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.  
 **Phase 5 prerequisite:** The target pack is now installed locally as a Prism Launcher instance (ATM10SKY 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250). The Phase 5 exit criterion no longer depends on obtaining a pack installation; it depends on running the adapter against this one. See `docs/ftb-quests-integration.md` sections 1.1-1.3.  
@@ -200,6 +200,8 @@ Implement in this order:
 
 ### Phase 2 — Host core
 
+**Status:** Planned, not started. See `docs/phase-2-plan.md`.
+
 - Configuration store with atomic persistence and migrations.
 - State store and revision tracking.
 - Chapter resolver with unresolved entries.
@@ -222,7 +224,7 @@ Implement in this order:
 
 ### Phase 4 — Minecraft adapter
 
-**Status:** Prepared, not started. Phase 2 and Phase 3 are deferred by explicit product decision, so Phase 4 will target the standalone collector first. See `docs/phase-4-plan.md`.
+**Status:** Stage 4A implemented and verified; Stage 4B–4F planned. Phase 2 is now planned, and Phase 3 remains deferred. See `docs/phase-4-plan.md`.
 
 - Client-only NeoForge mod.
 - Isolated FTB adapter interface and exact-version implementation.
@@ -273,7 +275,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. By explicit product decision, Phase 2 (host) and Phase 3 (Svelte UI) are deferred; Phase 4 (Minecraft adapter) has a written plan in `docs/phase-4-plan.md` and no implementation yet. Phases 5–6 have not started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stage 4B–4F remain planned. Phase 2 (host core) is now planned in `docs/phase-2-plan.md`; Phase 3 (Svelte UI) remains deferred. Phases 5–6 have not started. The three documents are now written.
 
 ### Impact if adopted
 

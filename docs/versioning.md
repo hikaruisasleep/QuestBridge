@@ -3,7 +3,7 @@
 **Status:** Active policy  
 **Current documented version:** `0pre.1`  
 **Date:** 2026-11-06  
-**Applies to:** the Minecraft mod version, its artifact name, and any component that needs a development version.
+**Applies to:** the Minecraft mod version and its artifact name. Private npm workspace packages keep independent SemVer versions; they do not use `0pre.<minor>`.
 
 This project does not use SemVer during pre-Done development. Use the custom
 form below exactly; do not normalize it to `0.0.0-pre.N`.
