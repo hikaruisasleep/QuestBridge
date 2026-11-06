@@ -47,6 +47,8 @@ export interface CreateHostOptions {
   createBrowserSession?: BrowserSessionFactory;
   /** First-message deadline. Defaults to the protocol's 5 s. */
   helloTimeoutMs?: number;
+  /** Built frontend directory to serve `/overlay` and `/control` from. */
+  buildDir?: string;
   /** Injectable clock for deterministic staleness tests. */
   now?: () => number;
 }
@@ -204,6 +206,7 @@ export async function createHost(options: CreateHostOptions = {}): Promise<Host>
     logger,
     tokens: tokenStore,
     ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.buildDir === undefined ? {} : { buildDir: options.buildDir }),
     configure: (server: Server) => {
       websocket = attachWebSocketServer(server, {
         tokens: tokenStore,

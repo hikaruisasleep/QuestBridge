@@ -2,14 +2,20 @@ import type { IncomingMessage, RequestListener, ServerResponse } from "node:http
 
 import { HEALTH_PATH, LOOPBACK_HOSTNAMES } from "./constants.js";
 import type { Logger } from "./logging.js";
+import { serveStatic } from "./static.js";
+import { checkHttpBodySize } from "./validation.js";
 
 /**
  * Plain HTTP request handling.
  *
- * Phase 2A serves only `/health`. Every request is subject to `Host` header
- * validation against loopback names; that check is what defeats DNS rebinding
- * (`docs/local-authentication.md` §5) and it belongs on the listener rather
- * than on any individual route.
+ * Every request is subject to `Host` header validation against loopback names;
+ * that check is what defeats DNS rebinding (`docs/local-authentication.md` §5)
+ * and it belongs on the listener rather than on any individual route.
+ *
+ * Only `/health` and the browser routes are handled here. Page requests are
+ * deliberately **not** authenticated: the shell is static and carries no state,
+ * and gating it would replace a legible in-app message with a bare `401` body.
+ * All real authorization happens on the WebSocket upgrade.
  */
 
 export interface HttpHandlerDeps {
@@ -17,6 +23,8 @@ export interface HttpHandlerDeps {
   /** Process start time in epoch milliseconds, used for uptime reporting. */
   startedAtMs: number;
   logger: Logger;
+  /** Built frontend directory, if one exists. */
+  buildDir?: string;
 }
 
 export interface HealthPayload {
@@ -95,7 +103,7 @@ function sendJson(
 }
 
 export function createHttpHandler(deps: HttpHandlerDeps): RequestListener {
-  const { version, startedAtMs, logger } = deps;
+  const { version, startedAtMs, logger, buildDir } = deps;
 
   return (req: IncomingMessage, res: ServerResponse): void => {
     const method = req.method ?? "GET";
@@ -110,6 +118,26 @@ export function createHttpHandler(deps: HttpHandlerDeps): RequestListener {
     }
 
     const path = pathnameOf(req.url ?? "/");
+
+    // Body handling is a transport concern, so it is decided before routing:
+    // no Phase 2 route accepts a request body, and an oversized one must be
+    // refused as too large rather than reported as a routing or method error.
+    const contentLength = req.headers["content-length"];
+    const declaredLength = typeof contentLength === "string" ? contentLength : undefined;
+    const hasBody =
+      (declaredLength !== undefined && declaredLength !== "0") ||
+      req.headers["transfer-encoding"] !== undefined;
+
+    if (hasBody) {
+      const verdict = checkHttpBodySize(declaredLength);
+      if (!verdict.ok) {
+        logger.warn(`rejected request body: ${verdict.message}`);
+        sendJson(res, 413, { error: "payload_too_large" }, headOnly);
+        return;
+      }
+      sendJson(res, 405, { error: "method_not_allowed" }, headOnly);
+      return;
+    }
 
     if (path === HEALTH_PATH) {
       if (method !== "GET" && !headOnly) {
@@ -127,6 +155,26 @@ export function createHttpHandler(deps: HttpHandlerDeps): RequestListener {
       return;
     }
 
-    sendJson(res, 404, { error: "not_found" }, headOnly);
+    if (method !== "GET" && !headOnly) {
+      res.writeHead(405, { allow: "GET, HEAD", "content-length": 0 });
+      res.end();
+      return;
+    }
+
+    void serveStatic({ buildDir, logger }, path, res, headOnly)
+      .then((result) => {
+        if (!result.served) {
+          sendJson(res, 404, { error: "not_found" }, headOnly);
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`static serving failed for ${path}: ${message}`);
+        if (!res.headersSent) {
+          sendJson(res, 500, { error: "internal_error" }, headOnly);
+        } else {
+          res.end();
+        }
+      });
   };
 }

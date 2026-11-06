@@ -23,15 +23,20 @@ Usage:
 Options:
   --port <number>        Loopback port (default: ${DEFAULT_PORT}; 0 chooses a free port)
   --config-dir <path>    Configuration directory (overrides ${CONFIG_DIR_ENV})
+  --build-dir <path>     Built frontend directory to serve /overlay and /control from
   --print-urls           Print the overlay and dashboard access URLs, then exit
   --help                 Show this help
 
 The host binds 127.0.0.1 only and never 0.0.0.0.
+
+Without --build-dir the browser routes return a placeholder explaining that the
+frontend is not built. The host never serves fake progression.
 `;
 
 export interface CliOptions {
   port: number;
   configDir: string | undefined;
+  buildDir: string | undefined;
 }
 
 export interface ParsedCliRun {
@@ -77,6 +82,7 @@ export function parseCliOptions(argv: string[]): CliParseResult {
     options: {
       port: { type: "string" },
       "config-dir": { type: "string" },
+      "build-dir": { type: "string" },
       "print-urls": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -89,13 +95,14 @@ export function parseCliOptions(argv: string[]): CliParseResult {
   }
 
   const configDir = values["config-dir"];
+  const buildDir = values["build-dir"];
   const port = parsePort(values.port);
 
   if (values["print-urls"] === true) {
     return { kind: "print-urls", configDir, port };
   }
 
-  return { kind: "run", options: { port, configDir } };
+  return { kind: "run", options: { port, configDir, buildDir } };
 }
 
 /** Resolve the configuration directory, honouring the CLI override. */
@@ -143,6 +150,7 @@ export async function run(options: CliOptions): Promise<Host> {
     paths,
     port: options.port,
     logger,
+    ...(options.buildDir === undefined ? {} : { buildDir: options.buildDir }),
   });
 
   logger.info(`QuestBridge host ${host.version} listening on ${host.url}`);

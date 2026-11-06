@@ -37,6 +37,8 @@ export interface StartHostOptions {
    * Used to terminate WebSocket peers so shutdown does not wait on them.
    */
   onClose?: () => Promise<void>;
+  /** Built frontend directory, if one exists. */
+  buildDir?: string;
   /** Override for tests that need deterministic uptime output. */
   now?: () => number;
 }
@@ -70,7 +72,12 @@ export async function startHost(options: StartHostOptions): Promise<HostHandle> 
   const startedAtMs = now();
 
   const server = createServer(
-    createHttpHandler({ version: HOST_VERSION, startedAtMs, logger }),
+    createHttpHandler({
+      version: HOST_VERSION,
+      startedAtMs,
+      logger,
+      ...(options.buildDir === undefined ? {} : { buildDir: options.buildDir }),
+    }),
   );
 
   // Do not let a slow or malicious local peer hold a connection open forever.
