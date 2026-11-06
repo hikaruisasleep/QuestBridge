@@ -148,6 +148,14 @@ export async function playOverWebSocket(
     onSend?: (message: ProtocolMessage) => void;
     onTransportError?: (error: Error) => void;
     signal?: AbortSignal;
+    /**
+     * Minecraft bearer token for the authenticated host.
+     *
+     * Optional so the same scenarios keep working against the unauthenticated
+     * standalone collector. Sent as an `Authorization: Bearer` header, matching
+     * `docs/local-authentication.md` §3.2.
+     */
+    token?: string;
   },
 ): Promise<void> {
   const speed = options.speed ?? 1;
@@ -157,7 +165,12 @@ export async function playOverWebSocket(
 
   await playScenario(scenario, {
     open: () =>
-      openWebSocketTransport(options.url, options.onSend, options.onTransportError),
+      openWebSocketTransport(
+        options.url,
+        options.onSend,
+        options.onTransportError,
+        options.token,
+      ),
     sleep: (ms) => delay(Math.max(0, Math.round(ms / speed)), options.signal),
     signal: options.signal,
   });
@@ -167,11 +180,13 @@ export function openWebSocketTransport(
   url: string,
   onSend?: (message: ProtocolMessage) => void,
   onTransportError?: (error: Error) => void,
+  token?: string,
 ): Promise<ScenarioTransport> {
   return new Promise<ScenarioTransport>((resolve, reject) => {
     const socket = new WebSocket(url, {
       perMessageDeflate: false,
       maxPayload: MAX_MESSAGE_BYTES,
+      ...(token === undefined ? {} : { headers: { authorization: `Bearer ${token}` } }),
     });
 
     const handleInitialError = (error: Error): void => {

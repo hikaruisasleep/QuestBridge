@@ -6,7 +6,7 @@ import { CONFIG_DIR_ENV, resolveConfigPaths } from "./paths.js";
 import { DEFAULT_PORT, HEALTH_PATH } from "./constants.js";
 import { createLogger } from "./logging.js";
 import { TokenStore, formatAccessUrls } from "./auth.js";
-import { startHost, type HostHandle } from "./server.js";
+import { createHost, type Host } from "./host.js";
 
 /**
  * Host CLI entry point.
@@ -129,16 +129,21 @@ export async function printUrls(configDir: string | undefined, port: number): Pr
  * Start the host and resolve once it is listening.
  *
  * Shared by the CLI and integration tests so both exercise the same path.
+ * This must go through `createHost`, which attaches the WebSocket transport
+ * before the listener binds; starting the bare HTTP listener would leave every
+ * `/ws` upgrade unanswered.
  */
-export async function run(options: CliOptions): Promise<HostHandle> {
+export async function run(options: CliOptions): Promise<Host> {
   const logger = createLogger();
   const paths = pathsFor(options.configDir);
 
   logger.info(`config directory: ${paths.directory} (${paths.source})`);
 
-  const tokens = await TokenStore.load({ filePath: paths.tokensFile, logger });
-
-  const host = await startHost({ port: options.port, logger, tokens });
+  const host = await createHost({
+    paths,
+    port: options.port,
+    logger,
+  });
 
   logger.info(`QuestBridge host ${host.version} listening on ${host.url}`);
   logger.info(`health: ${host.url}${HEALTH_PATH}`);
@@ -148,7 +153,7 @@ export async function run(options: CliOptions): Promise<HostHandle> {
 }
 
 /** Install SIGINT/SIGTERM handlers that close the host once. */
-export function installSignalHandlers(host: HostHandle): void {
+export function installSignalHandlers(host: Host): void {
   let shuttingDown = false;
 
   const shutdown = (signal: string): void => {

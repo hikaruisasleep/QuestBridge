@@ -20,9 +20,23 @@ export interface StartHostOptions {
   logger?: Logger;
   /**
    * Token store used to authorise connections. Omitted only by tests that
-   * exercise the listener before 2D wiring; the WebSocket layer requires it.
+   * exercise the bare listener; the WebSocket layer requires it.
    */
   tokens?: TokenStore;
+  /**
+   * Runs after the HTTP server is created but before it starts listening.
+   *
+   * This is where the WebSocket upgrade handler is attached. Attaching before
+   * `listen` closes a race in which an upgrade could arrive before the handler
+   * was registered.
+   */
+  configure?: (server: Server) => void;
+  /**
+   * Cleanup to run at the start of `close`, before the listener is released.
+   *
+   * Used to terminate WebSocket peers so shutdown does not wait on them.
+   */
+  onClose?: () => Promise<void>;
   /** Override for tests that need deterministic uptime output. */
   now?: () => number;
 }
@@ -71,6 +85,10 @@ export async function startHost(options: StartHostOptions): Promise<HostHandle> 
     }
   });
 
+  // Attach the upgrade handler before listening so no connection can arrive
+  // before it is registered.
+  options.configure?.(server);
+
   // Bind to the loopback address only. `AGENTS.md` §13 forbids `0.0.0.0`, and
   // `docs/local-authentication.md` §1 relies on no remote traffic arriving.
   server.listen({ host: LOOPBACK_ADDRESS, port: options.port });
@@ -97,18 +115,21 @@ export async function startHost(options: StartHostOptions): Promise<HostHandle> 
       return closing;
     }
 
-    closing = new Promise<void>((resolve, reject) => {
-      // `closeAllConnections` is required because keep-alive sockets would
-      // otherwise hold shutdown open until their timeout expires.
+    closing = (async (): Promise<void> => {
+      // Terminate WebSocket peers before closing the listener, so a graceful
+      // shutdown does not wait on an idle socket's keep-alive timeout.
+      await options.onClose?.();
       server.closeAllConnections();
-      server.close((error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
       });
-    });
+    })();
 
     return closing;
   };

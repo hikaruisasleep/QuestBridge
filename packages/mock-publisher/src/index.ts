@@ -18,8 +18,13 @@ Options:
   --scenario <name>   Scenario to play (required)
   --url <ws-url>      Host WebSocket URL (default: ${DEFAULT_URL})
   --speed <factor>    Playback speed multiplier (default: 1)
+  --token <value>     Minecraft bearer token for an authenticated host
   --list              List available scenarios
   --help              Show this help
+
+The token may also be supplied through the QUESTBRIDGE_MINECRAFT_TOKEN
+environment variable. Without a token the mock connects unauthenticated, which
+is what the standalone collector expects.
 
 Scenarios:
   ${SCENARIO_NAMES.join(", ")}
@@ -70,6 +75,7 @@ export async function main(argv: string[]): Promise<void> {
       scenario: { type: "string" },
       url: { type: "string" },
       speed: { type: "string" },
+      token: { type: "string" },
       list: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -100,6 +106,7 @@ export async function main(argv: string[]): Promise<void> {
   const url = assertLoopbackUrl(values.url ?? DEFAULT_URL);
   const speed = parseSpeed(values.speed);
   const scenario = buildScenario(scenarioName);
+  const token = values.token ?? process.env["QUESTBRIDGE_MINECRAFT_TOKEN"];
 
   const controller = new AbortController();
   const onSigint = (): void => {
@@ -109,7 +116,8 @@ export async function main(argv: string[]): Promise<void> {
   process.once("SIGINT", onSigint);
 
   process.stdout.write(
-    `QuestBridge mock publisher: scenario=${scenarioName} url=${url.toString()} speed=${speed}\n`,
+    `QuestBridge mock publisher: scenario=${scenarioName} url=${url.toString()} speed=${speed}` +
+      `${token === undefined ? "" : " auth=bearer"}\n`,
   );
 
   try {
@@ -118,6 +126,7 @@ export async function main(argv: string[]): Promise<void> {
       speed,
       signal: controller.signal,
       onSend: logMessage,
+      ...(token === undefined ? {} : { token }),
       onTransportError: (error) => {
         process.stderr.write(`transport error: ${error.message}\n`);
       },
