@@ -3,7 +3,7 @@
 **Status:** Protocol v1 is implemented in `@questbridge/protocol` and exercised by `@questbridge/mock-publisher` (Phase 1). The FTB Quests adapter is not yet implemented; runtime compatibility is Phase 4–5 work. The specification is informed by the FTB Quests `v2101.1.30` source. MVP priority is reading FTB’s manually pinned quests from client memory and displaying completion for the selected chapters; auto-pin behavior is explicitly deferred.
 **Date:** 2026-11-06
 **Applies to:** the Minecraft adapter, the mock publisher, the host, and the Svelte frontend.
-**Security note:** Proposal B (token and cookie transport authentication) was adopted with revisions on 2026-11-06; the normative design is `docs/local-authentication.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
+**Security note:** Proposal B (token transport authentication) was adopted on 2026-11-06 and simplified to two tokens with no cookies; the normative design is `docs/local-authentication.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
 
 This document is the normative contract between the four components. Where it disagrees with `docs/architecture.md`, this document is more specific; where it disagrees with `AGENTS.md`, `AGENTS.md` wins.
 
@@ -1250,7 +1250,7 @@ Verified on 2026-11-06. Passing Phase 1 does not establish FTB Quests compatibil
 
 These are intentionally unresolved and must not be silently decided during implementation:
 
-1. **Transport authentication.** Token set, cookie flow, endpoint paths, and origin rules are specified in `docs/local-authentication.md`. Role claims are enforced, but tokens are not bound to roles (accepted risk R1), and origin matching ignores the port (accepted risk R2). The protocol assumes an authenticated role.
+1. **Transport authentication.** Token set, endpoint paths, and origin rules are specified in `docs/local-authentication.md`. The browser token is validated on the WebSocket upgrade, and the role it declares is enforced but not bound to the token (accepted risk R1); origin matching ignores the port (accepted risk R2). The protocol assumes an authenticated role.
 2. **WebSocket paths.** One `/ws` endpoint with a role hello is assumed; separate per-role paths are possible without changing payloads.
 3. **`state.update` duplication.** The host may send section-specific messages in addition to `state.update`. Browsers must remain idempotent; a later cleanup may choose one form.
 4. **Optimistic concurrency.** `stale_revision` is reserved but unused; reorders currently apply to current state.

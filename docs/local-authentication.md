@@ -1,9 +1,9 @@
 # Local Authentication and Transport Security
 
-**Status:** Proposal B adopted with revisions on 2026-11-06. Normative for Phase 2 onward.
+**Status:** Proposal B adopted; simplified on 2026-11-06 to two tokens and no cookies. Normative for Phase 2 onward.
 **Date:** 2026-11-06
 **Applies to:** the QuestBridge host, the Minecraft adapter, the mock publisher, and the Svelte frontend.
-**Supersedes:** the “pending review” framing of Proposal B in `docs/proposals.md` §3 and `docs/architecture.md` §8.
+**Supersedes:** the “pending review” framing of Proposal B in `docs/proposals.md` §3 and `docs/architecture.md` §8, and the three-token cookie design previously recorded in this document.
 
 This document is the normative description of the QuestBridge local authentication and origin strategy required by `AGENTS.md` §13. Where it disagrees with `docs/architecture.md` §8 or `docs/proposals.md` §3, this document wins.
 
@@ -13,74 +13,92 @@ This document is the normative description of the QuestBridge local authenticati
 
 QuestBridge is a private, single-user application that runs only on the streamer's own machine. The primary control is that the host binds exclusively to `127.0.0.1`, so no traffic arrives from another machine.
 
-Within that boundary, the project deliberately prioritises speed and ease of use over defence in depth. The following are **accepted, intended behaviours**, not defects. They must not be tightened without an explicit product decision.
+Within that boundary the project deliberately prioritises speed and ease of use over defence in depth. Two consequences are **accepted, intended behaviours**, not defects. They must not be tightened without an explicit product decision.
 
 | ID | Accepted behaviour | Consequence |
 |---|---|---|
-| R1 | The host does not bind a token to a role. Any authenticated browser connection may declare `overlay` or `control` in `browser.hello`. | An overlay-token holder can obtain control (write) permission by declaring the `control` role. |
-| R2 | Origin allowlisting matches the loopback *hostname* only and ignores the port. | Any page served from `127.0.0.1` or `localhost` on any port may open a WebSocket to the host, provided it can present a token. |
-| R3 | Browsers do not scope cookies by port. | A QuestBridge cookie is also sent to other services listening on `127.0.0.1`. |
+| R1 | The browser token does not distinguish the `overlay` and `control` roles. | Any holder of the browser token may declare `control` and gain write access. The overlay/control split is a UI convention, not a security boundary. |
+| R2 | Origin allowlisting matches the loopback *hostname* only and ignores the port. | Any page served from `127.0.0.1` or `localhost` on any port may open a WebSocket to the host, provided it presents a token. |
 
-Rationale for R1: one person owns all three tokens on one machine, so a token-to-role check adds a configuration step — remembering which token belongs in which browser route — without removing a real attacker. Ease of use wins.
+Rationale for R1: one person owns the tokens on one machine, so a role-binding check would add a configuration step — remembering which token belongs in which browser route — without removing a real attacker. Ease of use wins.
 
 Rationale for R2: the overlay and dashboard are served from the same loopback address, and matching by port would break the ordinary case of running the dashboard from a development server on another port while working on Phase 3.
 
-What is **not** relaxed by R1–R3:
+### 1.1 What the credentials actually protect
+
+There are exactly two trust boundaries in this design, and therefore exactly two tokens:
+
+1. **Publisher vs. reader.** Only a peer holding `minecraftToken` may publish quest progression. Browsers can never write progression, and the adapter never reads browser state.
+2. **A page we handed a URL to vs. an arbitrary local page.** Loopback binding and `Host` validation stop remote traffic. The `browserToken` is what stops an unrelated local web page — which under R2 passes the origin check — from reading streamer state.
+
+`browserToken` is not a boundary between the overlay and the dashboard; per R1 that distinction does not exist at the transport layer. What `AGENTS.md` §13 requires is “separate Minecraft and dashboard permissions”, which is boundary 1, and that is preserved exactly.
+
+### 1.2 Why two tokens and not one
+
+The two surviving tokens are justified on a cost/benefit basis, and the dropped role split on the same basis. The asymmetry is the whole argument:
+
+| Credential | Usability cost | Security benefit | Verdict |
+|---|---|---|---|
+| overlay/control split | High — two URLs to obtain, label, and keep straight | None, because R1 does not enforce it | **Dropped** |
+| `minecraftToken` | None — machine-to-machine, configured once in the adapter, never typed by a person | Real — without it, any local process could connect as a publisher and inject fabricated quest data into the overlay | **Kept** |
+| `browserToken` | Low — one URL, pasted into OBS once | Real — under R2 an unrelated local page passes the origin check, so a token is the only thing preventing it from reading streamer state | **Kept** |
+
+Simplification should remove cost without removing benefit. The role split was pure cost under R1; `minecraftToken` is pure benefit at zero cost to a human. That is why the count lands at two.
+
+Note that direction-aware message parsing independently blocks a browser from publishing progression — `parseFrame(..., "browser_to_host")` rejects every `minecraft.*` type regardless of token. `minecraftToken` is what prevents an *unauthorised publisher* from connecting at all, which the message contract alone cannot do.
+
+What is **not** relaxed:
 
 - Loopback-only binding. The host never binds `0.0.0.0`.
 - `Host` header validation against loopback names.
 - Every inbound message validated against the direction-aware v1 schemas.
 - Message-size and rate limits.
 - No filesystem, shell, or arbitrary HTTP surface.
-- No credentials in bundles, rendered HTML, logs, or static output.
+- No credentials in frontend bundles, rendered HTML, or logs.
 - Timing-safe token comparison.
 
 ---
 
 ## 2. Tokens
 
-Three independent random tokens exist, one per transport role:
+Two tokens exist, one per trust boundary in §1.1:
 
-| Token | Intended role | Peer |
+| Token | Authorises | Peer |
 |---|---|---|
-| `overlayToken` | Overlay access (conventionally read-only) | OBS Browser Source or Chromium |
-| `controlToken` | Dashboard access (conventionally read/write) | Local dashboard |
-| `minecraftToken` | Publisher access | NeoForge mod or mock publisher |
-
-The intended role is a convention the UI respects; per accepted risk R1, either browser token authorises either browser role. `minecraftToken` is the one credential that is a genuine boundary, because it is the only one that authorises publishing Minecraft progression.
+| `browserToken` | Reading state; declaring either browser role | OBS Browser Source, Chromium, local dashboard |
+| `minecraftToken` | Publishing Minecraft state and progression | NeoForge mod or mock publisher |
 
 Generation and storage:
 
-- 32 random bytes from a CSPRNG, encoded as `base64url` (256-bit, URL-safe, so a bootstrap URL needs no percent-encoding).
+- 32 random bytes from a CSPRNG, encoded as `base64url` (256-bit, URL-safe, so a token needs no percent-encoding in a URL).
 - Generated on first run and on token-file recovery.
 - Stored in a dedicated `tokens.json` with mode `0600`, deliberately separate from `config.json` so configuration files can be inspected without exposing credentials:
 
 ```json
 {
   "version": 1,
-  "overlayToken": "…",
-  "controlToken": "…",
+  "browserToken": "…",
   "minecraftToken": "…"
 }
 ```
 
-- Compared with a timing-safe comparison. Hash both the presented and the stored value with SHA-256 and compare the digests with `crypto.timingSafeEqual`, which avoids the equal-length precondition that the raw function imposes.
-- Never logged, never embedded in HTML or JavaScript bundles, and never written to static output.
+- Compared with a timing-safe comparison: hash both the presented and the stored value with SHA-256 and compare the digests with `crypto.timingSafeEqual`, which avoids the equal-length precondition that the raw function imposes.
+- Never logged and never embedded in HTML or JavaScript bundles.
 
 ### 2.1 Bootstrap URL output
 
-A documented CLI command prints the tokenized URLs to **stdout only**, never to a log file:
+A documented CLI command prints the URLs to **stdout only**, never to a log file:
 
 ```text
 questbridge-host --print-urls
 
-Overlay:   http://127.0.0.1:8765/overlay?token=<overlayToken>
-Dashboard: http://127.0.0.1:8765/control?token=<controlToken>
+Overlay:   http://127.0.0.1:8765/overlay?token=<browserToken>
+Dashboard: http://127.0.0.1:8765/control?token=<browserToken>
 ```
 
-The tokenized URL is the permanent recovery path. Nothing else needs to be memorised.
+Both routes use the same token. The printed URL is the permanent access path: it is what OBS keeps as its source URL, and what a user bookmarks.
 
-### 2.2 Token-file recovery (revision 3)
+### 2.2 Token-file recovery
 
 Tokens are regenerable credentials; chapter pins are not. The two files therefore take **opposite** failure rules, and this asymmetry is intentional:
 
@@ -95,82 +113,75 @@ If a fresh `tokens.json` cannot be written — for example a permissions failure
 
 ---
 
-## 3. Browser bootstrap flow
+## 3. Transport authentication
 
-1. OBS or the user opens `/overlay?token=<overlayToken>` or `/control?token=<controlToken>`.
-2. The host validates the token with a timing-safe comparison.
-3. On success it sets a cookie (see §3.1) and redirects to the clean URL.
-4. The page's WebSocket authenticates from the cookie. No token appears in the URL, the HTML, or the bundle.
-5. `Referrer-Policy: no-referrer` is set on the bootstrap redirect and on the pages, so a tokenized URL does not leak through a referrer.
+**There are no cookies and no login redirect.** The token travels in the query string, is validated once per connection, and is never persisted by the host.
 
-On failure the host does not set a cookie and does not redirect; see §6.
+There is exactly **one authentication checkpoint: the WebSocket upgrade.** Page requests are not gated.
 
-### 3.1 Cookie attributes (revision 5)
+### 3.1 Browser
 
-| Attribute | Value | Note |
-|---|---|---|
-| Name | `qb_overlay` or `qb_control` | Distinct per role. Both roles share one origin, so a shared name would let one clobber the other. |
-| `HttpOnly` | yes | Not readable from JavaScript. |
-| `SameSite` | `Strict` | Correct here rather than `Lax`: the first request carries the token in the query and needs no cookie, and the following redirect is same-origin, so the cookie is still sent. |
-| `Path` | `/` | |
-| `Secure` | **omitted** | The host serves plain HTTP over loopback. Setting `Secure` on `http://127.0.0.1` breaks the cookie outright. Do not add it as “hardening”. |
+1. OBS or the user opens `http://127.0.0.1:8765/overlay?token=<browserToken>`.
+2. The host serves the application shell. The shell is static and contains no state, no configuration, and no credentials, so serving it to an unauthenticated loopback request discloses nothing. A non-loopback `Host` is still refused with `403`.
+3. The page reads the token from its own `location.search` at runtime and appends it to the WebSocket URL: `ws://127.0.0.1:8765/ws?token=<browserToken>`. The token appears in no bundle, no HTML, and no JavaScript constant.
+4. The host validates the token on the WebSocket upgrade. This is the only place authentication decides anything.
+5. The role is established from `browser.hello`.
 
-Because `Secure` is required for the `__Host-` cookie prefix, that prefix cannot be used. The consequence is accepted risk R3.
+Not gating the shell is deliberate, for two reasons. It removes a redundant checkpoint, since data is only ever delivered over the socket. And it produces a better failure mode: the real UI loads and can render a legible “not authorized — run `questbridge-host --print-urls`” message, instead of the browser displaying a bare `401` body with no styling and no instructions.
+
+`Referrer-Policy: no-referrer` is set on the pages so the tokenized URL does not leak through a referrer.
+
+Because the token is part of the URL, an OBS refresh — or any browser restart, cookie purge, or CEF profile reset — re-authenticates with no additional state. There is no session, no cookie lifetime, and no “logged out” state that can strand the overlay mid-stream.
+
+### 3.2 Minecraft
+
+The adapter presents `minecraftToken` on the WebSocket upgrade, as an `Authorization: Bearer` header with the `?token=` query parameter as an equivalent fallback for clients that cannot set headers. It sends no `Origin` and uses no browser mechanism.
 
 ---
 
 ## 4. Role handling
 
-The role is established by the first message on the connection: `browser.hello` with `role: "overlay"` or `"control"` for browsers, or `minecraft.hello` for the adapter.
+The role is established by the first message on the connection: `browser.hello` with `role: "overlay"` or `"control"`, or `minecraft.hello` for the adapter.
 
-Two separable checks exist, and the project adopts one of them:
+The host enforces the declared role for the life of the connection. An `overlay`-role connection that sends a mutation is rejected with `unauthorized` and nothing changes. This is required by `AGENTS.md` §13 and §16 and by the Phase 2 acceptance criterion “overlay cannot mutate; control can”.
 
-| Check | Status |
-|---|---|
-| The host enforces the role a connection declares, for the life of that connection. An `overlay`-role connection that sends a mutation is rejected with `unauthorized` and nothing changes. | **Enforced.** Required by `AGENTS.md` §13 and §16, and by the Phase 2 acceptance criterion “overlay cannot mutate; control can”. |
-| The host binds a token to the role it may declare, so `overlayToken` cannot authorise a `control` claim. | **Not enforced** (accepted risk R1). |
+Per R1 the host does **not** bind the token to the role it may declare, so declaring `control` with the browser token yields write access. The overlay/control distinction is a convention the UI respects — the overlay simply has no mutation controls — not a security boundary.
 
-Consequence, stated plainly: possessing either browser token and declaring `role: "control"` yields write access. The overlay/control distinction therefore remains a *convention* the UI respects — the overlay simply has no mutation controls — not a security boundary. What the browser tokens genuinely protect is access to the port: a page or process with no valid token cannot connect at all.
-
-`minecraftToken` remains a separate credential from the browser tokens. Native adapter connections present it as a bearer token or dedicated header, send no `Origin`, and use no browser cookie.
+`minecraftToken` is checked separately and cannot be substituted for `browserToken`, or the reverse.
 
 ---
 
 ## 5. Origin and `Host` rules
 
-WebSocket origins:
+WebSocket and page requests:
 
-- Allow a browser connection whose `Origin` has a loopback hostname: `127.0.0.1`, `localhost`, `[::1]`, or `::1`. **Any port is accepted** (accepted risk R2).
+- Allow a request whose `Origin` (or `Host`) has a loopback name: `127.0.0.1`, `localhost`, `[::1]`, or `::1`. **Any port is accepted** (accepted risk R2).
 - Allow a connection with no `Origin` header only when it presents a valid `minecraftToken`.
-- Reject every other origin.
+- Reject every other origin with `403`.
 - Reject cross-origin mutation requests.
 
-`Host` header:
-
-- Validate against loopback names (`127.0.0.1`, `localhost`, `[::1]`). This is what defeats DNS rebinding, and it is retained even though R2 relaxes origin port matching.
-- Reject a request whose `Host` is not a loopback name.
+`Host` header validation is what defeats DNS rebinding. It is retained independently of the origin rule.
 
 ---
 
-## 6. Failure states and recovery (revision 4)
+## 6. Failure states and recovery
 
 An authorization rejection must be distinguishable from “no data yet”, and the overlay must never render as a blank frame when it is rejected. A silently blank overlay during a stream is the worst failure mode this component has.
 
 | Condition | Host response | Client behaviour |
 |---|---|---|
-| WebSocket upgrade with no, or an invalid, token | Reject the upgrade with `401` | Page renders the actionable “not authorized” state |
-| WebSocket upgrade from a disallowed origin | Reject the upgrade with `403` | Same |
-| Valid token, but the cookie was cleared | `401` on the next upgrade | Page renders the actionable state |
+| WebSocket upgrade with no, or an invalid, token | `401` | UI renders the actionable “not authorized” state |
+| WebSocket upgrade from a disallowed origin, or a page request with a non-loopback `Host` | `403` | Same |
 | Authorized, but the first message is invalid | `host.error` with `fatal: true`, then close | Existing protocol handling |
 | Authorized overlay sends a mutation | `request.error` code `unauthorized`, no state change | Overlay has no mutation controls |
 | Host not running, or connection refused | — | “Waiting for the host” state, distinct from unauthorized |
 | Authorized, no Minecraft data yet | Normal `state.snapshot` with an empty catalog | Normal disconnected/synchronizing presentation |
 
-Recommended mechanism for the actionable state: a read-only `GET /auth/status` on the same loopback listener, answered from the cookie, returning the authorization result and the role. A failed WebSocket handshake does not expose its HTTP status to JavaScript — the page sees only a generic close — so this probe is what lets the overlay distinguish `401` from `403` from “host down”. The endpoint returns no tokens, no configuration, and no player or server data.
+A rejected WebSocket handshake does not expose its HTTP status to JavaScript — the page observes only a generic close — so the page cannot distinguish `401` from “host down” by inspecting the socket. The required behaviour is therefore the weaker but sufficient one: on any failure to establish the socket, the overlay renders a visible, instructive message naming the `--print-urls` command as the remedy, rather than an empty frame. No diagnostic probe endpoint is required.
 
-Acceptable fallback if that probe is not implemented: any non-blank, instructive message on connection failure, naming the tokenized URL printed by `--print-urls` as the remedy. The requirement is that the state is visible and actionable, not that the cause is perfectly diagnosed.
+Because the shell is served unconditionally, this message is rendered by the real UI in all failure cases, which is what makes the “never a blank frame” requirement achievable without extra machinery.
 
-The overlay's authorization-failure presentation is rendered in Phase 3; the Phase 2 host deliverable is the distinguishable `401`/`403` response and, if adopted, `/auth/status`.
+The overlay's authorization-failure presentation is rendered in Phase 3. The Phase 2 host deliverable is the distinguishable `401`/`403` responses.
 
 ---
 
@@ -195,16 +206,17 @@ Exceeding a limit is `rate_limited`. These are host configuration, not protocol 
 
 Security tests required for Phase 2:
 
-- Missing and invalid overlay token rejected.
-- Missing and invalid control token rejected.
-- Valid token reaches the intended role.
+- Missing and invalid `browserToken` rejected on the WebSocket upgrade.
+- Missing and invalid `minecraftToken` rejected.
+- `browserToken` cannot authorise a publisher, and `minecraftToken` cannot authorise a browser.
 - An `overlay`-role connection cannot mutate; a `control`-role connection can.
+- Declaring `control` with the browser token succeeds (R1, asserted so the behaviour is deliberate rather than accidental).
 - Disallowed `Origin` rejected; loopback origin on a non-default port accepted (R2).
 - Invalid `Host` header rejected.
 - Oversized message rejected.
 - Mutation rate limit enforced.
-- Tokens never appear in logs or static output.
-- Corrupt `tokens.json` is backed up and regenerated, and the host still starts (revision 3).
+- Tokens never appear in logs, static output, or served HTML/JS.
+- Corrupt `tokens.json` is backed up and regenerated, and the host still starts.
 - Invalid `config.json` is preserved, not overwritten, and the host reports the failure.
 
 ---

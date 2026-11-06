@@ -19,12 +19,12 @@ The remaining proposals are B–D.
 | Proposal | Earlier response | Current status |
 |---|---|---|
 | Move the Java project into `minecraft-mod/` | Rejected; keep the layout as-is | Approved and applied |
-| Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Adopted with revisions |
+| Cookie-after-token-redirect authentication for OBS and dashboard | Deferred; leave other architectural choices as-is | Adopted, then simplified to two tokens |
 | Phased implementation order, protocol/mock/host/dashboard before the adapter | Deferred | Re-submitted |
 | Repository hygiene: `.gitignore`, untrack `.gradle/` and `build/`, pin npm, add FTB Maven repositories and exact dependencies | Deferred as part of the broader plan | Applied |
 | Align NeoForge to `21.1.250` | Approved | Applied |
 
-The working documents now mark Proposal A as applied, Proposal C as adopted with Phase 0 applied, Proposal D as applied, and Proposal B as adopted with revisions. The normative design is `docs/local-authentication.md`.
+The working documents now mark Proposal A as applied, Proposal C as adopted with Phase 0 applied, Proposal D as applied, and Proposal B as adopted and simplified. The normative design is `docs/local-authentication.md`.
 
 ---
 
@@ -98,9 +98,11 @@ Applied. The separation matches the documented architecture and reduces accident
 
 ## 3. Proposal B — Cookie-after-token-redirect authentication
 
-**Status:** Adopted with revisions on 2026-11-06. The normative design is `docs/local-authentication.md`; this section records the proposal as submitted and the decision taken.
+**Status:** Adopted on 2026-11-06, then simplified the same day. The normative design is `docs/local-authentication.md`; this section records the proposal as submitted and the decision taken.
 
-### Proposal
+> **Superseded in part.** The proposal below describes three tokens and a cookie-after-token-redirect flow. The adopted design uses **two tokens and no cookies**; the browser role split and the cookie layer were dropped. Read the decision section at the end of this proposal for the design that applies.
+
+### Proposal (as submitted)
 
 Keep the host bound exclusively to loopback and use three separate random tokens:
 
@@ -146,17 +148,31 @@ Additional rules:
 
 ### Decision — 2026-11-06
 
-**Adopted with revisions.** The token set, the cookie-after-token-redirect flow, loopback binding, and `SameSite=Strict` stand as proposed. Three revisions were folded in, and two clarifications were accepted as intended behaviour rather than defects.
+**Adopted, then simplified the same day.** Loopback binding and the overall token-based approach stand as proposed. The three-token cookie design was replaced on review, because the project's accepted risk R1 makes the two browser tokens interchangeable and therefore redundant.
 
-Revisions:
+The adopted design, normative in `docs/local-authentication.md`:
+
+- **Two tokens**, one per real trust boundary: `browserToken` (read state; declare either browser role) and `minecraftToken` (publish progression).
+- **No cookies and no login redirect.** The token travels in the query string and is validated once, on the WebSocket upgrade.
+- **One authentication checkpoint.** Page requests are ungated; the static application shell is served unconditionally so the real UI can render a legible authorization-failure message instead of a bare `401` body.
+
+Revisions folded in:
 
 1. **Token-file recovery.** `tokens.json` is backed up and regenerated when corrupt, unlike `config.json`, which fails closed and is never overwritten. Tokens are regenerable; chapter pins are not.
-2. **Authorization failure states.** An authorization failure must be distinguishable from “no data yet”, and the overlay must render a visible, actionable state rather than an empty frame when rejected.
-3. **Cookie naming and attributes.** Distinct cookie names per role (`qb_overlay`, `qb_control`), and `Secure` is deliberately omitted because the host serves plain HTTP over loopback.
+2. **Authorization failure states.** The overlay must render a visible, actionable state rather than an empty frame when the socket cannot be established.
+3. **Simplification.** The overlay/control token split and the cookie layer were removed.
+
+Simplification rationale, and why the count lands at two rather than one:
+
+| Credential | Usability cost | Security benefit | Verdict |
+|---|---|---|---|
+| overlay/control split | High — two URLs to obtain and keep straight | None, because R1 does not enforce it | Dropped |
+| `minecraftToken` | None — machine-to-machine, configured once | Real — stops any local process from injecting fabricated quest data | Kept |
+| `browserToken` | Low — one URL pasted into OBS once | Real — under R2 an unrelated local page passes the origin check | Kept |
 
 Accepted as intended (single-user, loopback-only product; ease of use prioritised over defence in depth):
 
-1. Tokens are not bound to roles. An authenticated browser may declare either `overlay` or `control`. The overlay/control split is a UI convention, not a security boundary.
+1. The browser token does not distinguish roles. It may declare either `overlay` or `control`. The overlay/control split is a UI convention, not a security boundary.
 2. Origin allowlisting matches the loopback hostname only and ignores the port.
 
 Both are recorded as accepted risks R1 and R2 in `docs/local-authentication.md` §1 and must not be tightened without an explicit product decision.
@@ -167,17 +183,17 @@ The earlier response was:
 
 > Leave everything else as-is, for now.
 
-No authentication implementation exists yet. `docs/architecture.md` previously recorded this strategy as Proposal B, pending review. It is now adopted and specified in `docs/local-authentication.md`.
+No authentication implementation exists yet. `docs/architecture.md` previously recorded this strategy as Proposal B, pending review. It is now adopted, simplified, and specified in `docs/local-authentication.md`.
 
 ### Impact of adoption
 
 - Implement token generation and persistence with mode `0600`.
-- Implement the token-to-cookie redirect.
+- Implement token validation on the WebSocket upgrade.
 - Implement role enforcement on WebSocket connections, and document R1.
-- Add tests for missing and invalid tokens, and for overlay mutation rejection.
+- Add tests for missing and invalid tokens, for cross-token rejection, and for overlay mutation rejection.
 - Add origin and `Host` header tests, including the accepted any-port loopback rule.
-- Add a `--print-urls` bootstrap command and the token-file recovery path.
-- Add a distinguishable `401`/`403` response and, if adopted, a read-only `/auth/status` probe.
+- Add a `--print-urls` command and the token-file recovery path.
+- Add distinguishable `401`/`403` responses.
 
 ### Impact if not adopted
 
@@ -382,7 +398,7 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 | ID | Proposal | Recommendation | Decision |
 |---|---|---|---|
 | A | Move Java project to `minecraft-mod/` | Adopt | Approved and applied |
-| B | Cookie-after-token-redirect authentication with three roles | Adopt | Adopted with revisions (2026-11-06) |
+| B | Cookie-after-token-redirect authentication with three roles | Adopt | Adopted, then simplified to two tokens (2026-11-06) |
 | C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
 | D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
 
@@ -393,4 +409,4 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted with revisions on 2026-11-06; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.

@@ -64,7 +64,7 @@ WebSockets, configuration survives restart, and all host/auth tests pass.
 - Minecraft publisher handling: hello, status, snapshot, progress, pins,
   heartbeat.
 - Browser handling: hello, initial snapshot, updates, resync, mutations.
-- Proposal B authentication: token-to-cookie browser flow and Minecraft bearer
+- Proposal B authentication: query-string browser tokens and a Minecraft bearer
   token.
 - Origin, `Host`, message-size, and mutation-rate enforcement.
 - Host unit and integration tests.
@@ -101,20 +101,25 @@ WebSockets, configuration survives restart, and all host/auth tests pass.
 
 ### 5.1 Proposal B authentication — settled
 
-Proposal B was adopted with revisions on 2026-11-06. The normative design is
-`docs/local-authentication.md`; milestone 2D implements it. The decision is
-settled and is no longer a gate.
+Proposal B was adopted on 2026-11-06 and simplified the same day to two tokens
+with no cookies. The normative design is `docs/local-authentication.md`;
+milestone 2D implements it. The decision is settled and is no longer a gate.
+
+The simplification removed the overlay/control token split and the entire cookie
+layer, on the grounds that accepted risk R1 already makes the two browser tokens
+interchangeable. What remains is `browserToken` and `minecraftToken`, one per
+real trust boundary, validated once on the WebSocket upgrade.
 
 Two revisions affect 2D specifically:
 
 - a corrupt `tokens.json` is backed up and regenerated rather than failing closed;
-- authorization failures are distinguishable from absent data, so the overlay
-  never renders as a blank frame when rejected.
+- the overlay renders a visible, actionable state rather than a blank frame when
+  the socket cannot be established.
 
 Two behaviours are adopted as intended rather than as defects, and must not be
 "fixed" during implementation:
 
-- tokens are not bound to roles (accepted risk R1);
+- the browser token is not bound to a role (accepted risk R1);
 - origin matching ignores the port (accepted risk R2).
 
 ### 5.2 Static frontend strategy
@@ -140,7 +145,7 @@ The directory contains:
 
 ```text
 config.json     # pins and display settings, mode 0600
-tokens.json     # random role tokens, mode 0600
+tokens.json     # browser and Minecraft tokens, mode 0600
 ```
 
 Tokens are kept out of `config.json` so configuration files can be inspected
@@ -186,7 +191,7 @@ packages/host/
 │   ├── state-store.ts        # normalized state, revision, staleness
 │   ├── minecraft-session.ts  # publisher handshake and message handling
 │   ├── browser-session.ts    # browser roles and message handling
-│   ├── auth.ts               # tokens, cookies, role checks
+│   ├── auth.ts               # tokens, timing-safe comparison, role checks
 │   ├── http.ts               # static files, token bootstrap, /health
 │   ├── validation.ts         # direction/domain validation helpers
 │   ├── logging.ts            # redacted structured logging
@@ -480,32 +485,33 @@ Never broadcast unchanged state on a timer.
 - Reject unknown upgrade paths.
 - No arbitrary filesystem paths, shell endpoints, or proxying.
 
-### 13.2 Token bootstrap
+### 13.2 Token authentication
 
-Implement Proposal B as adopted with revisions. The normative design is
+Implement Proposal B as adopted and simplified. The normative design is
 `docs/local-authentication.md`; the summary below is the implementation checklist.
 
-- `overlayToken`, `controlToken`, `minecraftToken` generated on first run.
+- Two tokens generated on first run: `browserToken` and `minecraftToken`.
 - 32 random bytes as `base64url`, stored in `tokens.json` with mode `0600`.
-- Browser opens `/overlay?token=<overlayToken>` or
-  `/control?token=<controlToken>`.
-- Host validates the token, sets an `HttpOnly`, `SameSite=Strict` role cookie
-  (`qb_overlay` or `qb_control`; `Secure` deliberately omitted on loopback HTTP),
-  and redirects to the clean URL.
-- WebSocket authenticates from the cookie.
-- Enforce the declared role for the life of the connection, but do not bind a
+- Browser opens `/overlay?token=<browserToken>` or
+  `/control?token=<browserToken>`. Both routes share one token.
+- Page requests are **not** gated; the static shell is served unconditionally.
+- The page reads the token from `location.search` and appends it to the
+  WebSocket URL.
+- The WebSocket upgrade is the single authentication checkpoint.
+- Enforce the declared role for the life of the connection, but do not bind the
   token to a role (accepted risk R1).
-- Minecraft uses a dedicated bearer token and no browser cookie.
+- Minecraft uses `minecraftToken` as a bearer header, or `?token=` as a fallback.
 - Compare tokens with a timing-safe comparison.
-- Set `Referrer-Policy: no-referrer` on the bootstrap redirect and pages so the
-  tokenized URL does not leak through referrers.
-- Tokens never appear in rendered HTML, JavaScript bundles, or logs.
-- If OBS clears cookies, the tokenized URL remains the recovery path.
-- A documented `--print-urls` command prints bootstrap URLs to stdout only.
+- Set `Referrer-Policy: no-referrer` on the pages so the tokenized URL does not
+  leak through referrers.
+- Tokens never appear in served HTML, JavaScript bundles, or logs.
+- No cookies and no redirect flow, so an OBS refresh or CEF profile reset
+  re-authenticates with no stored state.
+- A documented `--print-urls` command prints access URLs to stdout only.
 - A corrupt `tokens.json` is backed up and regenerated; a corrupt `config.json`
   is preserved and fails closed. The asymmetry is intentional.
-- Reject unauthorized upgrades with `401` and disallowed origins with `403`, so
-  the overlay can tell an auth failure apart from absent data.
+- Reject an unauthorized upgrade with `401` and a disallowed origin or
+  non-loopback `Host` with `403`.
 
 ### 13.3 Static frontend
 
@@ -538,7 +544,7 @@ It must not expose configuration, tokens, player names, or server addresses.
 - Resolver with empty, partial, missing, and full catalogs.
 - State revision increments only on real changes.
 - Staleness transitions.
-- Auth token generation, cookie parsing, role checks.
+- Auth token generation, timing-safe comparison, role checks.
 - Host/origin validation.
 
 ### 14.2 WebSocket integration tests
@@ -562,10 +568,13 @@ Use an ephemeral loopback port and a temporary config directory.
 
 ### 14.3 Security tests
 
-- Missing/invalid overlay token.
-- Missing/invalid control token.
-- Valid token reaches the intended role.
+- Missing/invalid `browserToken` rejected.
+- Missing/invalid `minecraftToken` rejected.
+- `browserToken` cannot authorise a publisher, and `minecraftToken` cannot
+  authorise a browser.
+- A valid token connects and reaches the intended role.
 - An `overlay`-role connection cannot mutate; a `control`-role connection can.
+- Declaring `control` with the browser token succeeds (R1, asserted deliberately).
 - A loopback Origin on a non-default port is accepted (accepted risk R2).
 - Invalid `Host` header rejected.
 - Disallowed Origin rejected.
@@ -624,10 +633,10 @@ cases; revisions only move on real changes.
 ### 2D — Authentication and HTTP security
 
 - Token generation/storage, plus the `--print-urls` command.
-- Token-to-cookie bootstrap with role-specific cookie names.
+- Token authentication on the WebSocket upgrade; ungated static shell.
 - Token-file recovery: back up and regenerate a corrupt `tokens.json`.
-- Role cookies (per-role names) and the Minecraft bearer token.
-- Distinguishable `401`/`403` responses and, if adopted, `/auth/status`.
+- Role enforcement from `browser.hello`, and the Minecraft bearer token.
+- Distinguishable `401`/`403` responses.
 - `Host` and Origin checks.
 - Message and mutation limits.
 - Security tests.
@@ -707,7 +716,8 @@ Phase 2 is complete when:
 - [ ] Invalid versions, roles, sessions, messages, origins, and tokens are
       rejected with the documented errors.
 - [ ] A corrupt `tokens.json` regenerates; a corrupt `config.json` is preserved.
-- [ ] An authorization failure is distinguishable from absent data.
+- [ ] An unauthorized upgrade is refused with `401`, distinct from a `403` origin
+      or `Host` rejection.
 - [ ] Stale and disconnected states are represented, not silently shown as live.
 - [ ] Sequence and revision gaps trigger a resync/snapshot request.
 - [ ] No tokens or sensitive data appear in logs.
