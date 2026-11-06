@@ -130,8 +130,24 @@
 		positions = null;
 	}
 
-	function onHandleKeydown(event: KeyboardEvent, index: number): void {
-		// Keyboard reordering is out of scope, but cancellation must still work so
+	/**
+	 * Why the drag handle cannot be used, or what it will do.
+	 *
+	 * A disabled control has to say why it is disabled; showing "Drag to reorder"
+	 * on a handle that cannot be dragged is exactly the kind of control
+	 * `docs/web-frontend.md` §3.3 forbids.
+	 */
+	function handleTitle(position: number): string {
+		if (disabledReason !== null) {
+			return disabledReason;
+		}
+		if (pins.length < 2) {
+			return 'Nothing to reorder';
+		}
+		return `Drag to reorder ${position + 1}`;
+	}
+
+	function onHandleKeydown(event: KeyboardEvent, index: number): void {		// Keyboard reordering is out of scope, but cancellation must still work so
 		// a focused handle cannot leave the list in a half-started state.
 		if (event.key === 'Escape') {
 			resetDrag();
@@ -161,7 +177,7 @@
 						type="button"
 						class="handle"
 						disabled={disabledReason !== null || pins.length < 2}
-						title={pins.length < 2 ? 'Nothing to reorder' : `Drag to reorder ${position + 1}`}
+						title={handleTitle(position)}
 						aria-label="Reorder chapter at position {position + 1}"
 						aria-describedby="qb-drag-help"
 						onpointerdown={(event) => beginDrag(event, index)}
