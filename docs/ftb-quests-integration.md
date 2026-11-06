@@ -668,7 +668,7 @@ Requirements:
 - Fail gracefully when FTB data or translations are unavailable.
 - Log FTB version mismatches clearly.
 
-Implementation timing follows Proposal C, which is adopted and places the adapter after the protocol, mock publisher, host, and dashboard. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them.
+Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. By explicit product decision, Phase 2 (host) and Phase 3 (dashboard) are now deferred; the adapter proceeds against the standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The detailed Stage 4 plan is in `docs/phase-4-plan.md`.
 
 ---
 

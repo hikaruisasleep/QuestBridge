@@ -222,6 +222,8 @@ Implement in this order:
 
 ### Phase 4 — Minecraft adapter
 
+**Status:** Prepared, not started. Phase 2 and Phase 3 are deferred by explicit product decision, so Phase 4 will target the standalone collector first. See `docs/phase-4-plan.md`.
+
 - Client-only NeoForge mod.
 - Isolated FTB adapter interface and exact-version implementation.
 - Snapshot capture on the client thread.
@@ -271,7 +273,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phases 2–6 have not started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. By explicit product decision, Phase 2 (host) and Phase 3 (Svelte UI) are deferred; Phase 4 (Minecraft adapter) has a written plan in `docs/phase-4-plan.md` and no implementation yet. Phases 5–6 have not started. The three documents are now written.
 
 ### Impact if adopted
 

@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the baseline Java mod skeleton (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests adapter are not yet implemented. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the baseline Java mod skeleton (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests adapter are not yet implemented. Phase 2 and Phase 3 are deferred by product decision; Stage 4 (adapter) is prepared in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phases 2–3 are deferred. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`; where a pending proposal affects this document, the current state and the proposed state are noted.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -77,7 +77,8 @@ questbridge/
 │   ├── ftb-quests-integration.md
 │   ├── chapter-pinning.md
 │   ├── protocol.md
-│   └── development.md
+│   ├── development.md
+│   └── phase-4-plan.md
 │
 └── ...
 ```
@@ -107,7 +108,7 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, development), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, development, Stage 4 plan), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
 - **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/host`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
@@ -880,7 +881,7 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-Implementation order follows Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) is applied: the npm workspace root, pinned toolchain versions, and exact FTB build dependencies are in place.
+Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. By explicit product decision, Phase 2 (host) and Phase 3 (dashboard) are deferred; Phase 4 (Minecraft adapter) is prepared in `docs/phase-4-plan.md` and targets the standalone collector first. No Stage 4 implementation has started.
 
 Current build state, verified 2026-11-06:
 

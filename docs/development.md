@@ -1,6 +1,6 @@
 # QuestBridge Development
 
-**Status:** Phase 1 implemented (shared protocol and mock publisher). The host, Svelte routes, and Minecraft adapter are not implemented yet.
+**Status:** Phase 1 implemented (shared protocol and mock publisher). Phase 2 and Phase 3 are deferred; Stage 4 (Minecraft adapter) is planned in `docs/phase-4-plan.md` and has not started.
 **Date:** 2026-11-06
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
 
