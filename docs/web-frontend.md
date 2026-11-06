@@ -259,6 +259,15 @@ disables the completion highlight only — not the zoom or reflow, which are
 structural and whose absence would reintroduce the snapping these rules exist to
 prevent.
 
+**`prefers-reduced-motion` is not honoured.** Settled 2026-11-07. The motion is
+content: this is a stream overlay rendered over a video game on a broadcast, not
+a public website a stranger could visit. Suppressing it would degrade the product
+for an audience that chose to watch. Do not add a reduced-motion branch as an
+accessibility improvement.
+
+`/control` is pointer-only: no keyboard reorder controls are planned for it.
+That is accepted scope, not an omission.
+
 ## 4. Overlay requirements recap
 
 Full detail is in `AGENTS.md` §2.3 and §10.1. The points most often broken:

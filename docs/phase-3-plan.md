@@ -111,12 +111,14 @@ relationship to the others.
 protocol v1 permits no additive fields, so an `autoScroll` setting would require
 a v2 bump across the schema, host, mock publisher, and the Java adapter. The
 behaviour is unconditional for now; configurability can ride along with a future
-v2 bump planned for other reasons. See §11 for the reduced-motion question.
+v2 bump planned for other reasons. The animation runs regardless of
+`prefers-reduced-motion` — see §11.3.
 
 ### 3.5 Reordering is drag and drop
 
 Pointer drag-and-drop on the pinned-chapter list, matching the interactive
-nature of a dashboard. See §11 for the keyboard-accessibility consequence.
+nature of a dashboard. **Pointer-only is the accepted scope:** no keyboard
+reorder controls are planned for `/control` (§11.2).
 
 ### 3.6 Empty sections hide on stream, hint in preview
 
@@ -186,6 +188,11 @@ zooming box. Rules, in order of precedence:
    highlight only. It does not disable pin/unpin zoom or reflow — those are
    structural motion, and disabling them would make the list snap, which is the
    behaviour this section exists to prevent.
+
+**`prefers-reduced-motion` is deliberately not honoured** (§11.3). The motion is
+content: this overlay sits on a broadcast over a video game, not on a public
+site a stranger could visit. Do not add a reduced-motion branch to any of the
+animation above.
 
 ### 3.9 The chapter field is `subtitle`
 
@@ -457,7 +464,8 @@ state without a new Minecraft snapshot.
 
 ### 3E — Stale presentation, hardening, and OBS verification
 
-- **Settle and implement the stale/disconnected presentation (§3.7).**
+- **Implement the stale/disconnected presentation (§3.7).** The design is
+  settled; this is implementation, not a decision point.
 - Reconnect and resync edge cases; repeated host restart.
 - Log redaction review; no token in the DOM, console, or error text.
 - OBS verification recorded in `docs/testing-logs/`.
@@ -465,8 +473,8 @@ state without a new Minecraft snapshot.
   `docs/phase-2-plan.md`'s final acceptance item.
 
 **Exit:** full workspace suite passes; the OBS source survives refresh and host
-restart; the plan's §11 open questions are resolved or explicitly deferred with
-a reason.
+restart; every item in §11 is resolved or reduced to a timing value chosen during
+implementation.
 
 ---
 
@@ -505,31 +513,46 @@ Already done: the `AGENTS.md` `description` → `subtitle` correction (§3.9).
 
 ---
 
-## 11. Open questions
+## 11. Settled decisions and remaining timing choice
 
 ### 11.1 Stale/disconnected visual treatment — **resolved**
 
 Settled by product decision: no visible stale state; raised thresholds; fade out
 on disconnection. See §3.7. No longer a blocker.
 
-### 11.2 Keyboard access for drag-and-drop reordering
+### 11.2 Keyboard access for drag-and-drop reordering — **resolved: not planned**
 
-Drag and drop was chosen for §3.5, but native HTML5 drag-and-drop is not
-keyboard-operable, so reordering is currently mouse-only. `AGENTS.md` does not
-require keyboard access, and the cap is five items. Options: accept mouse-only,
-or add a minimal keyboard affordance on the focused row.
+Settled by product decision: no keyboard controls are planned for `/control`.
+Reordering is pointer-only, which is acceptable for a single-user local
+dashboard with a five-item cap.
 
-### 11.3 `prefers-reduced-motion` and the animations
+Consequences, so this is a decision rather than an oversight:
 
-Two kinds of motion are now required by design: the objectives auto-scroll
-(§3.4) and the pin/unpin zoom plus reflow (§3.8). Continuous motion that ignores
-`prefers-reduced-motion` is an accessibility gap, and OBS users may well not have
-the setting enabled, so it may be moot in practice.
+- No roving-tabindex or arrow-key reorder handler is built.
+- Do not add browser-level drag-and-drop keyboard emulation "for completeness";
+  it is out of scope for this phase.
+- This would revisit if `/control` ever needed to be usable without a pointer.
 
-The relevant distinction: the auto-scroll is *continuous* and is the more
-arguable case; the zoom and reflow are *transient* and removing them restores the
-snapping this design explicitly rejects. A defensible split is to honour the
-media query for the auto-scroll only. Needs a decision.
+### 11.3 `prefers-reduced-motion` — **resolved: ignored deliberately**
+
+Settled by product decision: the overlay does not honour
+`prefers-reduced-motion`.
+
+The rationale is that the motion is content, not chrome. This is a stream
+overlay rendered over a video game on a broadcast — not a public site a stranger
+could land on at any time. The auto-scroll, the pin/unpin zoom, and the reflow
+are part of what the viewer is being shown, and suppressing them would degrade
+the product for an audience that chose to watch.
+
+Consequences:
+
+- No `@media (prefers-reduced-motion: reduce)` branch is written for the
+  overlay's motion. Do not add one as an accessibility improvement.
+- `/control` is a different case only in principle, not in this phase: it shares
+  the same components and stays consistent with the overlay.
+- This decision is about the overlay's decorative/structural motion. It does not
+  extend to removing the disconnection fade, which is a state signal rather
+  than decoration.
 
 ### 11.4 Fade duration and reflow timing
 
