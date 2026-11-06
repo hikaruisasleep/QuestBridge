@@ -29,10 +29,17 @@ export const AUTOMATIC_PIN_ID = "1" as const;
 /**
  * Host-declared timing defaults from `docs/protocol.md` and
  * `docs/architecture.md`. These are sent to the adapter in `host.welcome`.
+ *
+ * The stale and disconnect thresholds are deliberately generous relative to the
+ * 5 s heartbeat. They exist to catch a publisher that has genuinely gone away —
+ * a game crash, a server or world switch — not to surface a brief scheduling
+ * hiccup or a deferred update. Showing an on-stream overlay that reacts to a
+ * two-second stutter would be a worse failure than the stutter itself
+ * (`docs/web-frontend.md` §3.4).
  */
 export const DEFAULT_TIMINGS = {
   heartbeatIntervalMs: 5_000,
-  staleAfterMs: 10_000,
-  disconnectAfterMs: 15_000,
+  staleAfterMs: 20_000,
+  disconnectAfterMs: 30_000,
   reconcileIntervalMs: 2_000,
 } as const;

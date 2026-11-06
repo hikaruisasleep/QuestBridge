@@ -576,7 +576,10 @@ Rules:
 
 - The overlay must not present stale progression as live.
 - The host may retain the latest snapshot internally.
-- When stale, the UI must indicate staleness.
+- A stale state is **not** marked visibly on the overlay; the overlay fades out
+  on disconnection instead. The thresholds are raised (20 s stale, 30 s
+  disconnected) so that only a publisher that has genuinely gone away is
+  affected. See `docs/web-frontend.md` §3.4.
 - A full snapshot is required after reconnection.
 - A host restart does not require a Minecraft restart; the mod reconnects automatically.
 - A browser refresh must not require a Minecraft snapshot.
@@ -585,11 +588,18 @@ Suggested timing:
 
 - Mod heartbeat: every 5 seconds.
 - Mod reconciliation: every 2 seconds.
-- Host stale threshold: 10 seconds without heartbeat.
-- Host disconnected threshold: WebSocket closed or 15 seconds without heartbeat.
+- Host stale threshold: 20 seconds without heartbeat.
+- Host disconnected threshold: WebSocket closed or 30 seconds without heartbeat.
 - Mod reconnect backoff: 1, 2, 4, 8 seconds, capped.
 
 These values are implementation defaults and may be tuned.
+
+The thresholds are deliberately loose against a 5 s heartbeat. They are sized to
+detect a publisher that has genuinely gone away — a crash, or a switch of game,
+world, or server — not to react to a deferred update or a momentary stutter. The
+overlay is on stream, so a threshold that fired on a two-second hiccup would
+create the visible problem it was meant to describe. A closed socket is still
+acted on immediately; only the heartbeat-age path is this lenient.
 
 ---
 

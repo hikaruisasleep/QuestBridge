@@ -257,8 +257,8 @@ publish progression.
 Timers:
 
 - heartbeat expectation: 5 s;
-- stale threshold: 10 s without heartbeat;
-- disconnected threshold: 15 s without heartbeat, or socket close;
+- stale threshold: 20 s without heartbeat;
+- disconnected threshold: 30 s without heartbeat, or socket close;
 - stale-check interval: 1 s;
 - browser mutation rate: 10/s per connection;
 - first-message timeout: 5 s.
@@ -465,7 +465,7 @@ Never broadcast unchanged state on a timer.
   `reason: "sequence_gap"`.
 - Enforce `sessionId` consistency.
 - On socket close: retain the snapshot, mark stale, then disconnected.
-- On heartbeat timeout: stale at 10 s, disconnected at 15 s.
+- On heartbeat timeout: stale at 20 s, disconnected at 30 s.
 - A new publisher clears the stale state only after its first valid snapshot.
 - A full snapshot replaces catalog, objectives, identity, and pin IDs
   atomically.

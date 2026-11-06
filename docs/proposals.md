@@ -263,8 +263,12 @@ The normative requirements are `docs/web-frontend.md`.
 - Chapter catalog search, pin/unpin, reordering, and live preview.
 - Display settings.
 - Shared selectors.
-- Explicit disconnected, unauthorized, and stale presentations — never a blank
-  frame, and never controls that appear usable when they cannot work.
+- Explicit disconnected and unauthorized presentations — never a blank frame,
+  and never controls that appear usable when they cannot work. A stale state is
+  deliberately invisible on the overlay; disconnection fades out
+  (`docs/web-frontend.md` §3.4).
+- Pin/unpin zoom and reflow transitions on the objective list
+  (`docs/web-frontend.md` §3.5).
 - Tests for empty state, one through five pins, unresolved chapters,
   completed/locked chapters, stale/disconnected states, and task progress.
 

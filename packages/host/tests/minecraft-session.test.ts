@@ -160,8 +160,8 @@ describe("upgrade authentication", () => {
     expect(welcome.type).toBe("host.welcome");
     if (welcome.type === "host.welcome") {
       expect(welcome.payload.heartbeatIntervalMs).toBe(5_000);
-      expect(welcome.payload.staleAfterMs).toBe(10_000);
-      expect(welcome.payload.disconnectAfterMs).toBe(15_000);
+      expect(welcome.payload.staleAfterMs).toBe(20_000);
+      expect(welcome.payload.disconnectAfterMs).toBe(30_000);
       expect(welcome.payload.reconcileIntervalMs).toBe(2_000);
     }
 

@@ -445,14 +445,21 @@ describe("heartbeat and staleness", () => {
     nowMs = 9_000;
     expect(store.evaluateStaleness().sections).toEqual([]);
 
-    // 11 s: past the 10 s stale threshold.
+    // 11 s: a deferred update or a scheduling hiccup, not a disconnect. Still
+    // live, and deliberately so: reacting here would flicker the on-stream
+    // overlay for something the viewer does not need to know about.
     nowMs = 11_000;
+    expect(store.evaluateStaleness().sections).toEqual([]);
+    expect(store.connection.stale).toBe(false);
+
+    // 21 s: past the 20 s stale threshold.
+    nowMs = 21_000;
     expect(store.evaluateStaleness().sections).toEqual(["connection"]);
     expect(store.connection.stale).toBe(true);
     expect(store.connection.status).toBe("ready");
 
-    // 16 s: past the 15 s disconnect threshold.
-    nowMs = 16_000;
+    // 31 s: past the 30 s disconnect threshold.
+    nowMs = 31_000;
     const change = store.evaluateStaleness();
     expect(change.sections).toEqual(["connection"]);
     expect(store.connection.status).toBe("disconnected");

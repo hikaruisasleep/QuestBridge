@@ -146,7 +146,7 @@ Options:
 
 ```text
 npm run collect -- --port 8765
-npm run collect -- --stale-after 10000
+npm run collect -- --stale-after 20000
 ```
 
 Behavior:

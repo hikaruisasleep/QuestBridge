@@ -194,8 +194,8 @@ Rules:
 
 ### 5.3 Disconnect and staleness
 
-- The host marks Minecraft stale after 10 seconds without a heartbeat and disconnected after the WebSocket closes or 15 seconds without a heartbeat.
-- Stale or disconnected data is retained internally but must be presented as stale. The host does not clear the catalog or objectives merely because Minecraft disconnected.
+- The host marks Minecraft stale after 20 seconds without a heartbeat and disconnected after the WebSocket closes or 30 seconds without a heartbeat. The loosened thresholds detect a publisher that has genuinely gone away; they are not a latency signal, and a brief stutter or deferred update must not trip them (`docs/web-frontend.md` §3.4).
+- Stale or disconnected data is retained internally. The host does not clear the catalog or objectives merely because Minecraft disconnected. The `stale` flag is reported to browsers, but a stale state is deliberately not marked on the overlay; the overlay fades out on `disconnected` instead (`docs/web-frontend.md` §3.4).
 - On reconnect, a new full snapshot is required before the state is treated as live again.
 - A browser disconnect does not affect host state.
 
@@ -523,8 +523,8 @@ All payload fields are required non-empty strings except that version strings ma
   "payload": {
     "hostVersion": "0.1.0",
     "heartbeatIntervalMs": 5000,
-    "staleAfterMs": 10000,
-    "disconnectAfterMs": 15000,
+    "staleAfterMs": 20000,
+    "disconnectAfterMs": 30000,
     "reconcileIntervalMs": 2000
   }
 }
