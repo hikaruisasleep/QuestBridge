@@ -624,8 +624,9 @@ Phase 3 is complete when:
 The one caveat is the OBS application itself, which was not opened during this
 work. Everything OBS depends on was measured; that OBS composites it correctly is
 inferred rather than observed. Passing Phase 3 also does not complete the real
-FTB adapter or the project Definition of Done, and mock mode alone does not
-establish FTB compatibility (`AGENTS.md` §18).
+FTB adapter or the project Definition of Done: mock mode alone does not establish
+FTB compatibility (`AGENTS.md` §11.2), so no Definition of Done item is checked
+(§18).
 
 ---
 
