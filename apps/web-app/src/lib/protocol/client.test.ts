@@ -115,7 +115,7 @@ interface Harness {
 
 function createHarness(backoffMs: readonly number[] = [10, 20, 40]): Harness {
   FakeSocket.instances = [];
-  const timers: Array<{ handler: () => void; ms: number }> = [];
+  const timers: Array<{ handler: () => void; ms: number; cancelled?: boolean }> = [];
 
   const client = new ProtocolClient({
     role: "control",
@@ -130,8 +130,14 @@ function createHarness(backoffMs: readonly number[] = [10, 20, 40]): Harness {
       timers.push({ handler, ms });
       return timers.length - 1;
     },
-    clearTimeout: () => {
-      // Timers are drained by `runTimers`; clearing is only used on dispose.
+    clearTimeout: (handle) => {
+      // Must actually cancel. A no-op stub makes `#cancelReconnect` look
+      // effective while a "cancelled" retry still fires, which hides exactly the
+      // bug the fatal-path tests exist to catch.
+      const index = handle as number;
+      if (typeof index === "number" && timers[index] !== undefined) {
+        timers[index]!.cancelled = true;
+      }
     },
     backoffMs,
     requestId: (() => {
@@ -169,6 +175,10 @@ function createHarness(backoffMs: readonly number[] = [10, 20, 40]): Harness {
     runTimers(): void {
       const pending = timers.splice(0, timers.length);
       for (const timer of pending) {
+        // A cancelled timer is dropped, as a real cleared timeout would be.
+        if (timer.cancelled === true) {
+          continue;
+        }
         timer.handler();
       }
     },
@@ -526,6 +536,74 @@ describe("errors", () => {
       expect.objectContaining({ code: "unsupported_protocol" }),
     );
     expect(harness.client.transport).toBe("closed");
+  });
+
+  it("does not reopen after the fatal error's socket close", () => {
+    // Closing a WebSocket fires its close handler synchronously. The close
+    // handler ignores a socket it no longer owns, so the reconnect is prevented
+    // by ownership; this asserts that no new socket appears even after every
+    // queued timer is drained.
+    const harness = createHarness();
+    harness.client.connect();
+    const socket = FakeSocket.instances[0]!;
+    socket.open();
+
+    socket.receiveRaw(
+      JSON.stringify({
+        protocolVersion: 2,
+        type: "state.snapshot",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        sequence: 1,
+        payload: {},
+      }),
+    );
+
+    expect(socket.readyState).toBe(3);
+    harness.runTimers();
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it("does not retry a host that speaks an unsupported protocol", () => {
+    // Uses a real event loop rather than draining a fake queue, because the
+    // property under test is "no further attempt is made over the next two
+    // minutes". The prevention lives in the reconnect timer callback, which
+    // checks `disposed` before opening; this asserts the observable outcome
+    // rather than the mechanism.
+    vi.useFakeTimers();
+    try {
+      FakeSocket.instances = [];
+      const client = new ProtocolClient({
+        role: "control",
+        location: PAGE,
+        webSocketFactory: (url) => new FakeSocket(url) as unknown as WebSocket,
+        backoffMs: [1_000],
+      });
+      const errors: ClientErrorEvent[] = [];
+      client.on("error", (error) => errors.push(error));
+
+      client.connect();
+      const first = FakeSocket.instances[0]!;
+      first.open();
+
+      first.receiveRaw(
+        JSON.stringify({
+          protocolVersion: 2,
+          type: "state.snapshot",
+          timestamp: "2026-01-01T00:00:00.000Z",
+          sequence: 1,
+          payload: {},
+        }),
+      );
+      expect(errors.map((error) => error.code)).toContain("unsupported_protocol");
+
+      vi.advanceTimersByTime(120_000);
+      expect(FakeSocket.instances).toHaveLength(1);
+      expect(client.transport).toBe("closed");
+
+      client.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

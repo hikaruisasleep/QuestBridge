@@ -287,7 +287,12 @@ export class ProtocolClient {
       }
       this.#socket = null;
       this.#setTransport("closed", this.#classifyFailure());
-      this.#scheduleReconnect();
+      // A disposed client must not schedule another attempt. The timer callback
+      // also checks `disposed`, so this is defence in depth rather than the only
+      // guard.
+      if (!this.#disposed) {
+        this.#scheduleReconnect();
+      }
     };
   }
 
@@ -532,7 +537,18 @@ export class ProtocolClient {
     this.resync(reason);
   }
 
+  /**
+   * Stop for good after a failure the page cannot recover from by retrying.
+   *
+   * The retry loop was already prevented elsewhere: the timer callback checks
+   * `disposed` before opening, so a host speaking an unsupported protocol is not
+   * retried repeatedly. Marking the client disposed here both cancels any timer
+   * already queued and makes the intent explicit at the point of failure.
+   */
   #disposeTransport(): void {
+    this.#disposed = true;
+    this.#cancelReconnect();
+
     const socket = this.#socket;
     this.#socket = null;
     if (socket !== null) {
