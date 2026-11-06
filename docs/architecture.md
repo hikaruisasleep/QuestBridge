@@ -981,7 +981,7 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. Phase 4 (Minecraft adapter) was started first by explicit product decision and is planned in `docs/phase-4-plan.md`. Stage 4A (the client-only live probe) is implemented, builds, and is verified against the live client. Stage 4B–4F are pending. Phase 2 (host core) is implemented through milestone 2G, as documented in `docs/phase-2-plan.md`; Phase 3 (the Svelte UI) remains deferred, so the host serves a placeholder at `/overlay` and `/control`.
+Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. Phase 4 (Minecraft adapter) was started first by explicit product decision and is planned in `docs/phase-4-plan.md`. Stage 4A (the client-only live probe) is implemented, builds, and is verified against the live client. Stage 4B–4F are pending. Phase 2 (host core) is implemented through milestone 2G, as documented in `docs/phase-2-plan.md`, and Phase 3 (the Svelte UI) is implemented as documented in `docs/phase-3-plan.md`. The Minecraft adapter plan was rewritten on 2026-11-07 to reflect the finished host and frontend; Stage 4B is the next milestone.
 
 Current build state, verified 2026-11-06:
 

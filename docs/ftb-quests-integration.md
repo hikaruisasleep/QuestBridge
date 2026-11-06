@@ -691,7 +691,7 @@ Requirements:
 - Fail gracefully when FTB data or translations are unavailable.
 - Log FTB version mismatches clearly.
 
-Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phase 2 (host core) is now planned; Phase 3 (dashboard) remains deferred; Stage 4B–4F remain pending. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan is in `docs/phase-4-plan.md`.
+Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phases 2 (host core) and 3 (dashboard and overlay) are implemented, so Stage 4B–4F now target a real end-to-end pipeline rather than a standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan was rewritten on 2026-11-07 and is in `docs/phase-4-plan.md`.
 
 ---
 
