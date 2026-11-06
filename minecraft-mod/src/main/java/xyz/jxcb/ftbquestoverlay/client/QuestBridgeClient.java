@@ -16,12 +16,16 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.level.LevelEvent;
 
 import xyz.jxcb.ftbquestoverlay.QuestBridge;
+import xyz.jxcb.ftbquestoverlay.QuestBridgeConfig;
 import xyz.jxcb.ftbquestoverlay.adapter.ProbeReport;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestProgressProvider;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestSnapshot;
 import xyz.jxcb.ftbquestoverlay.adapter.ftb.FtbQuestProbe;
 import xyz.jxcb.ftbquestoverlay.adapter.ftb.FtbQuestProgressProvider;
 import xyz.jxcb.ftbquestoverlay.protocol.ProtocolMessages;
+import xyz.jxcb.ftbquestoverlay.transport.ConnectionController;
+import xyz.jxcb.ftbquestoverlay.transport.SnapshotDiffer;
+import xyz.jxcb.ftbquestoverlay.transport.SnapshotSink;
 
 /**
  * Client loop.
@@ -45,6 +49,9 @@ public final class QuestBridgeClient {
     private final FtbQuestProgressProvider provider = new FtbQuestProgressProvider();
     private final String sessionId = java.util.UUID.randomUUID().toString();
 
+    /** Transport, or null when publishing is disabled or unconfigured. */
+    private TransactionControllerHolder transportHolder = new TransactionControllerHolder();
+
     private long sequence;
     private int ticksSinceProbe;
     private String lastFingerprint;
@@ -52,8 +59,14 @@ public final class QuestBridgeClient {
     /** Set when a world, player, or team change makes the next capture meaningful. */
     private boolean forceCapture;
 
+    /** Small holder so the field can be non-final and still readable if the transport is off. */
+    private static final class TransactionControllerHolder {
+        private ConnectionController controller;
+    }
+
     public QuestBridgeClient() {
         provider.registerListeners();
+        startTransport();
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, this::onClientTick);
         // World and player transitions invalidate everything previously captured.
         NeoForge.EVENT_BUS.addListener(LevelEvent.Load.class, event -> invalidate("level loaded"));
@@ -62,6 +75,75 @@ public final class QuestBridgeClient {
                 ClientPlayerNetworkEvent.LoggingIn.class, event -> invalidate("login"));
         NeoForge.EVENT_BUS.addListener(
                 ClientPlayerNetworkEvent.LoggingOut.class, event -> invalidate("logout"));
+    }
+
+    private void startTransport() {
+        if (!QuestBridgeConfig.enabled()) {
+            QuestBridge.LOGGER.info("[QuestBridge] publishing disabled by configuration");
+            return;
+        }
+
+        String url = QuestBridgeConfig.resolveHostUrl();
+        String token = QuestBridgeConfig.resolveMinecraftToken();
+        if (token == null || token.isBlank()) {
+            QuestBridge.LOGGER.warn(
+                    "[QuestBridge] no minecraftToken configured; not publishing. "
+                            + "Set it in config/questbridge-client.toml, "
+                            + "-Dquestbridge.minecraftToken, or QUESTBRIDGE_MINECRAFT_TOKEN.");
+            return;
+        }
+
+        SnapshotDiffer.Versions versions = new SnapshotDiffer.Versions(
+                modVersion(),
+                Minecraft.getInstance().getVersionType() + "/" + versionString(),
+                neoForgeVersion(),
+                modVersionOf("ftbquests"),
+                modVersionOf("ftbteams"));
+
+        ConnectionController controller =
+                new ConnectionController(url, token, sessionId, versions);
+        transportHolder.controller = controller;
+        controller.start();
+        QuestBridge.LOGGER.info("[QuestBridge] publishing to {}", url);
+    }
+
+    /**
+     * Version strings for {@code minecraft.hello}. Each falls back to
+     * {@code "unknown"} rather than omitting the field, which protocol v1
+     * requires to be present and non-empty.
+     */
+    private static String modVersion() {
+        return modVersionOf(QuestBridge.MODID);
+    }
+
+    private static String versionString() {
+        try {
+            return net.minecraft.SharedConstants.getCurrentVersion().getName();
+        } catch (RuntimeException exception) {
+            return "unknown";
+        }
+    }
+
+    private static String neoForgeVersion() {
+        try {
+            return net.neoforged.fml.ModList.get()
+                    .getModContainerById("neoforge")
+                    .map(container -> container.getModInfo().getVersion().toString())
+                    .orElse("unknown");
+        } catch (RuntimeException exception) {
+            return "unknown";
+        }
+    }
+
+    static String modVersionOf(String modId) {
+        try {
+            return net.neoforged.fml.ModList.get()
+                    .getModContainerById(modId)
+                    .map(container -> container.getModInfo().getVersion().toString())
+                    .orElse("unknown");
+        } catch (RuntimeException exception) {
+            return "unknown";
+        }
     }
 
     private void invalidate(String reason) {
@@ -111,6 +193,11 @@ public final class QuestBridgeClient {
         forceCapture = false;
         provider.resetChangeCounter();
 
+        // The identity is read on the client thread and travels with the
+        // snapshot, so the transport never has to touch FTB state.
+        offer(new SnapshotSink.Handoff(
+                snapshot, provider.identity(), true, "ready", null));
+
         String fingerprint = fingerprint(snapshot);
         if (DEBUG || forceCapture || !fingerprint.equals(lastFingerprint)) {
             logSnapshot(snapshot);
@@ -141,6 +228,24 @@ public final class QuestBridgeClient {
                     unavailable.phase(),
                     worldKey);
             lastUnavailableKey = key;
+        }
+
+        offer(new SnapshotSink.Handoff(
+                null, provider.identity(), false, phaseName(unavailable.phase()),
+                unavailable.detail()));
+    }
+
+    private static String phaseName(QuestProgressProvider.Unavailable.Phase phase) {
+        return phase == QuestProgressProvider.Unavailable.Phase.UNAVAILABLE
+                ? "unavailable"
+                : "synchronizing";
+    }
+
+    /** Hands a capture to the transport without blocking the client thread. */
+    private void offer(SnapshotSink.Handoff handoff) {
+        ConnectionController controller = transportHolder.controller;
+        if (controller != null) {
+            controller.offer(handoff);
         }
     }
 
