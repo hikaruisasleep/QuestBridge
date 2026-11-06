@@ -358,7 +358,7 @@ Each milestone has a real-data exit criterion. Do not build later milestones bef
 ### 4A — Live FTB probe, no network
 
 **Implementation status (2026-11-06):** Implemented in `minecraft-mod/`;
-`./gradlew build` succeeds and produces `build/libs/questbridge-0pre.2.jar`.
+`./gradlew build` succeeds and produces `build/libs/questbridge-0pre.1.jar`.
 Live client capture has not been run yet.
 
 Implemented pieces:
