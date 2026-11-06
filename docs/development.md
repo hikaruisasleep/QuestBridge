@@ -1,6 +1,6 @@
 # QuestBridge Development
 
-**Status:** Phase 1 implemented (shared protocol and mock publisher). Phase 2 and Phase 3 are deferred; Stage 4 (Minecraft adapter) is planned in `docs/phase-4-plan.md` and has not started.
+**Status:** Phase 1 implemented (shared protocol and mock publisher). Phase 2 and Phase 3 are deferred; Stage 4A (client-side live FTB probe) is implemented and building in `minecraft-mod/`, with live in-client verification pending. The network adapter has not started.
 **Date:** 2026-11-06
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
 
@@ -12,7 +12,7 @@
 packages/protocol/        @questbridge/protocol — v1 types, Zod schemas, messages
 packages/mock-publisher/  @questbridge/mock-publisher — fixtures, scenarios, CLI
 apps/web-app/             Svelte 5 + SvelteKit scaffold (routes not implemented)
-minecraft-mod/            NeoForge client mod skeleton (adapter not implemented)
+minecraft-mod/            NeoForge client mod (Stage 4A live probe; network adapter not implemented)
 docs/                     Architecture, protocol, pinning, FTB reconnaissance
 ```
 
@@ -166,7 +166,7 @@ The Java adapter must implement the same wire format manually. It cannot import 
 
 - No host, so no live end-to-end browser session yet.
 - No `/overlay` or `/control` routes.
-- No FTB Quests adapter. Passing mock tests does not prove FTB compatibility.
+- No FTB Quests network adapter. Stage 4A is a client-thread diagnostic probe only; it has not yet been verified against a live client.
 - Transport authentication (Proposal B) is still pending; the protocol assumes an authenticated role.
 - Mock chapter progress is fixed fixture data, not derived from a live quest book.
 

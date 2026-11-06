@@ -1,6 +1,6 @@
 # Stage 4 Plan — Minecraft Adapter, Real Data First
 
-**Status:** Planning only. No Stage 4 implementation has started.
+**Status:** Stage 4A implemented and building; live in-client verification is pending. No network code has been added.
 **Date:** 2026-11-06
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
 **Sequencing decision:** Phase 2 (host core) and Phase 3 (Svelte UI) are deferred. Stage 4 proceeds against the standalone mock collector until a host exists.
@@ -350,6 +350,19 @@ A pins message replaces the objective set atomically. It must carry everything n
 Each milestone has a real-data exit criterion. Do not build later milestones before the earlier one shows live FTB data.
 
 ### 4A — Live FTB probe, no network
+
+**Implementation status (2026-11-06):** Implemented in `minecraft-mod/` on branch
+`feat/stage-4a-live-probe`; `./gradlew build` succeeds and produces
+`build/libs/questbridge-1.0.0.jar`. Live client capture has not been run yet.
+
+Implemented pieces:
+
+- Client-only mod entry (`@Mod(dist = Dist.CLIENT)`) and client tick listener.
+- Readiness gate matching the verified FTB `ClientQuestFile` / `selfTeamData` checks.
+- Structured dump covering chapter count, the five expected chapter IDs and titles, resolved manual pins, unresolved pin IDs, and pinned quest/task progress.
+- Change detection with a two-second reconciliation interval; unchanged state is not re-logged unless `-Dquestbridge.debug=true`.
+- Client-side `ftbquests`, `ftbteams`, and `ftblibrary` metadata dependencies.
+- FTB imports remain isolated to `adapter/ftb`; the probe DTO contains no FTB or Minecraft types.
 
 Purpose: prove the client can read the actual pack state with the least code.
 
