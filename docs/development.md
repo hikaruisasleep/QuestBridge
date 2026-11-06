@@ -13,7 +13,7 @@
 packages/protocol/        @questbridge/protocol — v1 types, Zod schemas, messages
 packages/mock-publisher/  @questbridge/mock-publisher — fixtures, scenarios, CLI
 packages/host/            @questbridge/host — loopback host, state store, chapter pins, transport
-apps/web-app/             Svelte 5 + SvelteKit static frontend (routes are Phase 3; see docs/web-frontend.md)
+apps/web-app/             Svelte 5 + SvelteKit static frontend, three routes (see docs/web-frontend.md)
 minecraft-mod/            NeoForge client mod (Stage 4A live probe; network adapter not implemented)
 docs/                     Architecture, protocol, pinning, plans, FTB reconnaissance
 ```
@@ -48,7 +48,7 @@ npm test
 ```
 
 - `npm run build` builds `@questbridge/protocol`, then `@questbridge/mock-publisher`, then `@questbridge/host`, then `web-app`.
-- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 250 host tests, and 131 web-app tests (496 total). The web-app suite includes component tests in real Chromium; the host suite includes a test that serves the built frontend.
+- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 250 host tests, and 169 web-app tests (534 total). The web-app suite includes component tests in real Chromium; the host suite includes a test that serves the built frontend.
 - `npm run build -w @questbridge/protocol` and `npm test -w @questbridge/protocol` target one workspace.
 - The mock and host packages use a TypeScript project reference to the protocol package, so `tsc -b` builds the dependency first even when npm runs workspaces in another order.
 - The host vitest config aliases the protocol and mock-publisher *sources*, so `npm test -w @questbridge/host` needs no prior build.

@@ -1,12 +1,12 @@
 # Phase 2 Plan — Host Core and Local Transport
 
 **Status:** Implemented and verified through milestone 2G. All five Phase 2 acceptance
-blockers are met by `packages/host` at `0.1.0`: 225 host tests pass, the host and the mock
+blockers are met by `packages/host` at `0.1.0`: 225 host tests passed when the milestone closed, the host and the mock
 publisher work end to end over real WebSockets, configuration survives restart, and the
-security refusals are distinguishable. The static handoff is in place but no Svelte route
-exists yet, so `/overlay` and `/control` serve the documented placeholder; that remains
-Phase 3 work. Proposal B authentication is settled: adopted and simplified to two tokens
-with no cookies on 2026-11-06, and specified in `docs/local-authentication.md`.  
+security refusals are distinguishable. The static handoff was verified during Phase 2;
+Phase 3 has since supplied the routes it serves, closing this plan's last open acceptance
+item. Proposal B authentication is settled: adopted and simplified to two tokens with no
+cookies on 2026-11-06, and specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
 **Target:** QuestBridge host on Node 24, protocol v1, ATM10 TTS 2.3.1 data supplied by the future adapter or the existing mock publisher.  
 **Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package uses its own SemVer version (`0.1.0`).

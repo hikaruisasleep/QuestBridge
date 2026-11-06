@@ -618,7 +618,7 @@ Phase 3 is complete when:
       scrollbar-free, and survives
       a refresh and a host restart. Verified in Chromium at 380 × 650; **not**
       with the OBS application driving the source. See §14.3.
-- [x] The full workspace test suite passes (496 tests).
+- [x] The full workspace test suite passes (534 tests).
 - [x] Protocol v1 is unchanged.
 
 The one caveat is the OBS application itself, which was not opened during this
@@ -635,17 +635,23 @@ establish FTB compatibility (`AGENTS.md` §18).
 
 | Milestone | State | Evidence |
 |---|---|---|
-| 3A Client foundation | Done | 57 server-project tests: endpoint, client lifecycle, store, selectors |
-| 3B Overlay route | Done | 28 Chromium tests plus a measured 380 × 650 frame |
+| 3A Client foundation | Done | 45 server-project tests: endpoint, client lifecycle, backoff, store, selectors |
+| 3B Overlay route | Done | 28 Chromium tests (rendering, states, reflow) plus a measured 380 × 650 frame |
 | 3C Control route | Done | 17 Chromium tests plus live pointer and touch reordering against a host |
-| 3D Settings, preview, landing, host `/` | Done | 15 tests, plus the host's 6 root-route tests |
+| 3D Settings, preview, landing, host `/` | Done | 15 Chromium tests, plus the host's 6 root-route tests |
 | 3E Hardening | Done | 8 build-serving tests, 4 token-leak tests, OBS-facing log |
+| Chroma key (added after 3E) | Done | 12 Chromium + 10 palette tests; see §14.2.1 |
+| Motion tokens and backoff ageing (follow-up) | Done | 6 token-guard tests, 5 backoff-ageing tests |
 
 `npm run build` and `npm test` both pass from the repository root:
 
 ```text
-85 protocol + 30 mock-publisher + 250 host + 131 web-app = 496 tests
+85 protocol + 30 mock-publisher + 250 host + 169 web-app = 534 tests
 ```
+
+The web-app suite is 74 component tests running in real Chromium
+(`vitest-browser-svelte`) plus 95 in the Node project. The host suite includes
+tests that serve the built frontend and scan it for credentials.
 
 ### 14.2 Decisions taken during implementation
 
@@ -701,13 +707,47 @@ establish FTB compatibility (`AGENTS.md` §18).
 - **The OBS application was not driven.** Keying, frame size, the absence
   of scrollbars, refresh recovery, and host-restart recovery were all measured in
   Chromium at the documented frame size. See
-  `docs/testing-logs/2026-11-07-phase3-overlay.md` §5.
+  `docs/testing-logs/2026-11-07-phase3-overlay.md` §4.
+- **No chroma key has actually been run.** The palette audit proves no UI colour
+  would be removed by a key; it does not apply a key filter and inspect the
+  result.
 - **Mock data only.** No real FTB Quests data reached the UI. That is Stage 4C
   and Phase 5.
 - **No keyboard reordering.** Pointer and touch only, as settled in §11.2.
 - **A cancelled touch restore is asserted but a half-finished drag has no undo.**
   `pointercancel` clears the drag; it does not roll back a mutation that was
   already accepted.
+- **`showCompletedQuests` is close to inert in practice.** FTB removes a quest
+  from its pin set when it completes (`docs/protocol.md` §8.8), so a completed
+  quest rarely reaches the objective list. The setting is implemented and tested
+  because the protocol exposes the field; it will seldom change anything until a
+  source retains completed pins.
+- **Typography is unverified against readability.** Sizes from 9 px to 13 px were
+  chosen for a 380 × 650 frame and measured only as computed values. Whether they
+  read well over moving gameplay at 30 FPS has not been checked on a stream.
+- **The chroma-key choice is per-browser** because protocol v1 has no field for
+  it. See §14.2.1.
+
+### 14.4 Follow-up fixes after 3E
+
+Recorded here because each changed behaviour described earlier in this document.
+
+- **Backoff ageing.** The reconnect attempt counter only ever rose and reset on a
+  successful open, so a host that had been down for hours still left the page
+  waiting the full 30 s after it returned. It now ages down one step per quiet
+  window. Decay is computed from a failure timestamp when the next reconnect is
+  scheduled, **not** by a timer: a decay timer and the retry timer reschedule each
+  other, so the count could never settle. The timestamp is stamped inside
+  `#scheduleReconnect` after ageing; stamping it in `onclose` made every failure
+  look recent, which silently disabled decay.
+- **Motion tokens.** Four duration literals had escaped into components (progress
+  fill, dashboard hover, row state, and the dashboard's mutation-pending
+  backstop). All now come from `src/lib/motion.ts`, and `motion.test.ts` scans
+  component style blocks so a new literal fails the suite.
+- **Reconnect harness.** The client test's `clearTimeout` stub was a no-op, so a
+  cancelled retry still fired when the harness drained timers. Cancellation is now
+  recorded and honoured, which is what made the ageing tests meaningful.
+
 
 ---
 

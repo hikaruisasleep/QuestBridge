@@ -16,7 +16,7 @@ The frontend never parses FTB data. The host never depends on Minecraft or Java 
 
 ## 1. Repository layout
 
-Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the Svelte 5 + SvelteKit frontend lives at `apps/web-app/`, built as a static site. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. Phase 2 added `packages/host`, which serves the static frontend when `--build-dir` is supplied and a placeholder otherwise. The `/overlay` and `/control` route components are Phase 3 work.
+Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the Svelte 5 + SvelteKit frontend lives at `apps/web-app/`, built as a static site. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. Phase 2 added `packages/host`, which serves the static frontend when `--build-dir` is supplied and a placeholder otherwise. Phase 3 added the `/overlay`, `/control`, and `/` route components.
 
 **Current layout (implemented as of 2026-11-06):**
 
@@ -135,13 +135,19 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/` (static build; routes pending), `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, web frontend, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, the `/overlay` and `/control` route components, `docs/troubleshooting.md`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/` (static build with three routes), `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, web frontend, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `docs/troubleshooting.md`.
+- **Planned tree note:** the tree above lists `troubleshooting.md` (a planned
+  document) and a `packages/host/src/routes/` directory that were proposed and
+  never created. The host has no `routes/` directory because its routing is small
+  enough to live in `http.ts`. The planned troubleshooting content currently
+  lives in `docs/development.md` §8 and
+  `docs/testing-logs/2026-11-07-phase3-overlay.md` §4.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
 - `packages/host` implements the Phase 2 host core: loopback HTTP and WebSocket transport, two-token authentication, config and state stores, chapter pin resolution, Minecraft and browser sessions, and static serving with per-file-class caching. Its 232 tests cover the units plus end-to-end runs against the mock publisher.
 - `minecraft-mod/` contains the client-only NeoForge Stage 4A live probe. It compiles against NeoForge `21.1.250` with JDK 21, declares the exact FTB Quests, FTB Teams, and FTB Library dependencies, gates on FTB readiness from the client tick, and logs chapter, manual-pin, quest, and task state. It does not publish network messages yet.
-- `apps/web-app/` contains the Svelte 5 + SvelteKit frontend, built as a static site with `@sveltejs/adapter-static`. The root `+layout.ts` sets `prerender = true`, so the build emits real HTML that the host serves as opaque files. The `/overlay` and `/control` route components are Phase 3 work; until they exist both routes resolve to the root scaffold page when a build is supplied, and to the host's placeholder when none is. It is an npm workspace member. See `docs/web-frontend.md`.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit frontend, built as a static site with `@sveltejs/adapter-static`. The root `+layout.ts` sets `prerender = true`, so the build emits real HTML that the host serves as opaque files. All three routes (`/`, `/overlay`, `/control`) are implemented and resolve to their own pages in the build; without a build the host serves its placeholder. It is an npm workspace member. See `docs/web-frontend.md`.
 - The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
@@ -280,7 +286,7 @@ Minecraft publisher is the only writer of progression; browsers never write it.
 
 Mock IDs are synthetic. Real ATM10 TTS IDs are only used in recorded fixtures after runtime verification.
 
-### 3.5 Svelte frontend (routes are Phase 3)
+### 3.5 Svelte frontend (implemented)
 
 One application, statically built, with two routes:
 
@@ -993,19 +999,19 @@ The NeoForge baseline compiles against `21.1.250` with JDK 21. The build declare
 
 The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte frontend in `apps/web-app/` is built with Vite and `@sveltejs/adapter-static`, producing a static site in `apps/web-app/build` (its own `package.json` uses npm as its package manager).
 
-The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host is implemented in `packages/host` through Phase 2 milestone 2G; the `/overlay` and `/control` route components are Phase 3 work. The host serves a real static build when `--build-dir` is given and its placeholder otherwise. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` and `npm run host` start their respective CLIs.
+The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host is implemented in `packages/host` through Phase 2 milestone 2G, and the frontend routes through Phase 3. The host serves a real static build when `--build-dir` is given and its placeholder otherwise. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` and `npm run host` start their respective CLIs.
 
 Phase 1 verification on 2026-11-06:
 
 - `npm run build` passes for `@questbridge/protocol`, `@questbridge/mock-publisher`, and `web-app`.
-- `npm test` passes: 85 protocol tests, 30 mock-publisher tests, and the 2 existing web-app scaffold tests.
+- `npm test` passed 85 protocol tests, 30 mock-publisher tests, and the 2 existing web-app scaffold tests at that point.
 - The collector tests prove the normalized model and the full scenario lifecycle over a real WebSocket, including disconnect and reconnect.
 - `node packages/mock-publisher/dist/index.js --scenario full --speed=5` was smoke-tested against the standalone collector CLI.
 
 Phase 2 verification on 2026-11-06 (milestone 2G):
 
 - `npm run build` passes for all four workspaces, including `@questbridge/host`.
-- `npm test` passes: 85 protocol, 30 mock-publisher, 232 host, and 2 web-app tests (349 total).
+- `npm test` passed 85 protocol, 30 mock-publisher, 232 host, and 2 web-app tests (349 total) at that point; the current total is given in §14.
 - Manual run: the host on `127.0.0.1:8799` and `npm run mock -- --scenario=full` reached a browser with the catalog and manual objectives; pin, reorder, unpin, and display updates persisted to `config.json`; the pin cap, duplicate, unknown-chapter, wrong-reorder-set, unpinned-id, and overlay-mutation refusals each returned their documented code; and a restart reloaded the stored pins before resolving them against a new snapshot.
 - The full results, including two non-defects found during the manual run, are in `docs/phase-2-plan.md` §15 under 2G.
 

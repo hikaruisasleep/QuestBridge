@@ -292,11 +292,39 @@ Full detail is in `AGENTS.md` §2.3 and §10.1. The points most often broken:
 - No quest-selection controls of any kind.
 - Works in plain Chromium and in OBS CEF, and needs no OBS-specific APIs.
 
+### 4.1 The key colour is a browser-local setting
+
+The overlay paints a solid `#00FF00` or `#0000FF` field; OBS removes it with a
+Chroma Key filter on the source. Which of the two is used is chosen under
+**Background** in `/control`.
+
+`DisplayConfig` has no field for it, and protocol v1 was left unchanged, so the
+choice is stored in this browser's `localStorage` under
+`questbridge.chromaKey.v1` and never reaches the host. Two consequences follow,
+and both are real rather than theoretical:
+
+- **It is per browser profile.** An OBS source reads whatever was last set in
+  the profile OBS uses. A dashboard tab in a different browser can show a
+  different colour without anything being wrong.
+- **It is not part of the host's broadcast.** A browser that has never set the
+  value uses green.
+
+Moving this into `DisplayConfig` is the natural first change for a future
+protocol version.
+
+### 4.2 UI colours must survive both keys
+
+No component may use a colour in the active key's family. The rule is channel
+dominance, not exact match: a keyer removes everything within its similarity
+tolerance, so `#00E000` is removed with a green background. All overlay colours
+are tokens in `src/lib/theme.ts`, and `src/lib/chroma.test.ts` checks every token
+against both keys.
+
 ---
 
 ## 5. Testing expectations
 
-Frontend tests are Phase 3 work; `AGENTS.md` §16 lists them. The cases this
+Frontend tests are implemented; `AGENTS.md` §16 lists them. The cases this
 document specifically adds:
 
 - The disconnected and unauthorized presentations each render a visible state —

@@ -1303,29 +1303,36 @@ Follow `docs/versioning.md`.
 
 The initial release is complete when:
 
-- [ ] Monorepo builds.
-- [ ] Host runs locally.
-- [ ] Mock publisher connects.
-- [ ] Chapter catalog is received.
-- [ ] Chapter pin configuration persists.
-- [ ] Up to five chapters can be selected.
-- [ ] Chapters can be reordered.
-- [ ] Missing chapters are handled safely.
+- [x] Monorepo builds.
+- [x] Host runs locally.
+- [x] Mock publisher connects.
+- [x] Chapter catalog is received.
+- [x] Chapter pin configuration persists.
+- [x] Up to five chapters can be selected.
+- [x] Chapters can be reordered.
+- [x] Missing chapters are handled safely.
 - [ ] Manual FTB Quests pins are received.
 - [ ] Automatic pins are excluded.
-- [ ] Chapter progress is displayed.
-- [ ] Quest progress is displayed.
-- [ ] Task progress is displayed where available.
-- [ ] Overlay paints a uniform key colour for OBS chroma keying, with no UI
+- [x] Chapter progress is displayed.
+- [x] Quest progress is displayed.
+- [x] Task progress is displayed where available.
+- [x] Overlay paints a uniform key colour for OBS chroma keying, with no UI
       colour in the active key's family.
 - [ ] OBS Browser Source works.
-- [ ] Disconnects are represented accurately.
-- [ ] Reconnection restores current state.
+- [x] Disconnects are represented accurately.
+- [x] Reconnection restores current state.
 - [ ] Actual NeoForge integration compiles.
 - [ ] Client-only installation is verified.
 - [ ] Single-player integration is tested.
 - [ ] Multiplayer integration is tested.
 - [ ] Actual ATM10 TTS progression is verified.
+
+Scope of the checked items: they are proven **against the mock publisher and a
+scripted protocol-v1 publisher**, not against a real Minecraft client. The
+unchecked items all depend on the FTB Quests network adapter (Stage 4B–4F), which
+has not been written. `OBS Browser Source works` stays unchecked because the OBS
+application itself has not driven the source; only the served page's behaviour
+has been measured (`docs/testing-logs/2026-11-07-phase3-overlay.md` §4).
 
 Do not mark the release complete if only mock mode works.
 

@@ -33,7 +33,7 @@ Before any Phase 3 work, the workspace is green:
 | Check | Result |
 |---|---|
 | `npm run build` | Succeeds for all four workspaces. |
-| `npm test` | **349 passing**: 85 protocol, 30 mock-publisher, 232 host, 2 web-app. |
+| `npm test` | **349 passing**: 85 protocol, 30 mock-publisher, 232 host, 2 web-app. (Baseline before Phase 3; the final total is in `docs/phase-3-plan.md` §14.) |
 | Node / npm | `24.22.1` / `11.19.1` via fnm (see `AGENTS.md` §3). |
 | Playwright Chromium | Installed (`chromium-1254`); the web-app browser project can run. |
 | Tool versions | Svelte `5.57.3`, Vite `8.3.0`, Vitest `4.1.12`, `vitest-browser-svelte` `2.2.1`, Playwright `1.65.0`. |

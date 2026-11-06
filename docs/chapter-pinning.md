@@ -1,6 +1,10 @@
 # Chapter Pinning
 
-**Status:** Specification, not yet implemented  
+**Status:** Implemented. The host operations (`packages/host/src/chapter-pins.ts`,
+`chapter-resolver.ts`) enforce the invariants below, and the dashboard at
+`/control` provides catalog search, pin/unpin, and pointer/touch drag reordering.
+This document remains the specification; `docs/web-frontend.md` is normative for
+the UI.  
 **Chapter data:** The chapter IDs and titles in section 2.1 were verified against the installed ATM10 TTS 2.3.1 instance on 2026-11-06.  
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md`, and dashboard access control follows it.  
 **Date:** 2026-11-06

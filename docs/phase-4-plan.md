@@ -1,6 +1,6 @@
 # Stage 4 Plan — Minecraft Adapter, Real Data First
 
-**Status:** Stage 4A implemented, built, and verified against the live client. Stage 4B–4F are pending; no network code has been added.
+**Status:** Stage 4A implemented, built, and verified against the live client. Stage 4B–4F are pending; no network code has been added. The host and frontend are complete (Phases 2 and 3), so the adapter's target is a working end-to-end pipeline rather than a standalone collector.
 **Date:** 2026-11-06
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
 **Sequencing decision:** Stage 4A was completed before the host. Phase 2 (host core) is now planned in `docs/phase-2-plan.md`; Phase 3 (Svelte UI) remains deferred.
