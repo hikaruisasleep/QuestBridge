@@ -221,9 +221,18 @@ async function sendFile(
 /**
  * Attempt to serve a browser route or asset from `buildDir`.
  *
+ * The root path `/` is a page in its own right: it resolves to `index.html`
+ * **directly**, and nothing else. It is deliberately *not* added to the generic
+ * candidate list, because that list's last entry is a bare `index.html` — the
+ * fallback that lets a route render the root page when its own output is missing.
+ * Sharing that list with `/` would leave `/` with a single candidate anyway, but
+ * more importantly the rule this function must keep is that an unknown path can
+ * never reach `index.html`. A typo has to stay a 404 rather than become a
+ * half-working page (`docs/web-frontend.md` §2.1).
+ *
  * @returns `served: false` when nothing matched, leaving the caller to answer
- *   with 404. Only the two browser routes fall back to the placeholder; an
- *   unknown path is still a 404.
+ *   with 404. Only the two browser routes and `/` fall back to the placeholder;
+ *   an unknown path is still a 404.
  */
 export async function serveStatic(
   options: StaticServerOptions,
@@ -233,12 +242,13 @@ export async function serveStatic(
 ): Promise<StaticResult> {
   const { buildDir, logger } = options;
 
+  const isRoot = requestPath === "/";
   const isRoute = (BROWSER_ROUTES as readonly string[]).includes(requestPath);
 
   if (buildDir === undefined) {
-    // Without a build there is nothing to serve. Only the browser routes have
-    // an explanation to give.
-    return isRoute ? sendPlaceholder(requestPath, res, headOnly) : { served: false };
+    // Without a build there is nothing to serve. The routes and the root have an
+    // explanation to give; an arbitrary path does not.
+    return isRoute || isRoot ? sendPlaceholder(requestPath, res, headOnly) : { served: false };
   }
 
   // Candidate relative paths, tried in order.
@@ -248,10 +258,15 @@ export async function serveStatic(
   // concern the host must not have to know: `trailingSlash: 'always'` produces
   // `overlay/index.html`, while the default `'never'` produces `overlay.html`.
   // Trying both keeps the host independent of that choice.
+  //
+  // `/` has exactly one candidate. It is not a route, so it must not inherit the
+  // route list and with it the `index.html` fallback.
   const routeName = requestPath.slice(1);
-  const candidates: string[] = isRoute
-    ? [`${routeName}/index.html`, `${routeName}.html`, "index.html"]
-    : [requestPath];
+  const candidates: string[] = isRoot
+    ? ["index.html"]
+    : isRoute
+      ? [`${routeName}/index.html`, `${routeName}.html`, "index.html"]
+      : [requestPath];
 
   for (const relative of candidates) {
     const candidate = resolveWithinRoot(buildDir, relative);
@@ -263,9 +278,9 @@ export async function serveStatic(
     }
   }
 
-  // A route without a build output still explains itself; an ordinary missing
-  // asset is left to the caller.
-  if (isRoute) {
+  // A route or the root without a build output still explains itself; an
+  // ordinary missing asset is left to the caller.
+  if (isRoute || isRoot) {
     logger.warn(`no frontend build found for ${requestPath}; serving the placeholder`);
     return sendPlaceholder(requestPath, res, headOnly);
   }

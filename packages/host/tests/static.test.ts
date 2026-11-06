@@ -228,6 +228,86 @@ describe("browser routes with a build", () => {
   });
 });
 
+describe("the root route", () => {
+  it("serves index.html at / when a build exists", async () => {
+    const buildDir = join(directory, "build");
+    await mkdir(buildDir, { recursive: true });
+    await writeFile(join(buildDir, "index.html"), "<h1>landing</h1>", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    const response = await fetch(`${host.url}/`);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("landing");
+    // An entry point names the current asset hashes; a stale copy can point at
+    // files a newer build no longer ships.
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("does not turn an unknown path into the landing page", async () => {
+    // The whole point of resolving `/` specifically rather than sharing the
+    // route candidate list, whose last entry is a bare `index.html`. A typo has
+    // to stay a 404 instead of becoming a half-working page
+    // (`docs/web-frontend.md` §2.1).
+    const buildDir = join(directory, "build");
+    await mkdir(buildDir, { recursive: true });
+    await writeFile(join(buildDir, "index.html"), "<h1>landing</h1>", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    for (const path of ["/not-a-route", "/overvie", "/controlx", "/nope/"]) {
+      const response = await fetch(`${host.url}${path}`);
+      expect(response.status, path).toBe(404);
+      expect(await response.text(), path).not.toContain("landing");
+    }
+  });
+
+  it("serves the placeholder at / when no build exists", async () => {
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER });
+
+    const response = await fetch(`${host.url}/`);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("not built");
+  });
+
+  it("serves the placeholder at / when the build has no index", async () => {
+    const buildDir = join(directory, "empty-build");
+    await mkdir(buildDir, { recursive: true });
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    const response = await fetch(`${host.url}/`);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("not built");
+  });
+
+  it("keeps the routes resolving to their own pages, not the landing page", async () => {
+    const buildDir = join(directory, "build");
+    await mkdir(buildDir, { recursive: true });
+    await writeFile(join(buildDir, "index.html"), "landing", "utf8");
+    await writeFile(join(buildDir, "overlay.html"), "overlay page", "utf8");
+    await writeFile(join(buildDir, "control.html"), "control page", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    expect(await (await fetch(`${host.url}/`)).text()).toContain("landing");
+    expect(await (await fetch(`${host.url}/overlay`)).text()).toContain("overlay page");
+    expect(await (await fetch(`${host.url}/control`)).text()).toContain("control page");
+  });
+
+  it("answers HEAD for / without a body", async () => {
+    const buildDir = join(directory, "build");
+    await mkdir(buildDir, { recursive: true });
+    await writeFile(join(buildDir, "index.html"), "<h1>landing</h1>", "utf8");
+
+    host = await createHost({ configDir: directory, logger: SILENT_LOGGER, buildDir });
+
+    const response = await fetch(`${host.url}/`, { method: "HEAD" });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
+  });
+});
+
 describe("cache control", () => {
   it("caches content-hashed assets for a year", () => {
     expect(cacheControlFor("_app/immutable/chunks/app.ABC123.js")).toBe(
