@@ -112,7 +112,7 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, development, Stage 4 plan), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, development, Stage 4 plan), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
 - **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/host`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
@@ -594,7 +594,7 @@ browserToken    read state; declare either browser role
 minecraftToken  publish Minecraft state and progression
 ```
 
-The role split was dropped because R1 makes the two browser tokens interchangeable — it was pure usability cost with no security benefit. `minecraftToken` is kept because it stops an arbitrary local process from injecting fabricated quest progression, and it costs a human nothing since it is configured once in the adapter and never typed.
+The role split was dropped because R1 makes the two browser tokens interchangeable: it would have advertised a boundary that is not enforced, which is worse than no control because it changes user behaviour without changing risk. `minecraftToken` is kept because it stops an arbitrary local process from injecting fabricated quest progression, and it costs a human nothing since it is configured once in the adapter and never typed. The two routes `/overlay` and `/control` are unaffected and both remain.
 
 Tokens are 256-bit random values generated on first run and persisted in a dedicated `tokens.json` with mode `0600`, separate from `config.json`. They are compared with a timing-safe comparison, printed only to stdout by `--print-urls`, and never appear in served HTML, JavaScript bundles, or logs.
 

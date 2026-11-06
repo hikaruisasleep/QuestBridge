@@ -1,6 +1,6 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied and Phase 2 planned; Proposal D applied; Proposal B **adopted with revisions on 2026-11-06**
+**Status:** Proposal A approved and applied; Proposal C adopted with Phase 0 and Phase 1 applied and Phase 2 planned; Proposal D applied; Proposal B **adopted and simplified to two tokens on 2026-11-06**
 **Date:** 2026-11-06  
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.  
 **Phase 5 prerequisite:** The target pack is now installed locally as a Prism Launcher instance (ATM10SKY 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250). The Phase 5 exit criterion no longer depends on obtaining a pack installation; it depends on running the adapter against this one. See `docs/ftb-quests-integration.md` sections 1.1-1.3.  

@@ -1,6 +1,6 @@
 # Phase 2 Plan — Host Core and Local Transport
 
-**Status:** Planning only. No Phase 2 implementation has started. Proposal B authentication is settled: adopted with revisions on 2026-11-06 and specified in `docs/local-authentication.md`.  
+**Status:** Planning only. No Phase 2 implementation has started. Proposal B authentication is settled: adopted and simplified to two tokens with no cookies on 2026-11-06, and specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
 **Target:** QuestBridge host on Node 24, protocol v1, ATM10 TTS 2.3.1 data supplied by the future adapter or the existing mock publisher.  
 **Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package will use its own SemVer version (`0.1.0` at first implementation).
@@ -192,7 +192,7 @@ packages/host/
 │   ├── minecraft-session.ts  # publisher handshake and message handling
 │   ├── browser-session.ts    # browser roles and message handling
 │   ├── auth.ts               # tokens, timing-safe comparison, role checks
-│   ├── http.ts               # static files, token bootstrap, /health
+│   ├── http.ts               # static files, token validation, /health
 │   ├── validation.ts         # direction/domain validation helpers
 │   ├── logging.ts            # redacted structured logging
 │   └── errors.ts             # host error mapping
@@ -362,7 +362,7 @@ success, persist atomically and broadcast `config.update` plus the new revision.
 The resolver joins:
 
 - stored `chapterPins.pinnedChapters`;
-- the latest catalog from `minecraft.snapshot` or `chapter.catalog`.
+- the latest catalog from `minecraft.snapshot`.
 
 For each configured pin:
 
