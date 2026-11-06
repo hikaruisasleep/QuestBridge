@@ -1128,9 +1128,11 @@ packages/
     ├── src/
     │   ├── index.ts          # CLI entry
     │   ├── client.ts         # WebSocket publisher using @questbridge/protocol
+    │   ├── collector.ts      # standalone host-side collector CLI
+    │   ├── collector-model.ts# normalized observation state for the collector
     │   ├── fixtures.ts       # synthetic deterministic fixture data
     │   └── scenarios.ts      # scripted lifecycle scenarios
-    └── tests/                # mock lifecycle tests
+    └── tests/                # mock lifecycle and collector tests
 ```
 
 Dependency choices:
@@ -1225,13 +1227,14 @@ At minimum:
 - `stale` stops heartbeats without closing the socket.
 - The mock's fixture data satisfies the section 13.2 requirements.
 - The mock's output can be replayed into a local collector (a test-only WebSocket server) without a host.
+- The standalone collector builds normalized observation state from every scenario and replays the full lifecycle over a real WebSocket, including reconnect and stale retention.
 
 ### 13.6 Exit criteria
 
 Phase 1 is complete when:
 
 1. [x] `@questbridge/protocol` builds and its tests pass (85 tests).
-2. [x] `@questbridge/mock-publisher` builds and its tests pass (22 tests).
+2. [x] `@questbridge/mock-publisher` builds and its tests pass (30 tests).
 3. [x] Every mock scenario is deterministic and emits only valid v1 messages.
 4. [x] A test-only collector can consume the mock lifecycle end to end.
 5. [x] `npm run build --workspaces --if-present` and `npm test --workspaces --if-present` pass.

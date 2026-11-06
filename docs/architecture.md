@@ -54,6 +54,8 @@ questbridge/
 │       ├── src/
 │       │   ├── index.ts         # CLI entry
 │       │   ├── client.ts
+│       │   ├── collector.ts     # standalone collector CLI
+│       │   ├── collector-model.ts
 │       │   ├── fixtures.ts
 │       │   └── scenarios.ts
 │       └── tests/
@@ -108,7 +110,7 @@ Notes:
 - **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, development), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
 - **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/host`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
-- `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. Its 22 tests cover fixture requirements, scenario validity and ordering, and a real WebSocket collector replay.
+- `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
 - `minecraft-mod/` contains the NeoForge client mod skeleton (a single `QuestBridge` mod class). It compiles against NeoForge `21.1.250` with JDK 21 and declares the exact FTB Quests, FTB Teams, and FTB Library dependencies.
 - `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is an npm workspace member.
 - The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
@@ -242,6 +244,7 @@ Non-responsibilities:
 - A simulation of the real FTB data lifecycle, not just static fixtures.
 - Deterministic scenarios for development and tests.
 - Coverage for unavailable, synchronizing, ready, progress, pin, completion, reload, world-change, team-change, disconnect, stale, and reconnect behavior.
+- A standalone loopback-only collector CLI (`npm run collect`) that validates and displays the Minecraft-side data flow for user testing. It is not the host and does not own chapter pins, display settings, or browser connections.
 
 Mock IDs are synthetic. Real ATM10 TTS IDs are only used in recorded fixtures after runtime verification.
 
@@ -900,9 +903,9 @@ The shared protocol contract is documented in `docs/protocol.md` and implemented
 Phase 1 verification on 2026-11-06:
 
 - `npm run build` passes for `@questbridge/protocol`, `@questbridge/mock-publisher`, and `web-app`.
-- `npm test` passes: 85 protocol tests, 22 mock-publisher tests, and the 2 existing web-app scaffold tests.
-- The mock collector replay test proves the full scenario lifecycle including disconnect and reconnect.
-- `node packages/mock-publisher/dist/index.js --scenario ready` was smoke-tested against a local WebSocket collector.
+- `npm test` passes: 85 protocol tests, 30 mock-publisher tests, and the 2 existing web-app scaffold tests.
+- The collector tests prove the normalized model and the full scenario lifecycle over a real WebSocket, including disconnect and reconnect.
+- `node packages/mock-publisher/dist/index.js --scenario full --speed=5` was smoke-tested against the standalone collector CLI.
 
 Available now:
 
@@ -910,6 +913,7 @@ Available now:
 npm install
 npm run build
 npm test
+npm run collect
 npm run mock -- --scenario=ready
 npm run mock -- --scenario=progress --speed=2
 npm run mock -- --list
@@ -923,7 +927,7 @@ The web-app scaffold uses Vitest browser mode. On a fresh machine, install its C
 npx playwright install chromium
 ```
 
-`npm run mock` connects to the host at `ws://127.0.0.1:8765/ws` by default. The host is implemented in Phase 2; until then the CLI reports a connection error, and the collector test suite is the supported end-to-end path.
+`npm run collect` starts the standalone collector at `ws://127.0.0.1:8765/ws`. Run `npm run mock` in a second terminal to feed it. The actual host is Phase 2 work; the collector is the supported end-to-end path until then.
 
 ---
 

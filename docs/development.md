@@ -46,7 +46,7 @@ npm test
 ```
 
 - `npm run build` builds `@questbridge/protocol`, then `@questbridge/mock-publisher`, then `web-app`.
-- `npm test` runs the same order: 85 protocol tests, 22 mock-publisher tests, and the existing web-app scaffold tests.
+- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, and the existing web-app scaffold tests.
 - `npm run build -w @questbridge/protocol` and `npm test -w @questbridge/protocol` target one workspace.
 - The mock package uses a TypeScript project reference to the protocol package, so `tsc -b` builds the dependency first even when npm runs workspaces in another order.
 
@@ -62,7 +62,7 @@ cd minecraft-mod
 
 ## 4. Mock publisher
 
-The mock publisher implements the Minecraft side of the protocol. It needs a host to connect to; the host is Phase 2 work.
+The mock publisher implements the Minecraft side of the protocol. It needs a collector or host to connect to; the QuestBridge host is Phase 2 work.
 
 ```text
 npm run mock -- --list
@@ -93,7 +93,7 @@ Constraints:
 - `--speed` scales the scripted delays; it does not change the message contents.
 - Fixtures are synthetic and deterministic. No real ATM10 TTS identifiers are used.
 
-The collector test in `packages/mock-publisher/tests/mock-publisher.test.ts` replays the `full` scenario into a temporary WebSocket server. Run it directly with:
+The collector tests in `packages/mock-publisher/tests/collector.test.ts` and `packages/mock-publisher/tests/mock-publisher.test.ts` replay scenarios into the standalone collector and into a temporary WebSocket server. Run them directly with:
 
 ```text
 npm test -w @questbridge/mock-publisher
@@ -101,7 +101,54 @@ npm test -w @questbridge/mock-publisher
 
 ---
 
-## 5. Protocol changes
+## 5. Standalone collector
+
+`npm run collect` starts a loopback-only collector for user testing. It implements the host side of the Minecraft handshake, validates every message with `@questbridge/protocol`, and prints the normalized observation state.
+
+It is **not** the QuestBridge host: it does not own chapter pins or display settings, does not serve a browser UI, and does not implement browser roles.
+
+Run it in one terminal:
+
+```text
+npm run collect
+```
+
+Then run a scenario in another terminal:
+
+```text
+npm run mock -- --scenario=full --speed=5
+```
+
+The collector prints connection changes, hello/version data, snapshots, progress updates, pin changes, objectives, unresolved IDs, and heartbeats. Ctrl+C prints the final state summary and stops it.
+
+Options:
+
+```text
+npm run collect -- --port 8765
+npm run collect -- --stale-after 10000
+```
+
+Behavior:
+
+- Binds only to `127.0.0.1`.
+- Requires `minecraft.hello` first and sends `host.welcome`.
+- Tracks sequence numbers per connection and sends `host.request_snapshot` on a gap.
+- Rejects non-loopback WebSocket origins and a second concurrent publisher.
+- Retains the last snapshot after disconnect, marked as disconnected and stale.
+- Uses wall-clock receipt time for staleness; mock message timestamps stay in the data payload.
+- Defaults to port `8765`, matching `npm run mock`'s default URL.
+- Has no transport authentication. It binds loopback and checks WebSocket origins, but it is a local testing tool, not a release-ready host.
+
+If you change the port, pass the matching URL to the mock publisher:
+
+```text
+npm run collect -- --port 9000
+npm run mock -- --scenario=ready --url=ws://127.0.0.1:9000/ws
+```
+
+---
+
+## 6. Protocol changes
 
 `packages/protocol/src/schemas.ts` is the single source of truth. Types in `types.ts` are inferred from it.
 
@@ -115,7 +162,7 @@ The Java adapter must implement the same wire format manually. It cannot import 
 
 ---
 
-## 6. Current limitations
+## 7. Current limitations
 
 - No host, so no live end-to-end browser session yet.
 - No `/overlay` or `/control` routes.
