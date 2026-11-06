@@ -35,15 +35,17 @@ There are exactly two trust boundaries in this design, and therefore exactly two
 
 ### 1.2 Why two tokens and not one
 
-The two surviving tokens are justified on a cost/benefit basis, and the dropped role split on the same basis. The asymmetry is the whole argument:
+**The two routes are a product requirement and are unaffected by token count.** `/overlay` is the OBS Browser Source; `/control` is where the user manages chapter pins. Both exist regardless of authentication design, and `--print-urls` prints both (§2.1). Dropping a token does not drop a route, an access path, or a step for the user.
 
-| Credential | Usability cost | Security benefit | Verdict |
+What remains to justify is the token count itself:
+
+| Credential | Implementation cost | Security benefit | Verdict |
 |---|---|---|---|
-| overlay/control split | High — two URLs to obtain, label, and keep straight | None, because R1 does not enforce it | **Dropped** |
-| `minecraftToken` | None — machine-to-machine, configured once in the adapter, never typed by a person | Real — without it, any local process could connect as a publisher and inject fabricated quest data into the overlay | **Kept** |
-| `browserToken` | Low — one URL, pasted into OBS once | Real — under R2 an unrelated local page passes the origin check, so a token is the only thing preventing it from reading streamer state | **Kept** |
+| overlay/control split | Extra token to generate and store; per-role cookie names; a **misleading appearance** of a boundary that R1 does not enforce | None — R1 makes the two interchangeable | **Dropped** |
+| `minecraftToken` | None — machine-to-machine, configured once in the adapter, never typed by a person | Real — without it, any local process could connect as a publisher and inject fabricated quest data | **Kept** |
+| `browserToken` | One value to generate and print | Real — under R2 an unrelated local page passes the origin check, so a token is the only thing preventing it from reading streamer state | **Kept** |
 
-Simplification should remove cost without removing benefit. The role split was pure cost under R1; `minecraftToken` is pure benefit at zero cost to a human. That is why the count lands at two.
+The decisive argument against the role split is not that it was inconvenient — it is that it would have **advertised a boundary that does not exist**. A user holding a "read-only overlay token" would reasonably assume it was safer to expose than the control token, and would be wrong: per R1 either token grants write access. A security control that implies protection it does not provide is worse than no control, because it changes behaviour without changing risk.
 
 Note that direction-aware message parsing independently blocks a browser from publishing progression — `parseFrame(..., "browser_to_host")` rejects every `minecraft.*` type regardless of token. `minecraftToken` is what prevents an *unauthorised publisher* from connecting at all, which the message contract alone cannot do.
 
@@ -85,9 +87,9 @@ Generation and storage:
 - Compared with a timing-safe comparison: hash both the presented and the stored value with SHA-256 and compare the digests with `crypto.timingSafeEqual`, which avoids the equal-length precondition that the raw function imposes.
 - Never logged and never embedded in HTML or JavaScript bundles.
 
-### 2.1 Bootstrap URL output
+### 2.1 Access URLs
 
-A documented CLI command prints the URLs to **stdout only**, never to a log file:
+A documented CLI command prints both access URLs to **stdout only**, never to a log file:
 
 ```text
 questbridge-host --print-urls
@@ -96,7 +98,9 @@ Overlay:   http://127.0.0.1:8765/overlay?token=<browserToken>
 Dashboard: http://127.0.0.1:8765/control?token=<browserToken>
 ```
 
-Both routes use the same token. The printed URL is the permanent access path: it is what OBS keeps as its source URL, and what a user bookmarks.
+There are two URLs because there are two routes, and both are required: `/overlay` is the OBS Browser Source, and `/control` is where the user manages chapter pins. They share one token, so there is a single credential to generate, copy, and rotate, while the two access paths remain distinct.
+
+In practice the overlay URL is pasted into OBS once and the dashboard URL is bookmarked. The printed output is the authoritative source for both.
 
 ### 2.2 Token-file recovery
 

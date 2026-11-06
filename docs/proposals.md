@@ -162,13 +162,15 @@ Revisions folded in:
 2. **Authorization failure states.** The overlay must render a visible, actionable state rather than an empty frame when the socket cannot be established.
 3. **Simplification.** The overlay/control token split and the cookie layer were removed.
 
-Simplification rationale, and why the count lands at two rather than one:
+Simplification rationale, and why the count lands at two rather than one. Note that the **two routes remain** — `/overlay` for OBS and `/control` for the user are a product requirement in `AGENTS.md` §10 and are independent of token count:
 
-| Credential | Usability cost | Security benefit | Verdict |
+| Credential | Implementation cost | Security benefit | Verdict |
 |---|---|---|---|
-| overlay/control split | High — two URLs to obtain and keep straight | None, because R1 does not enforce it | Dropped |
+| overlay/control split | Extra token and per-role cookie names; adds a **misleading appearance** of a boundary R1 does not enforce | None — R1 makes the two interchangeable | Dropped |
 | `minecraftToken` | None — machine-to-machine, configured once | Real — stops any local process from injecting fabricated quest data | Kept |
-| `browserToken` | Low — one URL pasted into OBS once | Real — under R2 an unrelated local page passes the origin check | Kept |
+| `browserToken` | One value to generate and print | Real — under R2 an unrelated local page passes the origin check | Kept |
+
+The decisive argument against the role split is not inconvenience but honesty: a "read-only overlay token" implies a protection that R1 does not provide, which changes user behaviour without changing risk. See `docs/local-authentication.md` §1.2.
 
 Accepted as intended (single-user, loopback-only product; ease of use prioritised over defence in depth):
 
