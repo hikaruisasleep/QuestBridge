@@ -5,7 +5,8 @@ have not started.** Phases 2 (host) and 3 (frontend) are complete, so this plan 
 now the only thing standing between the mock-driven pipeline and real data.
 **Date:** 2026-11-07 (rewritten; originally 2026-11-06, before Phases 2 and 3 existed)
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
-**Version:** The mod stays on `0pre.1` for this development thread (`docs/versioning.md`).
+**Version:** `0pre.2` — the Stage 4B conversation's single bump from `0pre.1`
+(`docs/versioning.md` §3.4). It stays `0pre.2` for this conversation.
 
 ---
 

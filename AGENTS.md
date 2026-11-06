@@ -1295,7 +1295,7 @@ Follow `docs/versioning.md`.
 - Do not bump the version for individual commits, fixes, or rebuilds.
 - Update the documented version when the conversation closes.
 - Major version bumps require an explicit user request. Never infer a major bump from completing a phase or the Definition of Done.
-- The current Stage 4 conversation stays on `0pre.1`.
+- Do not let a shared phase name freeze the version. A new conversation that merely inherits a phase name from documentation — Stage 4, Phase 4, or any later stage — is a new thread and gets its single bump. A rule such as "the Stage 4 conversation stays on `0pre.1`" does not apply to it, and must never be used to skip the bump. Before starting work, confirm the active version with the user.
 
 ---
 

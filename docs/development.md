@@ -67,15 +67,17 @@ cd minecraft-mod
 
 The full policy is in [`docs/versioning.md`](versioning.md). In short:
 
-- Pre-Done versions use `0pre.<minor>`, for example `0pre.1`.
+- Pre-Done versions use `0pre.<minor>`, for example `0pre.2`.
 - Each new conversation reads the documented version and increments the minor
   component by exactly one, then stays on that version for the whole thread.
 - Do not increment for individual commits, fixes, or rebuilds.
 - When the conversation closes, update the documented version.
 - Major bumps happen only on explicit user request; `1.0.0` is not automatic.
+- A phase name is not a thread: a new Stage 4 conversation still takes its bump
+  (`docs/versioning.md` §3.4).
 
-The current Stage 4 thread is on `0pre.1`. The Gradle `mod_version` value flows
-into both the jar filename (`questbridge-0pre.1.jar`) and
+The documented version is `0pre.2`. The Gradle `mod_version` value flows
+into both the jar filename (`questbridge-0pre.2.jar`) and
 `META-INF/neoforge.mods.toml`.
 
 ---
