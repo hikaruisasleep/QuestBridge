@@ -17,7 +17,6 @@ import {
   pinsPayload,
   questWithProgress,
   questsForPinIds,
-  snapshotWithoutCompletedPin,
   timestampAt,
 } from "./fixtures.js";
 
@@ -470,19 +469,30 @@ function fullScenario(): Scenario {
   builder.wait(2000).heartbeat(true);
 
   builder.wait(1000);
+  const chaptersAfterReload = [
+    ...CHAPTERS,
+    {
+      id: "mock-chapter-reloaded",
+      title: "Reloaded Chapter",
+      order: 7,
+      progress: 0,
+      status: "available" as const,
+    },
+  ];
+  const worldAfterChange = {
+    worldName: "Synthetic World II",
+    dimension: "minecraft:the_nether",
+    integratedServer: true,
+  } as const;
+  const teamAfterChange = {
+    teamId: "33333333-3333-4333-8333-333333333333",
+    teamName: "Second Team",
+  } as const;
+
   builder.snapshot(
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
-      chapters: [
-        ...CHAPTERS,
-        {
-          id: "mock-chapter-reloaded",
-          title: "Reloaded Chapter",
-          order: 7,
-          progress: 0,
-          status: "available" as const,
-        },
-      ],
+      chapters: chaptersAfterReload,
     }),
   );
 
@@ -490,9 +500,8 @@ function fullScenario(): Scenario {
   builder.snapshot(
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
-      worldName: "Synthetic World II",
-      dimension: "minecraft:the_nether",
-      integratedServer: true,
+      chapters: chaptersAfterReload,
+      ...worldAfterChange,
     }),
   );
 
@@ -500,8 +509,9 @@ function fullScenario(): Scenario {
   builder.snapshot(
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
-      teamId: "33333333-3333-4333-8333-333333333333",
-      teamName: "Second Team",
+      chapters: chaptersAfterReload,
+      ...worldAfterChange,
+      ...teamAfterChange,
     }),
   );
 
@@ -509,7 +519,14 @@ function fullScenario(): Scenario {
   builder.reconnect(2000);
   builder.hello();
   builder.wait(100).status("synchronizing", "Reconnected");
-  builder.wait(300).snapshot(snapshotWithoutCompletedPin(builder.timestamp));
+  builder.wait(300).snapshot(
+    createSnapshot(builder.timestamp, {
+      manualPinIds: activePinIds,
+      chapters: chaptersAfterReload,
+      ...worldAfterChange,
+      ...teamAfterChange,
+    }),
+  );
   builder.wait(5000).heartbeat(true);
   return builder.finish(30_000);
 }

@@ -308,9 +308,20 @@ describe("scenario behavior", () => {
     const scenario = buildScenario("full");
     expect(payloadsOf(scenario, "minecraft.progress").length).toBeGreaterThanOrEqual(2);
     expect(payloadsOf(scenario, "minecraft.pins").length).toBeGreaterThanOrEqual(2);
-    expect(payloadsOf(scenario, "minecraft.snapshot").length).toBeGreaterThanOrEqual(5);
+    const snapshots = payloadsOf(scenario, "minecraft.snapshot");
+    expect(snapshots.length).toBeGreaterThanOrEqual(5);
     expect(scenario.events.some((event) => event.kind === "close")).toBe(true);
     expect(scenario.events.some((event) => event.kind === "open")).toBe(true);
+
+    // The post-reconnect snapshot must preserve the last known world and team,
+    // not revert to the fixture defaults.
+    const finalSnapshot = snapshots.at(-1);
+    expect(finalSnapshot?.worldName).toBe("Synthetic World II");
+    expect(finalSnapshot?.dimension).toBe("minecraft:the_nether");
+    expect(finalSnapshot?.integratedServer).toBe(true);
+    expect(finalSnapshot?.teamName).toBe("Second Team");
+    expect(finalSnapshot?.chapters).toHaveLength(CHAPTERS.length + 1);
+    expect(finalSnapshot?.manualPinIds).not.toContain("mock-quest-light");
   });
 });
 
