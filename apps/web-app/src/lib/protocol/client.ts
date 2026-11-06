@@ -85,6 +85,8 @@ export interface ProtocolClientOptions {
    * reused, per `docs/protocol.md` §5.1 (1, 2, 4, 8 s capped at 30 s).
    */
   backoffMs?: readonly number[];
+  /** Injectable clock, so backoff ageing is testable without waiting. */
+  now?: () => number;
 }
 
 export interface ProtocolClientEvents {
@@ -120,10 +122,15 @@ export class ProtocolClient {
   #resyncPending = false;
   #attempt = 0;
   #reconnectTimer: unknown = null;
+  /** Clock reading of the most recent failure, used to age the backoff. */
+  #lastFailureAt = 0;
+  /** Injectable clock, for deterministic backoff tests. */
+  readonly #now: () => number;
   #disposed = false;
 
   constructor(options: ProtocolClientOptions) {
     this.#options = options;
+    this.#now = options.now ?? (() => Date.now());
   }
 
   get transport(): TransportState {
@@ -242,6 +249,8 @@ export class ProtocolClient {
       socket = factory(url);
     } catch {
       this.#setTransport("closed", this.#classifyFailure());
+      // `#scheduleReconnect` ages the backoff and then stamps the failure time,
+      // so both failure paths behave identically.
       this.#scheduleReconnect();
       return;
     }
@@ -261,6 +270,9 @@ export class ProtocolClient {
         return;
       }
       this.#everOpened = true;
+      // Reaching `open` clears the failure history. There is no decay timer to
+      // cancel: decay is computed from `#lastFailureAt` when the next reconnect
+      // is scheduled, not by a timer racing the retries.
       this.#attempt = 0;
       this.#setTransport("open", null);
       // A fresh connection restarts sequence numbering on the host side.
@@ -291,6 +303,10 @@ export class ProtocolClient {
       // also checks `disposed`, so this is defence in depth rather than the only
       // guard.
       if (!this.#disposed) {
+        // The failure timestamp is stamped *inside* `#scheduleReconnect`, after
+        // the ageing step. Stamping it here would age the backoff against a
+        // timestamp of "now" and make every failure look recent, so the counter
+        // could never fall.
         this.#scheduleReconnect();
       }
     };
@@ -310,8 +326,16 @@ export class ProtocolClient {
       return;
     }
     const schedule = this.#options.backoffMs ?? DEFAULT_BACKOFF_MS;
+    // Decay before choosing the delay. The decay is measured from the previous
+    // failure, so it must be applied here rather than by a timer competing with
+    // the retry timer: two timers rescheduling each other produce a count that
+    // can never settle, and the retry would keep re-raising what the decay had
+    // just lowered.
+    this.#decayIfQuiet();
     const delay = schedule[Math.min(this.#attempt, schedule.length - 1)] ?? 30_000;
     this.#attempt += 1;
+    // Stamped after ageing, so the next ageing step measures from this failure.
+    this.#lastFailureAt = this.#now();
 
     const set = this.#options.setTimeout ?? ((h: () => void, ms: number) => setTimeout(h, ms));
     this.#reconnectTimer = set(() => {
@@ -321,6 +345,27 @@ export class ProtocolClient {
       }
       this.#open();
     }, delay);
+  }
+
+  /**
+   * Lower the backoff one step when the previous failure is old enough.
+   *
+   * The window is the ceiling of the schedule, not the current delay: using the
+   * current delay would shrink the window along with the schedule and let a
+   * fast-failing host erode its own history faster than retries could build it.
+   */
+  #decayIfQuiet(): void {
+    if (this.#attempt === 0) {
+      return;
+    }
+    const schedule = this.#options.backoffMs ?? DEFAULT_BACKOFF_MS;
+    const window = schedule[schedule.length - 1] ?? 30_000;
+
+    const now = this.#now();
+    while (this.#attempt > 0 && now - this.#lastFailureAt >= window) {
+      this.#attempt -= 1;
+      this.#lastFailureAt += window;
+    }
   }
 
   #cancelReconnect(): void {

@@ -235,6 +235,93 @@ describe("transport lifecycle", () => {
 });
 
 describe("reconnection", () => {
+  it("eases the backoff back down after sustained uptime", () => {
+    // Without decay, a host that was down for hours leaves the page waiting the
+    // full backoff after it returns, because the attempt count only resets on a
+    // successful open. The decay is what makes recovery prompt.
+    vi.useFakeTimers();
+    try {
+      FakeSocket.instances = [];
+      const delays: number[] = [];
+      const client = new ProtocolClient({
+        role: "control",
+        location: PAGE,
+        webSocketFactory: (url) => new FakeSocket(url) as unknown as WebSocket,
+        // Tiny schedule so the test can drive it to the ceiling quickly.
+        backoffMs: [10, 20, 40],
+        setTimeout: (handler, ms) => {
+          delays.push(ms);
+          return setTimeout(handler, ms) as unknown;
+        },
+        clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+      });
+
+      client.connect();
+      // Fail repeatedly so the counter reaches the ceiling. Each round advances
+      // only to the next retry, which is always shorter than the decay window, so
+      // the decay cannot undo the climb during the loop.
+      for (let round = 0; round < 6; round += 1) {
+        const socket = FakeSocket.instances[FakeSocket.instances.length - 1]!;
+        socket.close();
+        vi.advanceTimersByTime(10);
+      }
+
+      const capped = delays.filter((delay) => delay === 40).length;
+      expect(capped).toBeGreaterThan(0);
+
+      // Wait out several decay windows with no further failures.
+      delays.length = 0;
+      vi.advanceTimersByTime(2_000);
+
+      // The next outage must start from a lower rung, not from the ceiling.
+      const socket = FakeSocket.instances[FakeSocket.instances.length - 1]!;
+      socket.close();
+      vi.advanceTimersByTime(1);
+      expect(delays[0]).toBeLessThan(40);
+
+      client.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops decaying once the connection opens", () => {
+    // Arriving at `open` clears the history; a decay left over from the previous
+    // outage would otherwise subtract from a fresh count.
+    vi.useFakeTimers();
+    try {
+      FakeSocket.instances = [];
+      const delays: number[] = [];
+      const client = new ProtocolClient({
+        role: "control",
+        location: PAGE,
+        webSocketFactory: (url) => new FakeSocket(url) as unknown as WebSocket,
+        backoffMs: [10, 20],
+        setTimeout: (handler, ms) => {
+          delays.push(ms);
+          return setTimeout(handler, ms) as unknown;
+        },
+        clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+      });
+
+      client.connect();
+      FakeSocket.instances[0]!.close();
+      vi.advanceTimersByTime(15);
+      // The retry opens.
+      FakeSocket.instances[1]!.open();
+      expect(client.transport).toBe("open");
+
+      delays.length = 0;
+      vi.advanceTimersByTime(1_000);
+      // Nothing was scheduled by the stale decay.
+      expect(delays).toEqual([]);
+
+      client.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reconnects with the configured backoff and re-hellos", () => {
     const harness = createHarness([10, 20]);
     harness.client.connect();
@@ -251,8 +338,7 @@ describe("reconnection", () => {
     expect(second.lastSent().type).toBe("browser.hello");
   });
 
-  it("backs off progressively and resets after a successful open", () => {
-    const harness = createHarness([10, 20, 40]);
+  it("backs off progressively and resets after a successful open", () => {    const harness = createHarness([10, 20, 40]);
     harness.client.connect();
 
     // First failure -> first delay. Each close schedules the next one.
