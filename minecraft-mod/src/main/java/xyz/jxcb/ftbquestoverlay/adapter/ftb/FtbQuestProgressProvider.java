@@ -26,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 import xyz.jxcb.ftbquestoverlay.QuestBridge;
+import xyz.jxcb.ftbquestoverlay.adapter.ClientThreadGuard;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestProgressProvider;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestSnapshot;
 
@@ -108,6 +109,7 @@ public final class FtbQuestProgressProvider implements QuestProgressProvider {
      */
     @Override
     public QuestProgressProvider.Unavailable unavailableReason() {
+        ClientThreadGuard.requireClientThread("unavailableReason");
         if (Minecraft.getInstance().level == null) {
             return new QuestProgressProvider.Unavailable(
                     QuestProgressProvider.Unavailable.Phase.UNAVAILABLE, "No world loaded");
@@ -145,6 +147,7 @@ public final class FtbQuestProgressProvider implements QuestProgressProvider {
 
     @Override
     public QuestSnapshot captureSnapshot() {
+        ClientThreadGuard.requireClientThread("captureSnapshot");
         if (!isAvailable()) {
             return null;
         }
@@ -181,6 +184,7 @@ public final class FtbQuestProgressProvider implements QuestProgressProvider {
 
     @Override
     public QuestSnapshot.Identity identity() {
+        ClientThreadGuard.requireClientThread("identity");
         Minecraft minecraft = Minecraft.getInstance();
         Object file = ClientQuestFile.exists() ? ClientQuestFile.INSTANCE : null;
         TeamData teamData = file instanceof ClientQuestFile clientFile

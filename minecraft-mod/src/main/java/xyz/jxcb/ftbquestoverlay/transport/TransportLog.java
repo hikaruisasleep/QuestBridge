@@ -78,7 +78,7 @@ final class TransportLog {
     }
 
     private static void write(String method, String level, String message) {
-        String line = "[QuestBridge] " + level + " " + message;
+        String line = message;
 
         Object logger = modLogger();
         if (logger != null) {
@@ -88,14 +88,17 @@ final class TransportLog {
                 return;
             } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException
                     | RuntimeException failure) {
-                // Fall through to stdout rather than losing the message.
-                System.out.println(line);
+                System.out.println("[QuestBridge] " + level + " " + line);
                 return;
             }
         }
 
+        // No mod logger (standalone harness): print what an operator would need
+        // to see. Routine level messages are dropped, but warnings and errors
+        // always appear, because a silently dead transport is the failure mode
+        // that cost the most time during 4C.
         if (!"INFO".equals(level) || TRACE) {
-            System.out.println(line);
+            System.out.println("[QuestBridge] " + level + " " + line);
         }
     }
 

@@ -53,7 +53,6 @@ public final class ConnectionController implements SnapshotSink {
             new java.util.concurrent.atomic.AtomicBoolean(true);
 
     private final AtomicLong backoffIndex = new AtomicLong();
-    private final AtomicLong rejectsInARow = new AtomicLong();
 
     private volatile WebSocketConnection connection;
     private volatile long heartbeatIntervalMs = 5_000;
@@ -175,7 +174,7 @@ public final class ConnectionController implements SnapshotSink {
         }
 
         backoffIndex.set(0);
-        rejectsInARow.set(0);
+        lastLoggedStage = -1;
         scheduleHeartbeat();
 
         // Send a fresh full snapshot for this connection, as the protocol
@@ -215,6 +214,7 @@ public final class ConnectionController implements SnapshotSink {
         scheduleHeartbeat();
     }
 
+    /** Handles a socket closure and schedules the reconnect. */
     private void handleClosed(String reason) {
         WebSocketConnection current = connection;
         connection = null;
@@ -226,6 +226,10 @@ public final class ConnectionController implements SnapshotSink {
             return;
         }
         TransportLog.info("host connection closed (%s)", reason);
+        // A closed socket starts the backoff over, so a host restart is picked
+        // up within a second rather than waiting out the previous delay.
+        backoffIndex.set(0);
+        lastLoggedStage = -1;
         scheduleReconnect(reason);
     }
 
@@ -233,12 +237,13 @@ public final class ConnectionController implements SnapshotSink {
         if (stopped) {
             return;
         }
-        // Log once per backoff stage, not per attempt: a host that is simply not
-        // running must not fill the log.
         long stage = backoffIndex.get();
-        if (stage == 0 || stageChanged(stage)) {
-            TransportLog.info(
-                    "[QuestBridge] host unavailable ({}); retrying with backoff", reason);
+        // Log once per backoff stage: a host that is simply not running must not
+        // fill the log with one line per retry.
+        if (lastLoggedStage != stage) {
+            lastLoggedStage = stage;
+            long delay = BACKOFF_MS[(int) Math.min(stage, BACKOFF_MS.length - 1)];
+            TransportLog.info("host unavailable (%s); retrying in %d ms", reason, delay);
         }
         long delay = BACKOFF_MS[(int) Math.min(stage, BACKOFF_MS.length - 1)];
         backoffIndex.set(Math.min(stage + 1, BACKOFF_MS.length - 1));
@@ -251,14 +256,6 @@ public final class ConnectionController implements SnapshotSink {
     }
 
     private long lastLoggedStage = -1;
-
-    private boolean stageChanged(long stage) {
-        if (lastLoggedStage == stage) {
-            return false;
-        }
-        lastLoggedStage = stage;
-        return true;
-    }
 
     /** Processes the pending capture, if any. */
     private void drain() {
