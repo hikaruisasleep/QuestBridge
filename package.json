@@ -8,8 +8,9 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "build": "npm run build -w @questbridge/protocol && npm run build -w @questbridge/mock-publisher && npm run build -w web-app",
+    "test": "npm run test -w @questbridge/protocol && npm run test -w @questbridge/mock-publisher && npm run test -w web-app",
+    "mock": "node packages/mock-publisher/dist/index.js"
   },
   "engines": {
     "node": "24.22.1",
