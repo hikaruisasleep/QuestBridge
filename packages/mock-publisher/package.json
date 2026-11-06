@@ -25,6 +25,7 @@
   ],
   "scripts": {
     "build": "tsc -b tsconfig.json",
+    "collect": "node dist/collector.js",
     "mock": "node dist/index.js",
     "test": "vitest run"
   },

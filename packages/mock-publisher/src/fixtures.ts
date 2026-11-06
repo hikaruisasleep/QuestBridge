@@ -406,6 +406,7 @@ export const AUTOMATIC_PIN_ID_FIXTURE = "1";
 export function questsForPinIds(
   manualPinIds: readonly string[],
   unresolvedPinnedQuestIds: readonly string[] = [],
+  overrides: ReadonlyMap<string, Quest> = new Map(),
 ): Quest[] {
   const unresolved = new Set(unresolvedPinnedQuestIds);
 
@@ -416,7 +417,8 @@ export function questsForPinIds(
       if (quest === undefined) {
         throw new Error(`Fixture quest "${id}" is not defined`);
       }
-      return structuredClone(quest);
+      const override = overrides.get(id);
+      return structuredClone(override ?? quest);
     });
 }
 
@@ -424,11 +426,12 @@ export function pinsPayload(
   manualPinIds: readonly string[],
   unresolvedPinnedQuestIds: readonly string[] = [],
   capturedAt: string = MOCK_NOW,
+  questOverrides: ReadonlyMap<string, Quest> = new Map(),
 ): MinecraftPinsPayload {
   return {
     capturedAt,
     manualPinIds: [...manualPinIds],
-    quests: questsForPinIds(manualPinIds, unresolvedPinnedQuestIds),
+    quests: questsForPinIds(manualPinIds, unresolvedPinnedQuestIds, questOverrides),
     unresolvedPinnedQuestIds: [...unresolvedPinnedQuestIds],
   };
 }

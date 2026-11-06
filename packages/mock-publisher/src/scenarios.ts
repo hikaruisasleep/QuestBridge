@@ -295,6 +295,7 @@ function progressScenario(): Scenario {
       BASE_PIN_IDS.filter((id) => id !== "mock-quest-light"),
       [],
       builder.timestamp,
+      new Map([["mock-quest-machine-frame", machineFrameQuest(40, 4)]]),
     ),
   );
 
@@ -457,13 +458,18 @@ function fullScenario(): Scenario {
   builder.wait(1000).heartbeat(true);
 
   const activePinIds = BASE_PIN_IDS.filter((id) => id !== "mock-quest-light");
+  const machineOverride = new Map([
+    ["mock-quest-machine-frame", machineFrameQuest(40, 4)],
+  ]);
+  const activeQuests = (capturedAt: string): Quest[] =>
+    pinsPayload(activePinIds, [], capturedAt, machineOverride).quests;
   const withUnresolved = [...activePinIds, UNRESOLVED_PIN_ID];
   builder.wait(500).pins(
-    pinsPayload(withUnresolved, [UNRESOLVED_PIN_ID], builder.timestamp),
+    pinsPayload(withUnresolved, [UNRESOLVED_PIN_ID], builder.timestamp, machineOverride),
   );
 
   builder.wait(2000).pins(
-    pinsPayload(activePinIds, [], builder.timestamp),
+    pinsPayload(activePinIds, [], builder.timestamp, machineOverride),
   );
 
   builder.wait(2000).heartbeat(true);
@@ -493,6 +499,7 @@ function fullScenario(): Scenario {
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
       chapters: chaptersAfterReload,
+      quests: activeQuests(builder.timestamp),
     }),
   );
 
@@ -501,6 +508,7 @@ function fullScenario(): Scenario {
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
       chapters: chaptersAfterReload,
+      quests: activeQuests(builder.timestamp),
       ...worldAfterChange,
     }),
   );
@@ -510,6 +518,7 @@ function fullScenario(): Scenario {
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
       chapters: chaptersAfterReload,
+      quests: activeQuests(builder.timestamp),
       ...worldAfterChange,
       ...teamAfterChange,
     }),
@@ -523,6 +532,7 @@ function fullScenario(): Scenario {
     createSnapshot(builder.timestamp, {
       manualPinIds: activePinIds,
       chapters: chaptersAfterReload,
+      quests: activeQuests(builder.timestamp),
       ...worldAfterChange,
       ...teamAfterChange,
     }),
