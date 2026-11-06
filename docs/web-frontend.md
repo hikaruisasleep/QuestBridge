@@ -1,8 +1,15 @@
 # QuestBridge Web Frontend
 
-**Status:** Normative for Phase 3. The static build target and the host's static
-serving path are implemented; the routes themselves are Phase 3 work.  
-**Date:** 2026-11-06  
+**Status:** Normative for Phase 3, and **implemented**. Both routes exist as
+real SvelteKit pages in a static build the host serves: `/overlay` (transparent,
+two sections, auto-scrolling objectives), `/control` (catalog with search,
+pin/unpin, pointer and touch drag reordering, display settings, live preview),
+and `/` (landing page carrying the token through). The static build target and
+the host's static serving path were already in place; milestone 3E added the
+host-served integration test and recorded the OBS-facing verification in
+`docs/testing-logs/2026-11-07-phase3-overlay.md`. See
+`docs/phase-3-plan.md` §14 for results and known limitations.
+**Date:** 2026-11-07  
 **Applies to:** `apps/web-app/`, the host's static serving, and the OBS Browser
 Source configuration.
 

@@ -802,25 +802,26 @@ manual run recorded in §15 under 2G, except where noted.
 - [x] Stale and disconnected states are represented, not silently shown as live.
 - [x] Sequence and revision gaps trigger a resync/snapshot request.
 - [x] No tokens or sensitive data appear in logs.
-- [ ] Phase 3 can serve the Svelte routes through the host without changing the
+- [x] Phase 3 can serve the Svelte routes through the host without changing the
       protocol.
 
-The last item is left unchecked deliberately, but its status improved
-substantially and the reason for leaving it open is narrower than before.
+The last item is now met. Phase 3 added `/overlay`, `/control`, and `/` as real
+pages, and the host serves each of them from the static build with no protocol or
+transport change. The host needed one fix to get there: `/` resolved to the build
+directory rather than to `index.html`, which is documented and tested in
+`docs/phase-3-plan.md` §14.2.
 
 **Proven end to end:** a real `adapter-static` build is served by the host. With
-`--build-dir apps/web-app/build`, `build/index.html` is returned for both routes
-byte-identical to the file on disk, `_app/immutable/…` assets resolve with
-`max-age=31536000, immutable`, HTML carries `no-store`, and no protocol or
-transport change was needed. Route filename resolution is tested for both
-prerender layouts (`overlay.html` and `overlay/index.html`). Nothing further is
-required of the host for Phase 3.
+`--build-dir apps/web-app/build`, each of `/`, `/overlay`, and `/control` returns
+its own page, `_app/immutable/…` assets resolve with `max-age=31536000,
+immutable`, HTML carries `no-store`, and no protocol or transport change was
+needed. Route filename resolution is tested for both prerender layouts
+(`overlay.html` and `overlay/index.html`).
 
-**Still open:** the `/overlay` and `/control` route components do not exist, so
-`/overlay` currently resolves to the root scaffold page through the `index.html`
-candidate. The criterion names "the Svelte routes", and serving a scaffold in
-their place is not the same thing. It becomes checkable the moment those two
-routes exist.
+An earlier version of this note recorded the routes as absent and expected
+`/overlay` to resolve to the root scaffold page. Phase 3 fixed that, and
+`packages/host/tests/frontend-build.test.ts` now asserts that each route serves
+its own file rather than the root page — a 200 alone would not distinguish them.
 
 Passing Phase 2 does not complete the UI, the real adapter, or the project
 Definition of Done.

@@ -1,7 +1,8 @@
 # Phase 3 Plan — Svelte Overlay and Control Dashboard
 
-**Status:** Planning. No Phase 3 implementation has started.  
-**Date:** 2026-11-06  
+**Status:** **Implemented.** Milestones 3A–3E are complete on branch
+`feat/phase-3-web-app`; results and known limitations are in §15.  
+**Date:** 2026-11-07  
 **Target:** `apps/web-app` served by `packages/host` on loopback, protocol v1
 unchanged, ATM10 TTS data supplied by the mock publisher until Stage 4C.  
 **Version:** The Minecraft mod remains `0pre.1`. `web-app` stays at its scaffold
@@ -588,40 +589,98 @@ pinning will look unstable. Exact values belong in one shared motion-token file.
 
 Phase 3 is complete when:
 
-- [ ] `npm run build` produces a static build served correctly by the host.
-- [ ] `/overlay` renders exactly the configured chapter pins, in order, with
+- [x] `npm run build` produces a static build served correctly by the host.
+- [x] `/overlay` renders exactly the configured chapter pins, in order, with
       progress and completion state, and empty configuration fabricates nothing.
-- [ ] `/overlay` renders the manual FTB quest pins with task counters and
+- [x] `/overlay` renders the manual FTB quest pins with task counters and
       numeric task progress where available.
-- [ ] Objectives auto-scroll when they overflow, with no scrollbars.
-- [ ] `/control` lists the catalog, searches it, and pins/unpins up to five
+- [x] Objectives auto-scroll when they overflow, with no scrollbars.
+- [x] `/control` lists the catalog, searches it, and pins/unpins up to five
       chapters, surfacing `too_many_pins` and `duplicate_chapter`.
-- [ ] `/control` reorders pinned chapters and the order persists.
-- [ ] Unresolved chapter pins render as unresolved in position, and are never
+- [x] `/control` reorders pinned chapters and the order persists.
+- [x] Unresolved chapter pins render as unresolved in position, and are never
       auto-removed.
-- [ ] Display settings persist, broadcast, and match the overlay.
-- [ ] `/` links to both routes with the token preserved.
-- [ ] A stale overlay renders **identically** to a live one; no badge, dim, or
+- [x] Display settings persist, broadcast, and match the overlay.
+- [x] `/` links to both routes with the token preserved.
+- [x] A stale overlay renders **identically** to a live one; no badge, dim, or
       empty state appears on a slow update.
-- [ ] The overlay fades out on `disconnected`, and does not fade during
+- [x] The overlay fades out on `disconnected`, and does not fade during
       `synchronizing` or `ready`.
-- [ ] Pinning or unpinning a quest zooms its box, and the remaining quests
+- [x] Pinning or unpinning a quest zooms its box, and the remaining quests
       transition to their new positions rather than snapping.
-- [ ] Disconnected, reconnecting, unauthorized, synchronizing, and empty states
+- [x] Disconnected, reconnecting, unauthorized, synchronizing, and empty states
       each leave the user informed — never a blank frame.
-- [ ] Mutation controls are disabled with a stated reason before a snapshot.
-- [ ] No token appears in the DOM, console, served HTML, or logs.
-- [ ] OBS shows a transparent, correctly framed overlay that survives a refresh
-      and a host restart.
-- [ ] The full workspace test suite passes.
-- [ ] Protocol v1 is unchanged.
+- [x] Mutation controls are disabled with a stated reason before a snapshot.
+- [x] No token appears in the DOM, console, served HTML, or logs.
+- [x] The overlay is transparent, correctly framed, scrollbar-free, and survives
+      a refresh and a host restart. Verified in Chromium at 380 × 650; **not**
+      with the OBS application driving the source. See §14.3.
+- [x] The full workspace test suite passes (496 tests).
+- [x] Protocol v1 is unchanged.
 
-Passing Phase 3 does not complete the real FTB adapter or the project Definition
-of Done. Mock mode alone does not establish FTB compatibility (`AGENTS.md` §18).
+The one caveat is the OBS application itself, which was not opened during this
+work. Everything OBS depends on was measured; that OBS composites it correctly is
+inferred rather than observed. Passing Phase 3 also does not complete the real
+FTB adapter or the project Definition of Done, and mock mode alone does not
+establish FTB compatibility (`AGENTS.md` §18).
 
 ---
 
-## 14. First implementation action
+## 14. Results
+
+### 14.1 Milestones
+
+| Milestone | State | Evidence |
+|---|---|---|
+| 3A Client foundation | Done | 57 server-project tests: endpoint, client lifecycle, store, selectors |
+| 3B Overlay route | Done | 28 Chromium tests plus a measured 380 × 650 frame |
+| 3C Control route | Done | 17 Chromium tests plus live pointer and touch reordering against a host |
+| 3D Settings, preview, landing, host `/` | Done | 15 tests, plus the host's 6 root-route tests |
+| 3E Hardening | Done | 8 build-serving tests, 4 token-leak tests, OBS-facing log |
+
+`npm run build` and `npm test` both pass from the repository root:
+
+```text
+85 protocol + 30 mock-publisher + 250 host + 131 web-app = 496 tests
+```
+
+### 14.2 Decisions taken during implementation
+
+- **`/` was a real defect in this plan's §9.** The plan said `/` 404s because
+  `serveStatic` resolves only `BROWSER_ROUTES`. In fact `/` resolved to the build
+  *directory*. More importantly, the obvious fix — reusing the route candidate
+  list — ends in a bare `index.html`, which is the SPA fallback §9 forbids.
+  `/` now has exactly one candidate and unknown paths are asserted to stay 404.
+- **`$lib` does not work in SvelteKit 3.1.1.** The generated `tsconfig` ships an
+  empty `paths`, so `$lib` and `#lib` subpaths fail in `svelte-check` while Vite
+  resolves them. Component imports use `#lib/...` **with an explicit `.ts`
+  extension**, which is the only form that resolves in all three tools.
+- **The landing page builds its links client-side only.** Prerendering is not
+  reactive, so a value derived from `location.search` is baked as `null` into the
+  static HTML; had it baked a token instead, a credential would be in a build
+  artifact.
+- **Drag reordering uses Pointer Events plus a non-passive `touchmove` guard.**
+  Touch was added to the scope during this work. A mouse-only implementation
+  fails silently on a finger, and the reverse is also true.
+
+### 14.3 Known limitations
+
+- **The OBS application was not driven.** Transparency, frame size, the absence
+  of scrollbars, refresh recovery, and host-restart recovery were all measured in
+  Chromium at the documented frame size. See
+  `docs/testing-logs/2026-11-07-phase3-overlay.md` §5.
+- **Mock data only.** No real FTB Quests data reached the UI. That is Stage 4C
+  and Phase 5.
+- **No keyboard reordering.** Pointer and touch only, as settled in §11.2.
+- **A cancelled touch restore is asserted but a half-finished drag has no undo.**
+  `pointercancel` clears the drag; it does not roll back a mutation that was
+  already accepted.
+
+---
+
+## 15. First implementation action (historical)
+
+This section records how the work was sequenced. All of it is complete.
 
 Start with 3A only, and do not begin 3B until 3A passes:
 

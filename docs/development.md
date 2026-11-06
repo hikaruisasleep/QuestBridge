@@ -1,6 +1,7 @@
 # QuestBridge Development
 
-**Status:** Phase 1 implemented (shared protocol and mock publisher). Phase 2 implemented through milestone 2G in `packages/host`; the `/overlay` and `/control` Svelte routes remain Phase 3 work, so the host serves a placeholder there. Stage 4A (client-side live FTB probe) is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stage 4B–4F have not started.
+**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A (client-side live FTB probe) is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stage 4B–4F have not started.
+
 **Date:** 2026-11-06
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
 
@@ -47,7 +48,7 @@ npm test
 ```
 
 - `npm run build` builds `@questbridge/protocol`, then `@questbridge/mock-publisher`, then `@questbridge/host`, then `web-app`.
-- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 232 host tests, and the 2 web-app scaffold tests (349 total).
+- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 250 host tests, and 131 web-app tests (496 total). The web-app suite includes component tests in real Chromium; the host suite includes a test that serves the built frontend.
 - `npm run build -w @questbridge/protocol` and `npm test -w @questbridge/protocol` target one workspace.
 - The mock and host packages use a TypeScript project reference to the protocol package, so `tsc -b` builds the dependency first even when npm runs workspaces in another order.
 - The host vitest config aliases the protocol and mock-publisher *sources*, so `npm test -w @questbridge/host` needs no prior build.
@@ -278,16 +279,16 @@ The Java adapter must implement the same wire format manually. It cannot import 
 
 ## 8. Current limitations
 
-- No `/overlay` or `/control` route component yet. The host serves the real
-  prerendered build when `--build-dir` is given, but both routes currently
-  resolve to the root scaffold page; the placeholder appears only without a
-  build. See `docs/web-frontend.md`.
 - No FTB Quests network adapter. Stage 4A is a client-thread diagnostic probe;
-  the network adapter is Stage 4B–4F.
+  the network adapter is Stage 4B–4F. Every frontend run therefore uses the mock
+  publisher, and mock success is not FTB compatibility.
 - Mock chapter progress is fixed fixture data, not derived from a live quest
   book.
-- The five-pin cap and autonomous chapter selection rules are enforced by the
-  host; the dashboard that surfaces them is Phase 3 work.
+- The OBS-facing behaviour has been verified in Chromium at the documented
+  380 × 650 frame, but not with the OBS application driving the source. See
+  `docs/testing-logs/2026-11-07-phase3-overlay.md` §5.
+- Queueing is not implemented: a mutation is sent once and rejected rather than
+  retried, and the dashboard surfaces the host's error code.
 
 See `docs/protocol.md` section 13 for the Phase 1 acceptance results,
 `docs/phase-2-plan.md` §15 for the Phase 2 milestone results,
