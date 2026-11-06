@@ -612,6 +612,34 @@ listener registration across repeated world reloads.
 **Status (2026-11-07): not started.** This requires launching the Prism instance
 with the built jar, which this conversation could not do. Nothing here is claimed.
 
+Ready for the session:
+
+- `minecraft-mod/src/testVerification/java/CapturePlan.java` prints the exact
+  message sequence the client publishes and the specific values the capture must
+  demonstrate.
+- `scripts/validate-snapshot.mjs` validates every captured message through the
+  host's own `parseFrame` path.
+- `-Dquestbridge.dumpSnapshot=<path>` appends each encoded `minecraft.snapshot`
+  envelope as it is captured.
+
+Steps, in order:
+
+1. **Install the current jar.** `questbridge-0pre.1.jar` (Stage 4A) is still in the
+   Prism instance's `mods` folder and knows nothing about transport or
+   configuration. It must be replaced by `questbridge-0pre.2.jar`.
+2. **Provide the token.** Run `npm run host -- --print-urls`, then paste the
+   `minecraftToken` from `tokens.json` into
+   `config/questbridge-client.toml`, or pass `-Dquestbridge.minecraftToken=`.
+3. **Start the host** with `--build-dir apps/web-app/build`.
+4. **Launch the client** and load an ATM10 world.
+5. **Check the capture** with
+   `node scripts/validate-snapshot.mjs <dump>` and read the values listed by
+   `CapturePlan`.
+
+The install and token steps change files in the Prism instance and the host
+configuration directory, which are outside this repository. They are deliberately
+not performed automatically.
+
 ---
 
 ## 9. Validation
