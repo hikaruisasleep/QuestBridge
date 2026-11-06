@@ -189,6 +189,62 @@ Keep the Java project separate from the TypeScript workspace.
 
 Share TypeScript protocol definitions between the host and frontend.
 
+## Toolchain availability
+
+Node.js and npm are installed through **fnm**, not as a system-wide install.
+
+`node` and `npm` are frequently **not** on `PATH` in a fresh non-interactive
+shell (agent tool calls, CI-style runners, some terminals). A command that fails
+with `The term 'node' is not recognized` is a `PATH` problem, not a missing
+dependency. Do not install Node, do not switch package managers, and do not
+report the build as broken.
+
+The version required by this project is pinned in `.nvmrc` and matched to
+`engines` in the root `package.json` (Node `24.22.1`, npm `11.19.1`). fnm keeps
+each version under:
+
+```text
+%APPDATA%\fnm\node-versions\v<version>\installation
+```
+
+On Windows, prepend the matching installation directory to `Path` for the
+lifetime of the command:
+
+```powershell
+$nodeDir = "$env:APPDATA\fnm\node-versions\v24.22.1\installation"
+$env:Path = "$nodeDir;$env:Path"
+node --version   # v24.22.1
+npm --version    # 11.19.1
+```
+
+### Using `fnm use`
+
+`fnm` itself may be on `PATH` while no Node version is active. `fnm use` then
+fails with `We can't find the necessary environment variables`, because fnm
+needs its shell hook evaluated first. The hook must be evaluated in the same
+shell as the command:
+
+```powershell
+fnm env --shell powershell | Out-String | Invoke-Expression
+fnm use 24.22.1
+node --version   # v24.22.1
+```
+
+Do **not** trust a bare `fnm use` without the hook. Verified on 2026-11-07 in
+this environment: without `fnm env` evaluated it fails, and with the hook but no
+version argument it selects the machine's fnm `default` (`v24.14.0` here), not
+`.nvmrc`. If the shell is already configured interactively, `fnm use` picks up
+`.nvmrc` from the repository root.
+
+Rules:
+
+- Prefer the `.nvmrc` version. If it is not installed under fnm, say so rather
+  than silently running a different Node version.
+- A different existing fnm version is not a substitute: the workspace `engines`
+  field and the browser test setup are pinned against `24.22.1`.
+- Do not add Node binaries or fnm shims to the repository, and do not commit
+  environment-specific absolute paths.
+
 ---
 
 # 4. SYSTEM ARCHITECTURE
