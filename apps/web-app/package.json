@@ -4,8 +4,14 @@
 	"private": true,
 	"type": "module",
 	"imports": {
-		"#lib": "./src/lib/index.js",
-		"#lib/*": "./src/lib/*"
+		"#lib": {
+			"types": "./src/lib/index.ts",
+			"default": "./src/lib/index.js"
+		},
+		"#lib/*": {
+			"types": "./src/lib/*",
+			"default": "./src/lib/*"
+		}
 	},
 	"scripts": {
 		"dev": "vite dev",

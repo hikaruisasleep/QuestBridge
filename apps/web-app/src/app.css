@@ -1,0 +1,40 @@
+/**
+ * QuestBridge base styles.
+ *
+ * The overlay must be transparent over gameplay, so the default document is
+ * transparent and the overlay route applies no background anywhere. The
+ * dashboard sets its own backdrop on its own container.
+ *
+ * No external fonts or assets are loaded: `AGENTS.md` §2.3 forbids them, and an
+ * offline stream machine is the target environment.
+ */
+
+:root {
+	color-scheme: normal;
+	font-family:
+		ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: transparent;
+}
+
+/**
+ * The overlay is rendered inside an OBS Browser Source sized by the user. It must
+ * never produce a scrollbar on either axis, which is also why the overlay route
+ * locks the document to the viewport.
+ */
+body {
+	overflow: hidden;
+}
+
+/* The dashboard is a normal page and may scroll. */
+body[data-route='control'],
+body[data-route='landing'] {
+	overflow: auto;
+	background: #10131a;
+	color: #d8dce4;
+}
