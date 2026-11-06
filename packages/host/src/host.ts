@@ -10,6 +10,7 @@ import {
 } from "@questbridge/protocol";
 
 import { TokenStore } from "./auth.js";
+import { BrowserSession } from "./browser-session.js";
 import { ConfigStore } from "./config-store.js";
 import { resolveChapterPins } from "./chapter-resolver.js";
 import { pinChapter, pinnedIds, reorderChapters, unpinChapter } from "./chapter-pins.js";
@@ -74,6 +75,10 @@ export interface Host {
  * Every method validates, persists atomically, and only then updates state, so
  * a failed write cannot leave memory ahead of disk — the ordering
  * `docs/phase-2-plan.md` §9 requires.
+ *
+ * A successful mutation returns the `StateChange` it produced. The caller
+ * broadcasts it, which keeps the "persist, then publish" ordering visible at
+ * the call site instead of hidden inside this class.
  */
 export class PinOperations {
   readonly #configStore: ConfigStore;
@@ -86,7 +91,7 @@ export class PinOperations {
     this.#logger = logger;
   }
 
-  async pin(chapterId: string): Promise<Result<void>> {
+  async pin(chapterId: string): Promise<Result<StateChange>> {
     const catalogIds = new Set(this.#stateStore.chapters.map((chapter) => chapter.id));
     const result = pinChapter(this.#configStore.chapterPins, chapterId, catalogIds);
     if (!result.ok) {
@@ -95,7 +100,7 @@ export class PinOperations {
     return this.#persistPins(result.value);
   }
 
-  async unpin(chapterId: string): Promise<Result<void>> {
+  async unpin(chapterId: string): Promise<Result<StateChange>> {
     const result = unpinChapter(this.#configStore.chapterPins, chapterId);
     if (!result.ok) {
       return fail(result.error);
@@ -103,7 +108,7 @@ export class PinOperations {
     return this.#persistPins(result.value);
   }
 
-  async reorder(chapterIds: readonly string[]): Promise<Result<void>> {
+  async reorder(chapterIds: readonly string[]): Promise<Result<StateChange>> {
     const result = reorderChapters(this.#configStore.chapterPins, chapterIds);
     if (!result.ok) {
       return fail(result.error);
@@ -111,7 +116,7 @@ export class PinOperations {
     return this.#persistPins(result.value);
   }
 
-  async updateDisplay(display: DisplayConfig): Promise<Result<void>> {
+  async updateDisplay(display: DisplayConfig): Promise<Result<StateChange>> {
     try {
       await this.#configStore.replaceDisplay(display);
     } catch (error) {
@@ -122,8 +127,7 @@ export class PinOperations {
       });
     }
 
-    this.#stateStore.setDisplay(this.#configStore.display);
-    return ok(undefined);
+    return ok(this.#stateStore.setDisplay(this.#configStore.display));
   }
 
   /** Pinned chapter ids in configuration order. */
@@ -136,7 +140,7 @@ export class PinOperations {
     return resolveChapterPins(this.#configStore.chapterPins, this.#stateStore.chapters);
   }
 
-  async #persistPins(pins: ChapterPinConfig): Promise<Result<void>> {
+  async #persistPins(pins: ChapterPinConfig): Promise<Result<StateChange>> {
     try {
       await this.#configStore.replaceChapterPins(pins);
     } catch (error) {
@@ -147,8 +151,7 @@ export class PinOperations {
       });
     }
 
-    this.#stateStore.setChapterPins(this.#configStore.chapterPins);
-    return ok(undefined);
+    return ok(this.#stateStore.setChapterPins(this.#configStore.chapterPins));
   }
 }
 
@@ -178,6 +181,24 @@ export async function createHost(options: CreateHostOptions = {}): Promise<Host>
   // Assigned by the `configure` hook, which runs before the listener binds.
   let websocket: WebSocketHandle | null = null;
 
+  // The browser session needs the assembled `Host`, which does not exist until
+  // `startHost` returns. The reference is filled in immediately afterwards and
+  // is only dereferenced once a browser sends `browser.hello`, which cannot
+  // happen before the host is listening.
+  let hostRef: Host | null = null;
+
+  const defaultBrowserSession: BrowserSessionFactory = (connection) => {
+    if (hostRef === null) {
+      logger.error("refused a browser connection: the host is not fully initialised");
+      return null;
+    }
+    return new BrowserSession({
+      connection,
+      host: hostRef,
+      logger,
+    });
+  };
+
   const base = await startHost({
     port: options.port ?? 0,
     logger,
@@ -199,8 +220,11 @@ export async function createHost(options: CreateHostOptions = {}): Promise<Host>
               onStateChange: (change) => broadcast(change),
             });
           }
-          const factory = options.createBrowserSession;
-          return factory === undefined ? null : factory(connection);
+
+          // The browser factory is injectable so tests can substitute a
+          // session, but the real one is always available.
+          const factory = options.createBrowserSession ?? defaultBrowserSession;
+          return factory(connection);
         },
       });
     },
@@ -271,7 +295,7 @@ export async function createHost(options: CreateHostOptions = {}): Promise<Host>
     }
   }
 
-  return {
+  const assembled: Host = {
     port: base.port,
     url: base.url,
     version: base.version,
@@ -286,6 +310,13 @@ export async function createHost(options: CreateHostOptions = {}): Promise<Host>
     broadcast,
     close: () => base.close(),
   };
+
+  // Publish the reference the browser session factory awaits. A browser cannot
+  // have connected before this point because the host was not listening, and
+  // the factory refuses rather than guessing if it somehow is.
+  hostRef = assembled;
+
+  return assembled;
 }
 
 /** Build a `state.snapshot` message from current state. */
