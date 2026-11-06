@@ -97,8 +97,9 @@ WebSockets, configuration survives restart, and all host/auth tests pass.
   scenarios are deterministic.
 - The host uses `ws`, `zod`, and the shared protocol package only; no web
   framework is required for the host process.
-- The current web-app scaffold is `adapter-node`; serving it as plain static
-  files requires a Phase 3 build-target change (see §13).
+- The web-app originally scaffolded with `adapter-node`; it now uses
+  `adapter-static`, so the build contains real HTML the host can serve (see
+  §5.2 and `docs/web-frontend.md`).
 - The Minecraft mod version remains `0pre.1`; host changes do not touch it.
 
 ---
@@ -130,13 +131,22 @@ Two behaviours are adopted as intended rather than as defects, and must not be
 
 ### 5.2 Static frontend strategy
 
-The host must eventually serve `/overlay` and `/control`. The current web-app
-uses `@sveltejs/adapter-node`, which produces a Node server rather than a static
-bundle. Recommended Phase 3 change: switch the web-app to `adapter-static` (or
-add a static build target) and let the host serve the resulting directory.
+**Resolved.** The web-app now uses `@sveltejs/adapter-static`, so the build
+produces real HTML files that the host serves with its existing static path.
+The full frontend requirements are in `docs/web-frontend.md`.
 
-Phase 2 should therefore ship with a clear `503` placeholder for browser routes
-when no static build is present, rather than inventing a second frontend server.
+`adapter-node` was the wrong target because it emits a Node server
+(`build/index.js`, `build/handler.js`, `build/client/`, `build/server/`) and
+generates every page's HTML per request — it emits no `.html` file for the host
+to stat. Two workarounds were rejected: spawning a second Node process is the
+"second web server" this section rules out, and importing `build/handler.js`
+would couple the host to the frontend framework, inverting the dependency
+direction `AGENTS.md` §4 requires.
+
+The host still ships a clear `503`-style placeholder for browser routes when no
+static build is present, rather than inventing a second frontend server. The
+placeholder is implemented as an explanatory page rather than an error status,
+so a user with no build sees what to do; see `packages/host/src/static.ts`.
 
 ### 5.3 Configuration location
 
@@ -521,13 +531,21 @@ Implement Proposal B as adopted and simplified. The normative design is
 
 ### 13.3 Static frontend
 
-Phase 2 should:
+Implemented:
 
-- serve `index.html`, JS, CSS, and assets from a configured build directory;
-- return a clear placeholder for `/overlay` and `/control` if the build is
-  absent;
-- avoid inventing a second web server;
-- use a static SvelteKit build once Phase 3 provides one.
+- `index.html`, JS, CSS, and assets are served from `--build-dir`.
+- `/overlay` and `/control` return a clear placeholder when the build is absent.
+- No second web server exists.
+- The build is a static SvelteKit build (`adapter-static`); see §5.2 and
+  `docs/web-frontend.md`.
+
+Host-side details settled in 2G and its hardening follow-up:
+
+- Route resolution tries `<route>/index.html`, `<route>.html`, then
+  `index.html`, so the frontend's `trailingSlash` choice needs no coordination.
+- `Cache-Control` is set per file class: `_app/immutable/…` is immutable for a
+  year, HTML is `no-store`, everything else revalidates. `Referrer-Policy:
+  no-referrer` is set on every served file.
 
 The placeholder must not contain tokens or fake progression.
 
@@ -751,7 +769,7 @@ the gap.
 |---|---|---|
 | Token-file corruption locks the user out | No browser can connect | Regenerate `tokens.json` and back up the bad file, unlike `config.json` |
 | Overlay renders blank on an auth failure | Silent mid-stream failure | Distinguishable `401`/`403` plus an actionable overlay state |
-| Web-app uses `adapter-node` | Host cannot serve a static bundle | Switch to static output in Phase 3; Phase 2 placeholder |
+| Web-app used `adapter-node` | Host cannot serve a static bundle | **Resolved:** switched to `adapter-static`, so the build emits real HTML (§5.2) |
 | Config corruption | User loses pins | Atomic write, validate-before-save, preserve invalid file |
 | Windows permission semantics | `0600` not fully enforceable | Use best-effort mode; restrict directory; document limitation |
 | Mutation races | Two dashboards overwrite each other | Serialize mutations; broadcast authoritative config |
@@ -787,11 +805,22 @@ manual run recorded in §15 under 2G, except where noted.
 - [ ] Phase 3 can serve the Svelte routes through the host without changing the
       protocol.
 
-The last item is **partially** met and deliberately left unchecked. The
-transport half is done: `--build-dir` serves a static build, the route
-resolution and containment are tested, and no protocol change is needed. The
-product half cannot be demonstrated until Phase 3 produces a build to serve;
-until then both routes return the placeholder.
+The last item is left unchecked deliberately, but its status improved
+substantially and the reason for leaving it open is narrower than before.
+
+**Proven end to end:** a real `adapter-static` build is served by the host. With
+`--build-dir apps/web-app/build`, `build/index.html` is returned for both routes
+byte-identical to the file on disk, `_app/immutable/…` assets resolve with
+`max-age=31536000, immutable`, HTML carries `no-store`, and no protocol or
+transport change was needed. Route filename resolution is tested for both
+prerender layouts (`overlay.html` and `overlay/index.html`). Nothing further is
+required of the host for Phase 3.
+
+**Still open:** the `/overlay` and `/control` route components do not exist, so
+`/overlay` currently resolves to the root scaffold page through the `index.html`
+candidate. The criterion names "the Svelte routes", and serving a scaffold in
+their place is not the same thing. It becomes checkable the moment those two
+routes exist.
 
 Passing Phase 2 does not complete the UI, the real adapter, or the project
 Definition of Done.

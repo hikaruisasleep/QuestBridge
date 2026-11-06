@@ -172,18 +172,33 @@ WebSocket and page requests:
 
 An authorization rejection must be distinguishable from “no data yet”, and the overlay must never render as a blank frame when it is rejected. A silently blank overlay during a stream is the worst failure mode this component has.
 
+The frontend presentation of every row below, including the "no dysfunctional
+controls" rule, is specified in `docs/web-frontend.md` §3.
+
 | Condition | Host response | Client behaviour |
 |---|---|---|
 | WebSocket upgrade with no, or an invalid, token | `401` | UI renders the actionable “not authorized” state |
 | WebSocket upgrade from a disallowed origin, or a page request with a non-loopback `Host` | `403` | Same |
 | Authorized, but the first message is invalid | `host.error` with `fatal: true`, then close | Existing protocol handling |
 | Authorized overlay sends a mutation | `request.error` code `unauthorized`, no state change | Overlay has no mutation controls |
-| Host not running, or connection refused | — | “Waiting for the host” state, distinct from unauthorized |
+| Host was running and stopped, or restarted, while a page is open | — | “Lost connection — reconnecting” state |
+| Host not running, and no page was ever loaded | — | **Nothing of ours renders.** The browser shows its own connection error; there is no document to render into |
 | Authorized, no Minecraft data yet | Normal `state.snapshot` with an empty catalog | Normal disconnected/synchronizing presentation |
+
+The two host-not-running rows are deliberately separated. An earlier revision
+listed them as one "waiting for the host" state, which was not implementable:
+if the host was never running, the page was never served, so no application code
+can report its absence. Only the stop-while-open case is renderable, and it is
+reachable in practice — Phase 2 verification confirmed that killing and
+restarting the host surfaces a socket close to an already-loaded page.
 
 A rejected WebSocket handshake does not expose its HTTP status to JavaScript — the page observes only a generic close — so the page cannot distinguish `401` from “host down” by inspecting the socket. The required behaviour is therefore the weaker but sufficient one: on any failure to establish the socket, the overlay renders a visible, instructive message naming the `--print-urls` command as the remedy, rather than an empty frame. No diagnostic probe endpoint is required.
 
 Because the shell is served unconditionally, this message is rendered by the real UI in all failure cases, which is what makes the “never a blank frame” requirement achievable without extra machinery.
+
+The interactive `/control` route carries the additional requirement that
+mutation controls must not appear usable when they cannot work. It is specified
+in `docs/web-frontend.md` §3.3.
 
 The overlay's authorization-failure presentation is rendered in Phase 3. The Phase 2 host deliverable is the distinguishable `401`/`403` responses.
 

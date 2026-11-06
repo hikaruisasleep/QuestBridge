@@ -12,7 +12,7 @@
 packages/protocol/        @questbridge/protocol — v1 types, Zod schemas, messages
 packages/mock-publisher/  @questbridge/mock-publisher — fixtures, scenarios, CLI
 packages/host/            @questbridge/host — loopback host, state store, chapter pins, transport
-apps/web-app/             Svelte 5 + SvelteKit scaffold (routes not implemented)
+apps/web-app/             Svelte 5 + SvelteKit static frontend (routes are Phase 3; see docs/web-frontend.md)
 minecraft-mod/            NeoForge client mod (Stage 4A live probe; network adapter not implemented)
 docs/                     Architecture, protocol, pinning, plans, FTB reconnaissance
 ```
@@ -47,7 +47,7 @@ npm test
 ```
 
 - `npm run build` builds `@questbridge/protocol`, then `@questbridge/mock-publisher`, then `@questbridge/host`, then `web-app`.
-- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 225 host tests, and the 2 web-app scaffold tests (342 total).
+- `npm test` runs the same order: 85 protocol tests, 30 mock-publisher tests, 232 host tests, and the 2 web-app scaffold tests (349 total).
 - `npm run build -w @questbridge/protocol` and `npm test -w @questbridge/protocol` target one workspace.
 - The mock and host packages use a TypeScript project reference to the protocol package, so `tsc -b` builds the dependency first even when npm runs workspaces in another order.
 - The host vitest config aliases the protocol and mock-publisher *sources*, so `npm test -w @questbridge/host` needs no prior build.
@@ -235,6 +235,9 @@ bare `401`.
 
 - Without `--build-dir`, `/overlay` and `/control` return a placeholder that
   states the frontend is not built. The host never fabricates progression.
+- With `--build-dir apps/web-app/build`, the real prerendered frontend is
+  served. `Cache-Control` is set per file class: `_app/immutable/…` is
+  immutable for a year, HTML is `no-store`, everything else revalidates.
 - An unknown path is a `404`. No Phase 2 route accepts a request body: an
   oversized one is `413`, any other is `405`.
 - Mutations are limited to 10 per second per connection. A burst returns
@@ -244,6 +247,18 @@ bare `401`.
   are not regenerable.
 - The five-pin cap, duplicates, unknown catalog IDs, and reorder sets are all
   refused with distinct error codes, leaving the stored configuration unchanged.
+
+### 6.5 Frontend build
+
+`apps/web-app` uses `@sveltejs/adapter-static`; the build writes real HTML to
+`apps/web-app/build`. See `docs/web-frontend.md` for why a static build is
+required rather than optional, and for the frontend's failure-state
+requirements.
+
+```text
+npm run build -w web-app
+npm run host -- --build-dir apps/web-app/build
+```
 
 ---
 
@@ -263,8 +278,10 @@ The Java adapter must implement the same wire format manually. It cannot import 
 
 ## 8. Current limitations
 
-- No `/overlay` or `/control` Svelte route yet, so the host serves the
-  placeholder there. The transport handoff (`--build-dir`) is in place.
+- No `/overlay` or `/control` route component yet. The host serves the real
+  prerendered build when `--build-dir` is given, but both routes currently
+  resolve to the root scaffold page; the placeholder appears only without a
+  build. See `docs/web-frontend.md`.
 - No FTB Quests network adapter. Stage 4A is a client-thread diagnostic probe;
   the network adapter is Stage 4B–4F.
 - Mock chapter progress is fixed fixture data, not derived from a live quest
@@ -273,5 +290,6 @@ The Java adapter must implement the same wire format manually. It cannot import 
   host; the dashboard that surfaces them is Phase 3 work.
 
 See `docs/protocol.md` section 13 for the Phase 1 acceptance results,
-`docs/phase-2-plan.md` §15 for the Phase 2 milestone results, and
-`docs/architecture.md` for component responsibilities.
+`docs/phase-2-plan.md` §15 for the Phase 2 milestone results,
+`docs/web-frontend.md` for the frontend contract, and `docs/architecture.md`
+for component responsibilities.

@@ -255,13 +255,24 @@ host to serve, so `/overlay` and `/control` return a placeholder.
 
 ### Phase 3 — Svelte overlay and dashboard
 
-- `/overlay` and `/control`.
+**Status:** Not started. The static build target and the host's static serving
+path are done (see `docs/phase-2-plan.md` §5.2); the routes themselves are not.
+The normative requirements are `docs/web-frontend.md`.
+
+- `/overlay` and `/control` as two routes in one statically built app.
 - Chapter catalog search, pin/unpin, reordering, and live preview.
 - Display settings.
 - Shared selectors.
-- Tests for empty state, one through five pins, unresolved chapters, completed/locked chapters, stale/disconnected states, and task progress.
+- Explicit disconnected, unauthorized, and stale presentations — never a blank
+  frame, and never controls that appear usable when they cannot work.
+- Tests for empty state, one through five pins, unresolved chapters,
+  completed/locked chapters, stale/disconnected states, and task progress.
 
 **Exit criterion:** OBS Browser Source displays the overlay with transparency and correct state; refresh restores state.
+
+**Scope note:** the dashboard selects **chapters**. Quest pins belong to FTB
+Quests and are read-only to QuestBridge; a quest-pinning UI is a non-goal
+(`AGENTS.md` §2.4).
 
 ### Phase 4 — Minecraft adapter
 

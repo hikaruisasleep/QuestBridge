@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, the protocol-level mock publisher, and the Phase 2 host core (`packages/host`, milestones 2A–2G) are implemented; the dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is implemented in `docs/phase-2-plan.md`; its only open acceptance item is the Phase 3 handoff, because no Svelte route exists yet for the host to serve. Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is implemented through 2G; Phase 3 is deferred. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md` and implemented by the host.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the Svelte 5 + SvelteKit frontend built as a static site, the shared protocol package, the protocol-level mock publisher, and the Phase 2 host core (`packages/host`, milestones 2A–2G) are implemented; the dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is implemented in `docs/phase-2-plan.md`; its only open acceptance item is the Phase 3 handoff, because the `/overlay` and `/control` route components do not exist yet. Phase 3 is specified in `docs/web-frontend.md` and remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is implemented through 2G; Phase 3 is deferred. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md` and implemented by the host.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -16,7 +16,7 @@ The frontend never parses FTB data. The host never depends on Minecraft or Java 
 
 ## 1. Repository layout
 
-Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the SvelteKit scaffold lives at `apps/web-app/`. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. Phase 2 added `packages/host`, whose `/overlay` and `/control` routes currently serve a placeholder until Phase 3 supplies a static build.
+Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the Svelte 5 + SvelteKit frontend lives at `apps/web-app/`, built as a static site. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. Phase 2 added `packages/host`, which serves the static frontend when `--build-dir` is supplied and a placeholder otherwise. The `/overlay` and `/control` route components are Phase 3 work.
 
 **Current layout (implemented as of 2026-11-06):**
 
@@ -84,15 +84,17 @@ questbridge/
 │       └── tests/
 │
 ├── apps/
-│   └── web-app/                 # Svelte 5 + SvelteKit scaffold
+│   └── web-app/                 # Svelte 5 + SvelteKit, built with adapter-static
 │       ├── AGENTS.md
 │       ├── package.json        # npm workspace member
-│       ├── vite.config.ts
+│       ├── vite.config.ts      # adapter-static configured here
 │       ├── tsconfig.json
 │       ├── src/
 │       │   ├── lib/
 │       │   └── routes/
-│       └── ...
+│       │       ├── +layout.ts  # prerender = true
+│       │       └── +layout.svelte
+│       └── build/              # generated; served by --build-dir
 │
 ├── docs/
 │   ├── architecture.md
@@ -101,6 +103,7 @@ questbridge/
 │   ├── chapter-pinning.md
 │   ├── protocol.md
 │   ├── local-authentication.md
+│   ├── web-frontend.md
 │   ├── development.md
 │   ├── versioning.md
 │   ├── phase-2-plan.md
@@ -132,13 +135,13 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/` (static build; routes pending), `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, web frontend, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, the `/overlay` and `/control` route components, `docs/troubleshooting.md`.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
-- `packages/host` implements the Phase 2 host core: loopback HTTP and WebSocket transport, two-token authentication, config and state stores, chapter pin resolution, Minecraft and browser sessions, and static serving with a placeholder. Its 225 tests cover the units plus end-to-end runs against the mock publisher.
+- `packages/host` implements the Phase 2 host core: loopback HTTP and WebSocket transport, two-token authentication, config and state stores, chapter pin resolution, Minecraft and browser sessions, and static serving with per-file-class caching. Its 232 tests cover the units plus end-to-end runs against the mock publisher.
 - `minecraft-mod/` contains the client-only NeoForge Stage 4A live probe. It compiles against NeoForge `21.1.250` with JDK 21, declares the exact FTB Quests, FTB Teams, and FTB Library dependencies, gates on FTB readiness from the client tick, and logs chapter, manual-pin, quest, and task state. It does not publish network messages yet.
-- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented, so the host serves its placeholder at both paths. It is an npm workspace member.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit frontend, built as a static site with `@sveltejs/adapter-static`. The root `+layout.ts` sets `prerender = true`, so the build emits real HTML that the host serves as opaque files. The `/overlay` and `/control` route components are Phase 3 work; until they exist both routes resolve to the root scaffold page when a build is supplied, and to the host's placeholder when none is. It is an npm workspace member. See `docs/web-frontend.md`.
 - The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
@@ -277,13 +280,13 @@ Minecraft publisher is the only writer of progression; browsers never write it.
 
 Mock IDs are synthetic. Real ATM10 TTS IDs are only used in recorded fixtures after runtime verification.
 
-### 3.5 Svelte frontend (planned)
+### 3.5 Svelte frontend (routes are Phase 3)
 
-Two routes:
+One application, statically built, with two routes:
 
 ```text
-/overlay   OBS Browser Source
-/control   local configuration dashboard
+/overlay   OBS Browser Source (non-interactive)
+/control   local chapter-pin selector and display settings (interactive)
 ```
 
 The overlay contains:
@@ -302,7 +305,15 @@ The control dashboard contains:
 - Display settings.
 - Live overlay preview.
 
-The dashboard does not manage FTB quest pins. FTB Quests remains the only quest-pinning interface.
+The dashboard selects **chapters**, not quests. It does not manage FTB quest
+pins; FTB Quests remains the only quest-pinning interface.
+
+The host never depends on the frontend, and the frontend always depends on the
+host. The frontend is a static build (`adapter-static`) that the host serves
+without understanding it, and it renders an explicit failure state — never a
+blank frame and never inoperative controls — when the host is unreachable, the
+token is rejected, or no Minecraft data has arrived. See
+`docs/web-frontend.md`.
 
 ---
 
@@ -707,6 +718,35 @@ Persistence requirements:
 
 ## 10. Frontend architecture
 
+The frontend is **one application with two routes**, not two applications, and
+it is built as a **static site** that the host serves as opaque files. The
+normative description — including the chapter-versus-quest rule, the dependency
+direction, the build-output contract, and the failure states — is
+`docs/web-frontend.md`. This section summarises it.
+
+### 10.0 Dependency direction and packaging
+
+- **The host never depends on the frontend.** It serves a directory of files; it
+  does not import Svelte, parse a manifest, or call application code, and it
+  builds and runs with the frontend absent.
+- **The frontend depends on the host.** It is a shell that either connects to
+  the host's authenticated WebSocket or explains why it cannot.
+- The app uses `@sveltejs/adapter-static` and **not** `adapter-node`, because the
+  host is a plain static file server and `adapter-node` generates HTML per
+  request rather than emitting `.html` files.
+
+One app rather than two, because `/control` must embed a live overlay preview
+and both routes share the protocol client, connection lifecycle, and selectors.
+SvelteKit code-splits per route, so the overlay loads no dashboard code.
+
+### 10.0.1 Chapters, not quests
+
+> The `/control` selector selects **chapters**. It never selects quests.
+
+Chapter pins belong to QuestBridge; quest pins belong to FTB Quests. The
+dashboard manages the former and only *reads* the latter. It must not offer any
+quest-selection or quest-pinning interface (`AGENTS.md` §2.4, §10.2).
+
 ### 10.1 Overlay
 
 - Transparent background.
@@ -723,6 +763,9 @@ Sections:
 
 1. Major progression from chapter pins.
 2. Current objectives from manual FTB Quests pins.
+
+The overlay must never render as a blank frame: a disconnected, unauthorized, or
+stale state is presented explicitly (`docs/web-frontend.md` §3).
 
 ### 10.2 Dashboard
 
@@ -757,6 +800,11 @@ Settings:
 - Overlay preview.
 
 No quest pin management.
+
+Mutation controls must not appear usable when they cannot work: while
+disconnected, unauthenticated, or before the first snapshot they are disabled
+with a stated reason, and host error codes are surfaced rather than collapsed
+into a generic failure (`docs/web-frontend.md` §3.3).
 
 ### 10.3 State management
 
@@ -932,9 +980,9 @@ minecraft-mod$ ./gradlew dependencies --configuration compileClasspath
 
 The NeoForge baseline compiles against `21.1.250` with JDK 21. The build declares the exact FTB Quests `2101.1.30`, FTB Teams `2101.1.10`, and FTB Library `2101.1.35` dependencies as `compileOnly` plus `localRuntime`, matching ATM10 TTS 2.3.1.
 
-The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` uses npm as its package manager).
+The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte frontend in `apps/web-app/` is built with Vite and `@sveltejs/adapter-static`, producing a static site in `apps/web-app/build` (its own `package.json` uses npm as its package manager).
 
-The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host is implemented in `packages/host` through Phase 2 milestone 2G; the `/overlay` and `/control` routes are Phase 3 work, so the host serves a placeholder at both paths. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` and `npm run host` start their respective CLIs.
+The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host is implemented in `packages/host` through Phase 2 milestone 2G; the `/overlay` and `/control` route components are Phase 3 work. The host serves a real static build when `--build-dir` is given and its placeholder otherwise. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` and `npm run host` start their respective CLIs.
 
 Phase 1 verification on 2026-11-06:
 
@@ -946,9 +994,15 @@ Phase 1 verification on 2026-11-06:
 Phase 2 verification on 2026-11-06 (milestone 2G):
 
 - `npm run build` passes for all four workspaces, including `@questbridge/host`.
-- `npm test` passes: 85 protocol, 30 mock-publisher, 225 host, and 2 web-app tests.
+- `npm test` passes: 85 protocol, 30 mock-publisher, 232 host, and 2 web-app tests (349 total).
 - Manual run: the host on `127.0.0.1:8799` and `npm run mock -- --scenario=full` reached a browser with the catalog and manual objectives; pin, reorder, unpin, and display updates persisted to `config.json`; the pin cap, duplicate, unknown-chapter, wrong-reorder-set, unpinned-id, and overlay-mutation refusals each returned their documented code; and a restart reloaded the stored pins before resolving them against a new snapshot.
 - The full results, including two non-defects found during the manual run, are in `docs/phase-2-plan.md` §15 under 2G.
+
+Phase 2 follow-up on 2026-11-06 (static serving hardening and build target):
+
+- `Cache-Control` is now set per file class: `_app/immutable/…` is immutable for a year, HTML is `no-store`, everything else revalidates.
+- Route resolution accepts both `overlay/index.html` and `overlay.html`, so the frontend's `trailingSlash` choice needs no coordination with the host.
+- The web-app switched from `adapter-node` to `adapter-static`. Verified against the running host: `/_app/immutable/…` serves `max-age=31536000, immutable`, and `/overlay` returns the real prerendered page, byte-identical to `build/index.html`, with `cache-control: no-store`.
 
 Available now:
 
@@ -967,7 +1021,7 @@ cd minecraft-mod && ./gradlew compileJava
 ./gradlew dependencies --configuration compileClasspath
 ```
 
-The web-app scaffold uses Vitest browser mode. On a fresh machine, install its Chromium binary once before running the full test suite:
+The web-app uses Vitest browser mode. On a fresh machine, install its Chromium binary once before running the full test suite:
 
 ```text
 npx playwright install chromium
