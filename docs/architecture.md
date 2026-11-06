@@ -1,6 +1,6 @@
 # QuestBridge Architecture
 
-**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, and the protocol-level mock publisher are implemented; the host, dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is planned in `docs/phase-2-plan.md` but not started; Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is planned but not started; Phase 3 is deferred. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md`.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
+**Status:** Partial implementation verified. The repository layout, the npm workspace root with pinned toolchain versions, the exact FTB build dependencies, the client-only Java Stage 4A live FTB probe (NeoForge, compiles against 21.1.250), the SvelteKit scaffold, the shared protocol package, the protocol-level mock publisher, and the Phase 2 host core (`packages/host`, milestones 2A–2G) are implemented; the dashboard, overlay, and FTB Quests network adapter are not yet implemented. Phase 2 is implemented in `docs/phase-2-plan.md`; its only open acceptance item is the Phase 3 handoff, because no Svelte route exists yet for the host to serve. Phase 3 remains deferred. Stage 4A is implemented and verified against the live client; Stage 4B–4F are planned in `docs/phase-4-plan.md`. The target pack is installed locally as a Prism Launcher instance; its identity, exact mod versions, chapter catalog, and FTB API class availability are verified in `docs/ftb-quests-integration.md`.  **Proposal status:** Proposal A is approved and applied. Proposal C is adopted; Phase 0 and Phase 1 are applied; Phase 2 is implemented through 2G; Phase 3 is deferred. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md` and implemented by the host.  **Date:** 2026-11-06  **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in an OBS Browser Source. It also provides a separate local dashboard for selecting major chapter milestones.
 
@@ -16,7 +16,7 @@ The frontend never parses FTB data. The host never depends on Minecraft or Java 
 
 ## 1. Repository layout
 
-Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the SvelteKit scaffold lives at `apps/web-app/`. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. The host package is not implemented yet.
+Proposal A is approved and applied. The Java project lives in a dedicated `minecraft-mod/` directory, and the SvelteKit scaffold lives at `apps/web-app/`. Phase 1 added the `packages/protocol` and `packages/mock-publisher` workspace packages. Phase 2 added `packages/host`, whose `/overlay` and `/control` routes currently serve a placeholder until Phase 3 supplies a static build.
 
 **Current layout (implemented as of 2026-11-06):**
 
@@ -60,6 +60,29 @@ questbridge/
 │       │   └── scenarios.ts
 │       └── tests/
 │
+│   └── host/                    # @questbridge/host
+│       ├── src/
+│       │   ├── index.ts         # CLI entry
+│       │   ├── host.ts          # assembly, pin operations, broadcast
+│       │   ├── server.ts        # loopback listener and shutdown
+│       │   ├── http.ts          # Host validation, /health, routing
+│       │   ├── static.ts        # browser routes and the placeholder
+│       │   ├── websocket.ts     # upgrade auth and single-publisher rule
+│       │   ├── minecraft-session.ts
+│       │   ├── browser-session.ts
+│       │   ├── state-store.ts
+│       │   ├── config-store.ts  # config.json persistence
+│       │   ├── config-schema.ts
+│       │   ├── chapter-pins.ts  # pure pin/unpin/reorder
+│       │   ├── chapter-resolver.ts
+│       │   ├── auth.ts          # tokens.json and role resolution
+│       │   ├── validation.ts    # origin, body, rate limits
+│       │   ├── paths.ts
+│       │   ├── constants.ts
+│       │   ├── logging.ts       # redacted structured logs
+│       │   └── errors.ts
+│       └── tests/
+│
 ├── apps/
 │   └── web-app/                 # Svelte 5 + SvelteKit scaffold
 │       ├── AGENTS.md
@@ -87,7 +110,7 @@ questbridge/
 └── ...
 ```
 
-**Remaining planned layout (host and frontend routes not yet implemented):**
+**Remaining planned layout (frontend routes not yet implemented):**
 
 ```text
 questbridge/
@@ -95,14 +118,11 @@ questbridge/
 ├── LICENSE                      # planned
 ├── scripts/                     # planned
 │
-├── packages/
-│   └── host/                    # Node.js host (planned)
-│
 ├── apps/
 │   └── web-app/
 │       └── src/routes/
-│           ├── overlay/         # planned
-│           └── control/         # planned
+│           ├── overlay/         # planned (Phase 3)
+│           └── control/         # planned (Phase 3)
 │
 ├── docs/
 │   └── troubleshooting.md       # planned
@@ -112,12 +132,13 @@ questbridge/
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, development, Stage 4 plan), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `packages/host`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/`, `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, the `/overlay` and `/control` routes, `docs/troubleshooting.md`.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
+- `packages/host` implements the Phase 2 host core: loopback HTTP and WebSocket transport, two-token authentication, config and state stores, chapter pin resolution, Minecraft and browser sessions, and static serving with a placeholder. Its 225 tests cover the units plus end-to-end runs against the mock publisher.
 - `minecraft-mod/` contains the client-only NeoForge Stage 4A live probe. It compiles against NeoForge `21.1.250` with JDK 21, declares the exact FTB Quests, FTB Teams, and FTB Library dependencies, gates on FTB readiness from the client tick, and logs chapter, manual-pin, quest, and task state. It does not publish network messages yet.
-- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented. It is an npm workspace member.
+- `apps/web-app/` contains the Svelte 5 + SvelteKit scaffold (layout, page, `lib/`, `routes/`, Vitest examples). The `/overlay` and `/control` routes are not yet implemented, so the host serves its placeholder at both paths. It is an npm workspace member.
 - The root `package.json` declares npm workspaces for `packages/*` and `apps/*`; the scaffold's own `apps/web-app/AGENTS.md` documents npm as its package manager.
 
 The Java project is isolated from the TypeScript packages:
@@ -219,9 +240,9 @@ Non-responsibilities:
 
 The Java adapter does not use this package. It must implement the same wire format manually and declare its supported protocol version.
 
-### 3.3 Host (planned)
+### 3.3 Host (implemented, Phase 2)
 
-Responsibilities:
+`packages/host` (`@questbridge/host`) implements:
 
 - Bind only to loopback.
 - Accept Minecraft publisher connections and browser connections.
@@ -231,7 +252,7 @@ Responsibilities:
 - Resolve pinned chapter IDs against the live catalog.
 - Preserve unresolved configuration entries.
 - Broadcast snapshots and incremental updates to browsers.
-- Serve the production Svelte build.
+- Serve the production Svelte build, or an explicit placeholder when none exists.
 - Enforce authentication and origin restrictions.
 
 Non-responsibilities:
@@ -240,6 +261,9 @@ Non-responsibilities:
 - Depending on Minecraft classes.
 - Reimplementing quest progression.
 - Allowing browsers to publish progression.
+
+Chapter pin and display configuration is owned solely by the host. The
+Minecraft publisher is the only writer of progression; browsers never write it.
 
 ### 3.4 Mock publisher (implemented)
 
@@ -892,7 +916,7 @@ Note: the current environment has OBS Studio 33.0.1 for manual verification.
 
 ## 14. Development and deployment
 
-Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. Phase 4 (Minecraft adapter) was started first by explicit product decision and is planned in `docs/phase-4-plan.md`. Stage 4A (the client-only live probe) is implemented, builds, and is verified against the live client. Stage 4B–4F are pending. Phase 2 (host) is now planned in `docs/phase-2-plan.md`; Phase 3 remains deferred.
+Implementation originally followed Proposal C. Proposal A is approved and applied: the Java project lives in `minecraft-mod/`. Phase 0 (baseline and repository hygiene) and Phase 1 (protocol and mock publisher) are applied. Phase 4 (Minecraft adapter) was started first by explicit product decision and is planned in `docs/phase-4-plan.md`. Stage 4A (the client-only live probe) is implemented, builds, and is verified against the live client. Stage 4B–4F are pending. Phase 2 (host core) is implemented through milestone 2G, as documented in `docs/phase-2-plan.md`; Phase 3 (the Svelte UI) remains deferred, so the host serves a placeholder at `/overlay` and `/control`.
 
 Current build state, verified 2026-11-06:
 
@@ -910,7 +934,7 @@ The NeoForge baseline compiles against `21.1.250` with JDK 21. The build declare
 
 The Java build lives in `minecraft-mod/` and can be compiled independently. The Svelte scaffold in `apps/web-app/` is built with Vite (its own `package.json` uses npm as its package manager).
 
-The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host and the `/overlay` and `/control` routes are planned but not implemented. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` starts the mock publisher CLI.
+The shared protocol contract is documented in `docs/protocol.md` and implemented in `packages/protocol`. The protocol-level mock publisher in `packages/mock-publisher` implements the Minecraft side of that contract. The host is implemented in `packages/host` through Phase 2 milestone 2G; the `/overlay` and `/control` routes are Phase 3 work, so the host serves a placeholder at both paths. The root npm workspace exists, so `npm install`, `npm run build`, and `npm test` work, and `npm run mock` and `npm run host` start their respective CLIs.
 
 Phase 1 verification on 2026-11-06:
 
@@ -919,12 +943,22 @@ Phase 1 verification on 2026-11-06:
 - The collector tests prove the normalized model and the full scenario lifecycle over a real WebSocket, including disconnect and reconnect.
 - `node packages/mock-publisher/dist/index.js --scenario full --speed=5` was smoke-tested against the standalone collector CLI.
 
+Phase 2 verification on 2026-11-06 (milestone 2G):
+
+- `npm run build` passes for all four workspaces, including `@questbridge/host`.
+- `npm test` passes: 85 protocol, 30 mock-publisher, 225 host, and 2 web-app tests.
+- Manual run: the host on `127.0.0.1:8799` and `npm run mock -- --scenario=full` reached a browser with the catalog and manual objectives; pin, reorder, unpin, and display updates persisted to `config.json`; the pin cap, duplicate, unknown-chapter, wrong-reorder-set, unpinned-id, and overlay-mutation refusals each returned their documented code; and a restart reloaded the stored pins before resolving them against a new snapshot.
+- The full results, including two non-defects found during the manual run, are in `docs/phase-2-plan.md` §15 under 2G.
+
 Available now:
 
 ```text
 npm install
 npm run build
 npm test
+npm run host
+npm run host -- --print-urls
+npm run host -- --build-dir apps/web-app/build
 npm run collect
 npm run mock -- --scenario=ready
 npm run mock -- --scenario=progress --speed=2
@@ -939,7 +973,7 @@ The web-app scaffold uses Vitest browser mode. On a fresh machine, install its C
 npx playwright install chromium
 ```
 
-`npm run collect` starts the standalone collector at `ws://127.0.0.1:8765/ws`. Run `npm run mock` in a second terminal to feed it. The actual host is Phase 2 work and is not implemented; the collector remains the supported end-to-end path until then.
+`npm run host` starts the production host at `http://127.0.0.1:8765`; `npm run mock -- --scenario=ready --token=<minecraftToken>` feeds it. `npm run collect` starts the standalone collector, which remains a development tool with no configuration, authentication, or browser roles.
 
 ---
 

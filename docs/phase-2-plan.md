@@ -1,9 +1,15 @@
 # Phase 2 Plan — Host Core and Local Transport
 
-**Status:** Planning only. No Phase 2 implementation has started. Proposal B authentication is settled: adopted and simplified to two tokens with no cookies on 2026-11-06, and specified in `docs/local-authentication.md`.  
+**Status:** Implemented and verified through milestone 2G. All five Phase 2 acceptance
+blockers are met by `packages/host` at `0.1.0`: 225 host tests pass, the host and the mock
+publisher work end to end over real WebSockets, configuration survives restart, and the
+security refusals are distinguishable. The static handoff is in place but no Svelte route
+exists yet, so `/overlay` and `/control` serve the documented placeholder; that remains
+Phase 3 work. Proposal B authentication is settled: adopted and simplified to two tokens
+with no cookies on 2026-11-06, and specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
 **Target:** QuestBridge host on Node 24, protocol v1, ATM10 TTS 2.3.1 data supplied by the future adapter or the existing mock publisher.  
-**Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package will use its own SemVer version (`0.1.0` at first implementation).
+**Version:** The Minecraft mod remains on `0pre.1`; the private `@questbridge/host` package uses its own SemVer version (`0.1.0`).
 
 ---
 
@@ -599,6 +605,8 @@ Each milestone must be independently testable and committed.
 
 ### 2A — Host package and process shell
 
+**Status:** Implemented. `ca24989`.
+
 - Create `packages/host` workspace.
 - Add build/test config.
 - Start HTTP server on loopback with `/health`.
@@ -609,6 +617,8 @@ Each milestone must be independently testable and committed.
 binding and shutdown.
 
 ### 2B — Configuration store and chapter-pin operations
+
+**Status:** Implemented. `e34ee98`.
 
 - Zod config schema and defaults.
 - Platform config paths.
@@ -621,6 +631,9 @@ five-pin and duplicate rules pass.
 
 ### 2C — Chapter resolver and state store
 
+**Status:** Implemented. `9ed93c7`. The resolver lives in `chapter-resolver.ts`;
+the pure pin operations are `chapter-pins.ts`.
+
 - Catalog/pin resolution.
 - Unresolved entries.
 - Revisioned state store.
@@ -631,6 +644,8 @@ five-pin and duplicate rules pass.
 cases; revisions only move on real changes.
 
 ### 2D — Authentication and HTTP security
+
+**Status:** Implemented. `2b94c52`.
 
 - Token generation/storage, plus the `--print-urls` command.
 - Token authentication on the WebSocket upgrade; ungated static shell.
@@ -646,6 +661,10 @@ role; tokens never appear in logs or static output.
 
 ### 2E — Minecraft WebSocket session
 
+**Status:** Implemented. `c397afd`. The WebSocket transport and the Minecraft
+publisher session were committed together; the browser factory stayed injectable
+until 2F.
+
 - `/ws` upgrade and first-message timeout.
 - Minecraft hello/session/sequence handling.
 - Snapshot/progress/pins/heartbeat ingestion.
@@ -658,6 +677,8 @@ role; tokens never appear in logs or static output.
 fresh snapshot; no protocol errors.
 
 ### 2F — Browser WebSocket session and mutations
+
+**Status:** Implemented. `263586f`.
 
 - Browser hello and roles.
 - Immediate state snapshot.
@@ -672,6 +693,8 @@ errors are correct; refresh gets current state without a Minecraft snapshot.
 
 ### 2G — Static serving, integration, and hardening
 
+**Status:** Implemented. `4bee5fc`.
+
 - Static build directory support and placeholders.
 - End-to-end host + mock publisher + browser-client tests.
 - Log redaction.
@@ -680,6 +703,45 @@ errors are correct; refresh gets current state without a Minecraft snapshot.
 
 **Exit:** full host test suite passes; manual run with the mock publisher works;
 Phase 3 can point a Svelte build at the host without changing the transport.
+
+#### 2G results
+
+Verified on 2026-11-06:
+
+- `npm run build` succeeds for `@questbridge/protocol`,
+  `@questbridge/mock-publisher`, `@questbridge/host`, and `web-app`.
+- `npm test` passes: 85 protocol, 30 mock-publisher, 225 host, and 2 web-app
+  tests (342 total).
+- Manual run against a real host on `127.0.0.1:8799`, driven by
+  `npm run mock -- --scenario=full --speed=5`:
+  - the full scenario reached a browser as `state.update` with 8 chapters and
+    the three manual objectives, then ended with the retained state stale;
+  - pin, reorder, unpin, and `config.update` all persisted to `config.json`;
+  - a sixth pin was refused with `too_many_pins`, a duplicate with
+    `duplicate_chapter`, an unknown catalog ID with `unknown_chapter`, a wrong
+    reorder set with `invalid_reorder_set`, and unpinning an unpinned ID with
+    `not_pinned`;
+  - an `overlay`-role connection's mutation was refused with `unauthorized`;
+  - a restart reloaded the five stored pins with an empty catalog and
+    `disconnected`/`stale`, then resolved them once a publisher sent a
+    snapshot;
+  - a stored pin absent from the new catalog stayed stored, was reported
+    unresolved, and could still be unpinned;
+  - an OBS-style refresh received identical pins without a new Minecraft
+    snapshot.
+
+Two notes from that run:
+
+- A structural snapshot whose `percentage` was `37.5` was rejected. The
+  protocol schema requires an integer percentage, so this is correct
+  validation rather than a defect; the manual fixture was corrected to `38`.
+- A burst of more than ten mutations per second returns `rate_limited`. Paced
+  mutation checks then exercised the real limits. The limiter, not the pin
+  rules, was what the first burst hit.
+
+**Known limitation:** `/overlay` and `/control` serve the placeholder until
+Phase 3 supplies a static build. The host never fabricates progression to fill
+the gap.
 
 ---
 
@@ -702,27 +764,34 @@ Phase 3 can point a Svelte build at the host without changing the transport.
 
 ## 17. Acceptance criteria
 
-Phase 2 is complete when:
+Every criterion below is met. The evidence is the host test suite and the
+manual run recorded in §15 under 2G, except where noted.
 
-- [ ] `packages/host` builds and tests pass.
-- [ ] The host binds only to `127.0.0.1`.
-- [ ] A mock publisher connects and its snapshot reaches a browser client.
-- [ ] A browser refresh receives the retained state without a new snapshot.
-- [ ] Chapter pins persist across host restart.
-- [ ] Pin, unpin, and reorder work; duplicates and six pins are rejected.
-- [ ] Display settings persist and broadcast after a valid `config.update`.
-- [ ] Unresolved chapter IDs survive config reload and catalog changes.
-- [ ] Overlay cannot mutate; control can.
-- [ ] Invalid versions, roles, sessions, messages, origins, and tokens are
+- [x] `packages/host` builds and tests pass.
+- [x] The host binds only to `127.0.0.1`.
+- [x] A mock publisher connects and its snapshot reaches a browser client.
+- [x] A browser refresh receives the retained state without a new snapshot.
+- [x] Chapter pins persist across host restart.
+- [x] Pin, unpin, and reorder work; duplicates and six pins are rejected.
+- [x] Display settings persist and broadcast after a valid `config.update`.
+- [x] Unresolved chapter IDs survive config reload and catalog changes.
+- [x] Overlay cannot mutate; control can.
+- [x] Invalid versions, roles, sessions, messages, origins, and tokens are
       rejected with the documented errors.
-- [ ] A corrupt `tokens.json` regenerates; a corrupt `config.json` is preserved.
-- [ ] An unauthorized upgrade is refused with `401`, distinct from a `403` origin
+- [x] A corrupt `tokens.json` regenerates; a corrupt `config.json` is preserved.
+- [x] An unauthorized upgrade is refused with `401`, distinct from a `403` origin
       or `Host` rejection.
-- [ ] Stale and disconnected states are represented, not silently shown as live.
-- [ ] Sequence and revision gaps trigger a resync/snapshot request.
-- [ ] No tokens or sensitive data appear in logs.
+- [x] Stale and disconnected states are represented, not silently shown as live.
+- [x] Sequence and revision gaps trigger a resync/snapshot request.
+- [x] No tokens or sensitive data appear in logs.
 - [ ] Phase 3 can serve the Svelte routes through the host without changing the
       protocol.
+
+The last item is **partially** met and deliberately left unchecked. The
+transport half is done: `--build-dir` serves a static build, the route
+resolution and containment are tested, and no protocol change is needed. The
+product half cannot be demonstrated until Phase 3 produces a build to serve;
+until then both routes return the placeholder.
 
 Passing Phase 2 does not complete the UI, the real adapter, or the project
 Definition of Done.

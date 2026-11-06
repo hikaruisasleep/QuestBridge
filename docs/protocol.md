@@ -58,13 +58,19 @@ The role is established by the first message on the connection:
 
 Any other first message is a protocol error and the host closes the connection. A connection that does not send a valid first message within 5 seconds is closed.
 
-The host may run without transport authentication for local development and tests. That state is not release-ready: role claims in the first message are not trustworthy without transport authentication.
+The host runs with transport authentication; the shipped host refuses an upgrade
+without a valid token (`docs/local-authentication.md`). Role claims in the first
+message are only trustworthy because the transport is authenticated and the host
+enforces the declared role for the connection's lifetime (accepted risk R1 means
+either browser role may be declared with the browser token). The standalone
+collector runs without authentication, and is a development tool rather than a
+release-ready host.
 
 ### 2.1 Endpoint discovery
 
 The default port is `8765`. The host may be configured to another port. Browsers and the adapter receive the actual port from the host's startup output or configuration; the protocol itself does not negotiate ports.
 
-The WebSocket path `/ws` is provisional until Phase 2 implements the host. If the host chooses separate paths per role, the message contract stays unchanged.
+The WebSocket path is `/ws`, implemented and stable since Phase 2. Both roles share it; the first message determines the role.
 
 ### 2.2 Relationship to FTB’s internal transport
 
@@ -1101,7 +1107,11 @@ The `role` in `browser.hello` is a permission claim, not proof of identity. It i
 
 ## 13. Phase 1 implementation
 
-This section records the Phase 1 work. The protocol package and mock publisher are implemented; the host, Svelte routes, and FTB adapter remain later phases.
+This section records the Phase 1 work. The protocol package, the mock publisher,
+and the Phase 2 host are implemented; the Svelte routes and the FTB adapter
+remain later phases. The host implements this contract without protocol changes,
+which is the evidence that v1 was stable across the transport work; the Phase 2
+results are in `docs/phase-2-plan.md` §15.
 
 Scope priority for the MVP:
 
@@ -1139,7 +1149,7 @@ packages/
 Dependency choices:
 
 - `zod` `^4.6.7` for runtime validation.
-- `ws` `^8.22.1` for the mock publisher and later the host.
+- `ws` `^8.22.1` for the mock publisher and the host.
 - `vitest` and `typescript` from the existing workspace toolchain.
 - No `tsx`, no build framework, no other runtime dependencies. Packages compile with `tsc` and run from `dist/`.
 

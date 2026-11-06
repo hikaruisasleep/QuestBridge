@@ -239,7 +239,9 @@ Implement in this order:
 
 ### Phase 2 — Host core
 
-**Status:** Planned, not started. See `docs/phase-2-plan.md`.
+**Status:** Implemented (milestones 2A–2G). See `docs/phase-2-plan.md`. The only
+open acceptance item is the Phase 3 handoff: no Svelte route exists yet for the
+host to serve, so `/overlay` and `/control` return a placeholder.
 
 - Configuration store with atomic persistence and migrations.
 - State store and revision tracking.
@@ -249,7 +251,7 @@ Implement in this order:
 - HTTP static server and local authentication.
 - Host tests, including startup with no Minecraft data.
 
-**Exit criterion:** host and mock publisher work end-to-end; configuration survives restart; duplicates and more than five pins are rejected.
+**Exit criterion:** host and mock publisher work end-to-end; configuration survives restart; duplicates and more than five pins are rejected. Met on 2026-11-06.
 
 ### Phase 3 — Svelte overlay and dashboard
 
@@ -314,7 +316,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stage 4B–4F remain planned. Phase 2 (host core) is now planned in `docs/phase-2-plan.md`; Phase 3 (Svelte UI) remains deferred. Phases 5–6 have not started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stage 4B–4F remain planned. Phase 2 (host core) is implemented through milestone 2G in `docs/phase-2-plan.md`; Phase 3 (Svelte UI) remains deferred. Phases 5–6 have not started. The three documents are now written.
 
 ### Impact if adopted
 
