@@ -20,6 +20,7 @@
 
 	import type { ClientAppState, PinnedChapter } from '#lib/stores/app-state.ts';
 	import { motion, motionCssVariables } from '#lib/motion.ts';
+	import { componentsToCss } from '#lib/theme.ts';
 	import EmptyHint from '../common/EmptyHint.svelte';
 	import ChapterSection from './ChapterSection.svelte';
 	import ObjectiveSection from './ObjectiveSection.svelte';
@@ -39,6 +40,15 @@
 
 	const display = $derived(appState.display);
 	const disconnected = $derived(appState.connection.status === 'disconnected');
+
+	/**
+	 * Motion tokens plus the chroma-safe colour tokens.
+	 *
+	 * Injected here rather than per component so every descendant resolves the
+	 * same palette, and so the dashboard preview gets it without depending on the
+	 * document background.
+	 */
+	const overlayVariables = $derived(`${motionCssVariables()};${componentsToCss()}`);
 
 	/**
 	 * Genuine completion transitions.
@@ -107,7 +117,7 @@
 	data-compact={display.compactMode}
 	data-faded={disconnected && !preview}
 	data-preview={preview}
-	style={motionCssVariables()}
+	style={overlayVariables}
 	role="status"
 	aria-live="polite"
 	aria-label="QuestBridge progression"
@@ -149,11 +159,13 @@
 		height: 100%;
 		box-sizing: border-box;
 		padding: 12px 14px;
-		/* Transparent over gameplay. No panel, no border, no background image. */
+		/* No panel, no border, no background image. The key field itself is painted
+		   by the route (or by the dashboard preview frame), so this element stays
+		   transparent and inherits whatever is behind it. */
 		background: transparent;
 		font-family:
 			ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-		color: #fff;
+		color: var(--qb-text-primary, #e8e6e2);
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
 		/* Nothing in the overlay may produce a scrollbar. */
@@ -198,6 +210,6 @@
 		font-weight: 600;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.52);
+		color: var(--qb-text-muted, #92908d);
 	}
 </style>

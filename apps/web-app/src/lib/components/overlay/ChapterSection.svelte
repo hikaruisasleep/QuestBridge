@@ -91,7 +91,7 @@
 		font-weight: 600;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.52);
+		color: var(--qb-text-muted, #92908d);
 	}
 
 	.list {
@@ -122,29 +122,29 @@
 		font-size: 13px;
 		font-weight: 500;
 		line-height: 1.25;
-		color: rgba(255, 255, 255, 0.94);
+		color: var(--qb-text-primary, #e8e6e2);
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 	}
 
 	.title.unresolved {
-		color: rgba(255, 255, 255, 0.5);
+		color: var(--qb-text-muted, #92908d);
 		font-style: italic;
 	}
 
 	.value {
 		font-variant-numeric: tabular-nums;
 		font-size: 11px;
-		color: rgba(255, 255, 255, 0.6);
+		color: var(--qb-text-body, #b9b7b3);
 	}
 
 	.note {
 		font-size: 10px;
 		letter-spacing: 0.04em;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--qb-text-faint, #6e6c69);
 	}
 
 	.row[data-status='completed'] .title {
-		color: rgba(198, 240, 210, 0.95);
+		color: var(--qb-accent-complete, #a9b4a5);
 	}
 
 	/* Completion highlight: opacity and a thin left rule only, so the row never
@@ -155,7 +155,7 @@
 		inset: 0 auto 0 -8px;
 		width: 2px;
 		border-radius: 1px;
-		background: rgba(126, 217, 160, 0.9);
+		background: var(--qb-accent-complete, #a9b4a5);
 		animation: qb-chapter-pulse var(--qb-pulse-ms, 900ms) ease-out;
 	}
 

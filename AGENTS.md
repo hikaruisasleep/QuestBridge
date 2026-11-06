@@ -115,7 +115,9 @@ The overlay should be minimal.
 
 Characteristics:
 
-- Transparent background.
+- Solid key background for OBS chroma keying: `#00FF00` or `#0000FF`,
+  switchable from the dashboard. No UI colour may fall in the active key's
+  colour family.
 - Compact typography.
 - Thin progress bars.
 - Muted secondary labels.
@@ -1081,7 +1083,8 @@ These are starting values.
 
 The overlay must:
 
-- Support transparency.
+- Support chroma keying: a uniform key field and no UI colour in that key's
+  family.
 - Avoid scrollbars.
 - Avoid requiring OBS-specific APIs.
 - Work in a normal Chromium browser.
@@ -1313,7 +1316,8 @@ The initial release is complete when:
 - [ ] Chapter progress is displayed.
 - [ ] Quest progress is displayed.
 - [ ] Task progress is displayed where available.
-- [ ] Overlay is transparent.
+- [ ] Overlay paints a uniform key colour for OBS chroma keying, with no UI
+      colour in the active key's family.
 - [ ] OBS Browser Source works.
 - [ ] Disconnects are represented accurately.
 - [ ] Reconnection restores current state.

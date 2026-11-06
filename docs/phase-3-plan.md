@@ -243,8 +243,8 @@ apps/web-app/src/
 
 Svelte 5 runes throughout. `app.css` is added and imported by the layout;
 the existing `routes/layout.css` keeps the Tailwind import. The overlay's
-transparent-background rule belongs to the overlay route, **not** the shared
-layout, so `/control` is not forced transparent.
+key-background rule belongs to the overlay route, **not** the shared layout, so
+`/control` is not forced onto a key field.
 
 `@questbridge/protocol` is a workspace dependency of `web-app` (add to
 `package.json`; the symlink already exists via the root workspace). The frontend
@@ -322,7 +322,8 @@ renders. Components consume it and never re-derive it.
 
 ### 6.1 `/overlay`
 
-Non-interactive. Transparent background, no scrollbars, no external assets.
+Non-interactive. Opaque key background for OBS chroma keying, no scrollbars,
+no external assets.
 
 **Chapter section.** Renders exactly `getPinnedChapters()` in configured order.
 Each row shows title, progress bar (`showChapterProgress`), and completion state.
@@ -399,7 +400,7 @@ compatibility.
   manual steps.
 
 **Manual OBS verification** (recorded in `docs/testing-logs/`):
-- Transparent background, no scrollbars, correct 380×650 framing, refresh
+- Key background, no scrollbars, correct 380×650 framing, refresh
   recovery, and a host restart while the source is live.
 
 `docs/web-frontend.md` §5 lists the cases this plan must not lose.
@@ -429,14 +430,15 @@ tests, with no route yet.
 ### 3B — Overlay route
 
 - `routes/overlay/+page.svelte` plus `components/overlay/*`.
-- Transparent background scoped to the route.
+- The key background scoped to the route: an opaque `#00FF00` or `#0000FF`
+  field, never painted by the shared layout.
 - Chapter section, objective section, per-task rows, counter, progress bars.
 - Completion animation.
 - Empty/unresolved handling per §3.6.
 - Objectives auto-scroll per §6.1.
 
 **Exit:** with the mock publisher driving a running host, the overlay renders
-the configured pins and manual objectives correctly in Chromium, is transparent,
+the configured pins and manual objectives correctly in Chromium, is keyable,
 has no scrollbars, and scrolls its objectives when content overflows.
 
 ### 3C — Control route: catalog and pins
@@ -612,7 +614,8 @@ Phase 3 is complete when:
       each leave the user informed — never a blank frame.
 - [x] Mutation controls are disabled with a stated reason before a snapshot.
 - [x] No token appears in the DOM, console, served HTML, or logs.
-- [x] The overlay is transparent, correctly framed, scrollbar-free, and survives
+- [x] The overlay paints a uniform key colour, is correctly framed,
+      scrollbar-free, and survives
       a refresh and a host restart. Verified in Chromium at 380 × 650; **not**
       with the OBS application driving the source. See §14.3.
 - [x] The full workspace test suite passes (496 tests).
@@ -662,10 +665,40 @@ establish FTB compatibility (`AGENTS.md` §18).
 - **Drag reordering uses Pointer Events plus a non-passive `touchmove` guard.**
   Touch was added to the scope during this work. A mouse-only implementation
   fails silently on a finger, and the reverse is also true.
+- **The overlay is chroma-keyed, not transparent (corrected 2026-11-07).** This
+  plan, `docs/web-frontend.md`, and `AGENTS.md` all said "transparent
+  background". The intended behaviour was always a solid `#00FF00` or `#0000FF`
+  field for OBS to key out, switchable from `/control`. The mistake was in the
+  specification, not only in the code, so it was corrected in all of them.
+  Consequences recorded below.
+
+#### 14.2.1 What the chroma-key correction changed
+
+- **Palette.** Every overlay colour moved into `src/lib/theme.ts` as a token,
+  and no component carries a colour literal any more. The mint-green completion
+  accent (`#7ecfa3`) and the translucent white plates were both unusable: the
+  green family is removed in green mode, and a translucent plate over a
+  saturated key field composites into that field and is removed with it. Plates
+  are now opaque and the accents are warm neutral.
+- **The rule is channel dominance, not exact match.** An OBS chroma key removes
+  everything within its similarity tolerance, so `#00E000` is removed with the
+  background. A colour is rejected when the keyed channel exceeds the greater of
+  the other two by more than 0.35 × 255. One implementation covers both keys.
+- **Verification is on computed colours, not screenshot pixels.** A whole-frame
+  classification initially reported a green family; those pixels were the key
+  field and its antialiased edges. Sampling every element's computed colour and
+  compositing it over the key gives an auditable answer: 10 distinct UI colours,
+  0 failures, in both modes.
+- **The setting is frontend-only.** `DisplayConfig` is a `strictObject` and
+  Phase 3 was scoped to leave protocol v1 unchanged, so the choice lives in
+  `localStorage` and never reaches the host. It is therefore per-browser: an OBS
+  source and a dashboard tab set separately can disagree, and the source is the
+  one that matters. Migrating it into `DisplayConfig` is the natural first
+  change for a future protocol version.
 
 ### 14.3 Known limitations
 
-- **The OBS application was not driven.** Transparency, frame size, the absence
+- **The OBS application was not driven.** Keying, frame size, the absence
   of scrollbars, refresh recovery, and host-restart recovery were all measured in
   Chromium at the documented frame size. See
   `docs/testing-logs/2026-11-07-phase3-overlay.md` §5.

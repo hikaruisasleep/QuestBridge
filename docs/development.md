@@ -286,7 +286,12 @@ The Java adapter must implement the same wire format manually. It cannot import 
   book.
 - The OBS-facing behaviour has been verified in Chromium at the documented
   380 × 650 frame, but not with the OBS application driving the source. See
-  `docs/testing-logs/2026-11-07-phase3-overlay.md` §5.
+  `docs/testing-logs/2026-11-07-phase3-overlay.md` §4.
+- **OBS keying is operator configuration, not app behaviour.** The overlay paints
+  a uniform `#00FF00` or `#0000FF` field; the Chroma Key filter that removes it is
+  added to the Browser source in OBS. The key colour is switched under
+  **Background** in the dashboard and stored in the browser, not on the host, so
+  an OBS source and a dashboard tab can be set to different colours.
 - Queueing is not implemented: a mutation is sent once and rejected rather than
   retried, and the dashboard surfaces the host's error code.
 

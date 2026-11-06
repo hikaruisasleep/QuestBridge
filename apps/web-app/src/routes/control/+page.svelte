@@ -15,7 +15,16 @@
 
 	import type { ClientAppState, PinnedChapter } from '#lib/stores/app-state.ts';
 	import { getAppContext } from '#lib/stores/app-context.svelte.ts';
+	import {
+		chromaBackground,
+		chromaSetting,
+		refreshChromaKey,
+		setChromaKey,
+		startChromaSync,
+		stopChromaSync
+	} from '#lib/stores/chroma.svelte.ts';
 	import CatalogList from '#lib/components/control/CatalogList.svelte';
+	import ChromaSettings from '#lib/components/control/ChromaSettings.svelte';
 	import DisplaySettings from '#lib/components/control/DisplaySettings.svelte';
 	import PinList from '#lib/components/control/PinList.svelte';
 	import EmptyHint from '#lib/components/common/EmptyHint.svelte';
@@ -24,9 +33,12 @@
 	const app = getAppContext();
 
 	onMount(() => {
+		refreshChromaKey();
+		startChromaSync();
 		app.start({ role: 'control', clientName: 'QuestBridge dashboard' });
 		document.body.dataset.route = 'control';
 		return () => {
+			stopChromaSync();
 			delete document.body.dataset.route;
 		};
 	});
@@ -196,6 +208,7 @@
 					pins.some((pin) => (pin.kind === 'resolved' ? pin.chapter.id : pin.chapterId) === chapterId)}
 				onPin={pin}
 			/>
+			<ChromaSettings value={chromaSetting.key} onChange={setChromaKey} />
 			<DisplaySettings
 				display={app.state.display}
 				disabledReason={mutationBlockedReason}
@@ -208,10 +221,10 @@
 				<h2>Live preview</h2>
 				<span class="frame-size">380 × 650</span>
 			</div>
-			<div class="preview-frame">
+			<div class="preview-frame" style:background={chromaBackground()}>
 				<OverlayView state={app.state} pins={overlayPins} quests={overlayQuests} preview />
 			</div>
-			<EmptyHint text="This is the same component the OBS source renders." />
+			<EmptyHint text="This is the same component the OBS source renders, over the real key colour." />
 		</aside>
 	</div>
 </main>
@@ -358,8 +371,8 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	/* A scoped preview at the documented OBS starting size. The backdrop stands
-	   in for gameplay so white text is judged as it will appear on stream. */
+	/* A scoped preview at the documented OBS starting size. Its background is set
+	   inline to the real key colour, so the preview shows what OBS will show. */
 	.preview-frame {
 		width: 380px;
 		height: 650px;

@@ -333,7 +333,7 @@ dedupes a repeated revision, recovers from a forced close, and emits
 `src/lib/components/overlay/*`, `src/lib/components/common/*`,
 `src/lib/motion.ts` (single motion-token file, per plan §11.4).
 
-- Transparent background scoped to the route, **not** the shared layout.
+- The key background scoped to the route, **not** the shared layout.
 - Chapter section: exactly `getPinnedChapters()`, in configured order; empty
   config renders nothing.
 - Objective section: manual pins; counter `completed/totalRequired`;
@@ -343,7 +343,7 @@ dedupes a repeated revision, recovers from a forced close, and emits
 - Completion highlight that fires on a genuine transition only.
 
 **Exit:** renders correctly in Chromium against a running host driven by the
-mock publisher; transparent; no scrollbars; objectives scroll on overflow.
+mock publisher; keyable; no scrollbars; objectives scroll on overflow.
 
 ### 3C — Control route: catalog and pins
 

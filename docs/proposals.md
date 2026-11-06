@@ -272,7 +272,7 @@ The normative requirements are `docs/web-frontend.md`.
 - Tests for empty state, one through five pins, unresolved chapters,
   completed/locked chapters, stale/disconnected states, and task progress.
 
-**Exit criterion:** OBS Browser Source displays the overlay with transparency and correct state; refresh restores state.
+**Exit criterion:** OBS Browser Source displays the overlay keyed over gameplay with correct state; refresh restores state.
 
 **Scope note:** the dashboard selects **chapters**. Quest pins belong to FTB
 Quests and are read-only to QuestBridge; a quest-pinning UI is a non-goal

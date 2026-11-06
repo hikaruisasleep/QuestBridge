@@ -70,7 +70,7 @@
 		gap: 5px;
 		padding: 6px 7px;
 		border-radius: 4px;
-		background: rgba(255, 255, 255, 0.045);
+		background: var(--qb-row-fill, #1a1d23);
 		/* Only paint properties transition here. The zoom and reflow are driven
 		   by the parent's transition/animate directives so they cannot fight
 		   with these. */
@@ -80,7 +80,7 @@
 	}
 
 	.quest[data-completed='true'] {
-		background: rgba(126, 217, 160, 0.1);
+		background: var(--qb-row-complete, #243029);
 	}
 
 	.head {
@@ -95,7 +95,7 @@
 		font-size: 12.5px;
 		font-weight: 500;
 		line-height: 1.3;
-		color: rgba(255, 255, 255, 0.94);
+		color: var(--qb-text-primary, #e8e6e2);
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 	}
 
@@ -103,11 +103,11 @@
 		flex: none;
 		font-size: 10px;
 		letter-spacing: 0.03em;
-		color: rgba(255, 255, 255, 0.42);
+		color: var(--qb-text-muted, #92908d);
 	}
 
 	.quest[data-completed='true'] .state {
-		color: rgba(198, 240, 210, 0.8);
+		color: var(--qb-accent-complete, #a9b4a5);
 	}
 
 	.counter {
@@ -120,7 +120,7 @@
 		flex: none;
 		font-variant-numeric: tabular-nums;
 		font-size: 10.5px;
-		color: rgba(255, 255, 255, 0.55);
+		color: var(--qb-text-body, #b9b7b3);
 	}
 
 	.bar {
@@ -143,24 +143,24 @@
 		gap: 5px;
 		font-size: 10.5px;
 		line-height: 1.35;
-		color: rgba(255, 255, 255, 0.58);
+		color: var(--qb-text-body, #b9b7b3);
 	}
 
 	.marker {
 		flex: none;
 		width: 9px;
 		text-align: center;
-		color: rgba(255, 255, 255, 0.36);
+		color: var(--qb-text-faint, #6e6c69);
 	}
 
 	.task[data-status='completed'] .marker {
-		color: rgba(126, 217, 160, 0.85);
+		color: var(--qb-accent-complete, #a9b4a5);
 	}
 
 	.task[data-status='completed'] .task-title {
-		color: rgba(255, 255, 255, 0.44);
+		color: var(--qb-text-faint, #6e6c69);
 		text-decoration: line-through;
-		text-decoration-color: rgba(255, 255, 255, 0.22);
+		text-decoration-color: var(--qb-text-faint, #6e6c69);
 	}
 
 	.task-title {
@@ -176,12 +176,12 @@
 		font-size: 9px;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.3);
+		color: var(--qb-text-faint, #6e6c69);
 	}
 
 	.task-value {
 		flex: none;
 		font-variant-numeric: tabular-nums;
-		color: rgba(255, 255, 255, 0.44);
+		color: var(--qb-text-faint, #6e6c69);
 	}
 </style>

@@ -13,7 +13,9 @@
 	 * rather than asserting a cause it cannot verify.
 	 *
 	 * This element is deliberately **outside** the fading stack, so it stays
-	 * readable while the progression content has faded out.
+	 * readable while the progression content has faded out, and it sits on an
+	 * opaque plate: a translucent plate over a saturated key colour would
+	 * composite into that colour and be keyed out with the background.
 	 */
 	import type { ClientFailure, TransportState } from '#lib/protocol/client.ts';
 
@@ -86,37 +88,40 @@
 		box-sizing: border-box;
 		padding: 9px 11px;
 		border-radius: 5px;
-		background: rgba(14, 16, 21, 0.82);
-		backdrop-filter: blur(2px);
+		/* Opaque: translucency over a key colour becomes that colour. */
+		background: var(--qb-plate, #14161b);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 		font-size: 11.5px;
 		line-height: 1.45;
 	}
 
 	.notice[data-tone='error'] {
-		border-left: 2px solid rgba(232, 120, 120, 0.9);
+		border-left: 2px solid var(--qb-accent-error, #b07a72);
 	}
 
 	.title {
 		margin: 0 0 3px;
 		font-size: 12px;
 		font-weight: 600;
-		color: rgba(255, 255, 255, 0.92);
+		color: var(--qb-text-primary, #e8e6e2);
 	}
 
 	.body {
 		margin: 0;
-		color: rgba(255, 255, 255, 0.62);
+		color: var(--qb-text-body, #b9b7b3);
 	}
 
 	.detail {
 		margin: 4px 0 0;
 		font-size: 10.5px;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--qb-text-faint, #6e6c69);
 	}
 
 	code {
+		/* A code span inside the dark plate stays a lighter grey rather than
+		   gaining a tinted chip, which would risk the key hue. */
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		font-size: 10.5px;
-		color: rgba(255, 255, 255, 0.78);
+		color: var(--qb-text-strong, #d6d4d0);
 	}
 </style>

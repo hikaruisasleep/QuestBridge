@@ -166,7 +166,7 @@
 		font-weight: 600;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.52);
+		color: var(--qb-text-muted, #92908d);
 	}
 
 	.viewport {

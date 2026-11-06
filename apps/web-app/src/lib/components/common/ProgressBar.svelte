@@ -43,7 +43,7 @@
 		height: 3px;
 		width: 100%;
 		border-radius: 2px;
-		background: rgba(255, 255, 255, 0.14);
+		background: var(--qb-track, #4a4f5a);
 		overflow: hidden;
 	}
 
@@ -51,7 +51,7 @@
 		position: absolute;
 		inset: 0 auto 0 0;
 		border-radius: 2px;
-		background: rgba(255, 255, 255, 0.72);
+		background: var(--qb-text-strong, #d6d4d0);
 		/* Width changes are structural, not decorative; a short transition keeps
 		   two progress updates from looking like a jump without animating for
 		   longer than a viewer would tolerate. */
@@ -59,6 +59,6 @@
 	}
 
 	.track[data-complete='true'] .fill {
-		background: rgba(126, 217, 160, 0.9);
+		background: var(--qb-accent-complete, #a9b4a5);
 	}
 </style>

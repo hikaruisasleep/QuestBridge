@@ -759,7 +759,8 @@ quest-selection or quest-pinning interface (`AGENTS.md` §2.4, §10.2).
 
 ### 10.1 Overlay
 
-- Transparent background.
+- Solid key background for OBS chroma keying, with no UI colour in the active
+  key's family.
 - No scrollbars.
 - Compact typography.
 - Thin progress bars.
@@ -961,7 +962,7 @@ Refresh browser when scene becomes active: Disabled
 
 The overlay must:
 
-- Support transparency.
+- Support chroma keying.
 - Avoid scrollbars.
 - Work in Chromium/OBS CEF.
 - Recover after refresh.

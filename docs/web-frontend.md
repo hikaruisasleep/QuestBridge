@@ -1,7 +1,7 @@
 # QuestBridge Web Frontend
 
 **Status:** Normative for Phase 3, and **implemented**. Both routes exist as
-real SvelteKit pages in a static build the host serves: `/overlay` (transparent,
+real SvelteKit pages in a static build the host serves: `/overlay` (chroma-keyed,
 two sections, auto-scrolling objectives), `/control` (catalog with search,
 pin/unpin, pointer and touch drag reordering, display settings, live preview),
 and `/` (landing page carrying the token through). The static build target and
@@ -279,7 +279,9 @@ That is accepted scope, not an omission.
 
 Full detail is in `AGENTS.md` §2.3 and §10.1. The points most often broken:
 
-- Transparent background; no scrollbars; no external assets or fonts.
+- Solid key background (`#00FF00` or `#0000FF`) for OBS chroma keying, with
+  no UI colour in the active key's family; no scrollbars; no external assets or
+  fonts.
 - Renders **exactly** the configured chapter pins, in dashboard-defined order.
   It must not fill empty slots, must not show every discovered chapter, and must
   not auto-select chapters.
