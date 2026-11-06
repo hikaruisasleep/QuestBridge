@@ -1065,7 +1065,11 @@ Handle:
 
 Do not present stale progression as live.
 
-A previous snapshot may be retained internally, but the UI must indicate when it is stale.
+A previous snapshot may be retained internally. The overlay must not show a visible
+stale indicator: on stream, reacting to a merely slow update is a worse failure than the
+delay itself. The stale and disconnect thresholds are set generously so that only a
+publisher that has genuinely gone away is affected, and a disconnection fades the overlay
+out rather than cutting it. See `docs/web-frontend.md` §3.4.
 
 When reconnecting, request or publish a fresh snapshot.
 

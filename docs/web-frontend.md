@@ -160,6 +160,11 @@ The frontend must render a visible, instructive state naming the remedy
 (`questbridge-host --print-urls`) rather than an empty frame or a set of
 controls that appear functional but do nothing.
 
+One case is a deliberate exception, settled 2026-11-07: a **stale** state shows
+no visible change at all (§3.4). The overlay is on stream, where reacting to a
+slow update is a worse failure than the slow update. Disconnection is still
+visually distinct — it fades out.
+
 ### 3.1 What can actually be rendered
 
 A page cannot report its own absence. These cases are genuinely different, and
@@ -171,7 +176,8 @@ conflating them leads to promising behaviour that is impossible to deliver:
 | Host was running, then stopped or restarted while the page is open | The loaded shell renders a **"lost connection — reconnecting"** state. | The only genuinely renderable offline case. It is why reconnect handling matters. |
 | Host running, missing or invalid token | The shell loads, the upgrade is refused, and the page renders **"not authorized"** with the `--print-urls` remedy. | The shell is served unconditionally, which is what makes this possible. |
 | Host running, no Minecraft data yet | Normal `disconnected` / `synchronizing` presentation over an empty catalog. | Not an error. Never fabricate progression to fill it. |
-| Host running, Minecraft data retained but stale | Stale presentation, explicitly marked. | `docs/phase-2-plan.md` §11: a previous snapshot may be retained, but must not be shown as live. |
+| Host running, Minecraft data retained but stale | **No visible change.** The overlay renders identically to a live one. | Amended 2026-11-07; see §3.4. |
+| Host running, Minecraft disconnected | The overlay **fades out** rather than going blank at once. | See §3.4. |
 
 The second row is the one to design for. During Phase 2 verification, stopping
 and restarting the host left the browser session open, and the client observed a
@@ -208,6 +214,51 @@ The `/control` route must not present interactive affordances that cannot work.
 
 ---
 
+### 3.4 Stale is invisible; disconnection fades out
+
+**Amended 2026-11-07.** This section supersedes the earlier requirement that a
+stale state be "explicitly marked". It was changed by product decision, and the
+reasoning is recorded so it is not reverted as an oversight.
+
+The overlay shows **no visible difference** in the stale state. A stale overlay
+is identical to a live one.
+
+The thresholds exist to make that safe: `staleAfterMs` is 20 s and
+`disconnectAfterMs` is 30 s against a 5 s heartbeat
+(`packages/protocol/src/version.ts`). They are sized to detect a publisher that
+has genuinely gone away — a crash, or a switch of game, world, or server — not a
+deferred update. A viewer cannot be helped by a dimmed corner when the game has
+crashed, but an overlay that flickers whenever an update is merely slow is a
+problem of our own making.
+
+On **disconnection** the overlay fades out instead of disappearing at once. A
+fade reads as "no longer live"; a hard cut reads as a glitch.
+
+Implementation rules:
+
+- Key the fade on `status === "disconnected"`, **not** on `stale`. The host sets
+  `stale: status !== "ready"`, so `stale` is also true during `synchronizing`; a
+  fade keyed on `stale` would pulse the overlay during every normal startup.
+- A stale state must render **identically** to a live one. Assert this in a
+  test, so nobody later "restores" the missing badge.
+
+### 3.5 Motion
+
+Motion is part of the design, not decoration.
+
+- A quest that is pinned or unpinned **zooms in or out**; it does not appear or
+  vanish instantly.
+- The other pinned quests **transition to their new positions**; they do not
+  snap. This requires a keyed list with a flip-style transition — a plain
+  re-render reorders DOM nodes and no animation plays.
+- Disconnection fades the overlay out (§3.4).
+
+Precedence when these overlap: the overlay-wide fade is not interrupted by item
+animation; item animation runs only while live. `completionAnimation: false`
+disables the completion highlight only — not the zoom or reflow, which are
+structural and whose absence would reintroduce the snapping these rules exist to
+prevent.
+
 ## 4. Overlay requirements recap
 
 Full detail is in `AGENTS.md` §2.3 and §10.1. The points most often broken:
@@ -230,8 +281,15 @@ Full detail is in `AGENTS.md` §2.3 and §10.1. The points most often broken:
 Frontend tests are Phase 3 work; `AGENTS.md` §16 lists them. The cases this
 document specifically adds:
 
-- The disconnected, unauthorized, and stale presentations each render a visible
-  state — never a blank frame.
+- The disconnected and unauthorized presentations each render a visible state —
+  never a blank frame.
+- **A stale state renders identically to a live one** (§3.4). This is the
+  inverse of the original expectation and is deliberate: it guards against
+  someone reintroducing a stale badge as a "fix".
+- The overlay fades on `disconnected` and does **not** fade during
+  `synchronizing` or `ready` (§3.4).
+- Pinning or unpinning a quest zooms its box and the surviving rows transition
+  rather than snapping (§3.5); the reflow is asserted, not merely eyeballed.
 - Mutation controls are unavailable, with a stated reason, before a snapshot
   arrives.
 - An empty catalog and a catalog that has never been received are visually

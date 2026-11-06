@@ -125,15 +125,69 @@ renders nothing for that section. The dashboard preview additionally shows a
 muted setup hint. Nothing internal leaks to viewers, and the streamer sees the
 cause where they can act on it.
 
-### 3.7 Stale-state presentation is deferred
+### 3.7 Stale is invisible; disconnection fades out
 
-`docs/web-frontend.md` §3 requires that stale data never be presented as live,
-but the overlay is on stream and the visual treatment is a product decision, not
-a technical one. This is the one requirement in this plan **without an agreed
-design**. It is scheduled as milestone 3E and must be settled before Phase 3 is
-called complete. See §11.
+**Settled.** The overlay shows **no visible change in the stale state**. A stale
+overlay is byte-identical to a live one. The thresholds were raised instead
+(`staleAfterMs` 10 s → 20 s, `disconnectAfterMs` 15 s → 30 s) so that staleness
+only ever describes a publisher that has genuinely gone away, never a deferred
+update or a momentary hitch.
 
-### 3.8 The chapter field is `subtitle`
+The reasoning is about broadcast, not about data integrity. If the game has
+crashed, the streamer has a larger problem than the overlay, and a viewer cannot
+be helped by a dimmed or emptied corner. What *would* hurt the viewer is an
+overlay that flickers whenever an update is merely slow.
+
+The 20 s window buys exactly that headroom: long enough that ordinary deferred
+updates never register, short enough that switching game, world, or server
+eventually clears the overlay rather than leaving a frozen snapshot on screen
+indefinitely.
+
+**On disconnection the overlay fades out**, rather than disappearing at once.
+This applies to the `disconnected` state, not to `stale`. A fade signals "this
+is no longer live" without a hard cut that reads as a glitch on stream.
+
+Consequences worth stating, because they are easy to get wrong later:
+
+- `docs/web-frontend.md` §3's "must indicate when it is stale" is **superseded
+  for the stale flag specifically** by this decision. The overlay indicates
+  disconnection, not staleness. §3 is updated accordingly.
+- `docs/web-frontend.md` §5's test expectation "stale presentation renders a
+  visible state" is replaced by the opposite: a stale state must render
+  **identically** to a live one. That inversion is deliberate and should be
+  asserted, so nobody later "fixes" the missing badge.
+- The host already sets `stale: status !== "ready"`, so `stale` is also true
+  while `synchronizing`. The overlay must therefore key its fade on
+  `status === "disconnected"`, not on `stale`, or a normal startup handshake
+  would fade the overlay in and out.
+
+### 3.8 Entry, exit, and reorder animation
+
+Motion is part of the design, not polish. Three rules:
+
+**Quest pin/unpin.** When a quest is pinned or unpinned, its box **zooms in or
+out** rather than appearing or vanishing instantly.
+
+**Reflow.** The other pinned quests **transition to their new positions**. They
+must not snap. This is the harder half: a naive list re-render reorders DOM
+nodes and the animation never plays. It needs a keyed list with a transition
+directive (Svelte's `animate:flip`, which is exactly this problem) so surviving
+items are measured before and after and tweened.
+
+**Disconnection.** The overlay fades out (§3.7).
+
+These interact: a quest unpin while disconnecting must not leave a half-faded
+zooming box. Rules, in order of precedence:
+
+1. A fade-out applies to the whole overlay and is not interrupted by item
+   animation.
+2. Item animation runs only while the overlay is live.
+3. `completionAnimation: false` in the display config disables the *completion*
+   highlight only. It does not disable pin/unpin zoom or reflow — those are
+   structural motion, and disabling them would make the list snap, which is the
+   behaviour this section exists to prevent.
+
+### 3.9 The chapter field is `subtitle`
 
 `AGENTS.md` §7.1 and §10.2 called the chapter field `description`. The
 implemented protocol v1 uses `subtitle`, deliberately: `docs/protocol.md` §8.1
@@ -447,29 +501,16 @@ signal to re-examine the design rather than to widen the host's surface.
 - `docs/phase-2-plan.md` §17 final acceptance item, once the routes exist.
 - `docs/testing-logs/` OBS verification record.
 
-Already done: the `AGENTS.md` `description` → `subtitle` correction (§3.8).
+Already done: the `AGENTS.md` `description` → `subtitle` correction (§3.9).
 
 ---
 
 ## 11. Open questions
 
-These need a decision. The first is a blocker for completing 3E; the other two
-are smaller and can be settled during implementation.
+### 11.1 Stale/disconnected visual treatment — **resolved**
 
-### 11.1 Stale/disconnected visual treatment (blocking 3E)
-
-Deferred for deeper discussion at the user's request. The options considered:
-
-| Option | Effect | Trade-off |
-|---|---|---|
-| Subtle badge, only when not ready | Invisible during normal streaming; never silently shows stale data as live | Easy to miss mid-stream if the streamer is not looking at the overlay corner |
-| Dim/desaturate the whole overlay plus a badge | Unmistakable | Visibly degraded on stream during a brief blip |
-| Hide progression entirely when stale | Never shows wrong data | The corner empties mid-stream during a transient disconnect |
-
-The constraint that makes this a real decision: during a brief Minecraft
-hiccup, a dimmed or emptied overlay is itself a visible on-stream artifact.
-`docs/web-frontend.md` §3 forbids presenting stale as live; it does not mandate
-which of these achieves that.
+Settled by product decision: no visible stale state; raised thresholds; fade out
+on disconnection. See §3.7. No longer a blocker.
 
 ### 11.2 Keyboard access for drag-and-drop reordering
 
@@ -478,13 +519,26 @@ keyboard-operable, so reordering is currently mouse-only. `AGENTS.md` does not
 require keyboard access, and the cap is five items. Options: accept mouse-only,
 or add a minimal keyboard affordance on the focused row.
 
-### 11.3 `prefers-reduced-motion` and the auto-scroll
+### 11.3 `prefers-reduced-motion` and the animations
 
-The objectives auto-scroll was specified as unconditional. Continuous motion
-respecting `prefers-reduced-motion` is a common accessibility expectation, and
-OBS users may not have that set. Options: keep it unconditional as decided;
-respect the media query and fall back to a static clamped list; or clamp to a
-fixed maximum height with no motion.
+Two kinds of motion are now required by design: the objectives auto-scroll
+(§3.4) and the pin/unpin zoom plus reflow (§3.8). Continuous motion that ignores
+`prefers-reduced-motion` is an accessibility gap, and OBS users may well not have
+the setting enabled, so it may be moot in practice.
+
+The relevant distinction: the auto-scroll is *continuous* and is the more
+arguable case; the zoom and reflow are *transient* and removing them restores the
+snapping this design explicitly rejects. A defensible split is to honour the
+media query for the auto-scroll only. Needs a decision.
+
+### 11.4 Fade duration and reflow timing
+
+Deliberately left to implementation, but recorded so it is chosen once rather
+than ad hoc per component. Constraints: the fade must be long enough to read as
+deliberate and short enough not to linger on a frozen overlay; the zoom must not
+push surrounding rows on every frame (animate transform and opacity, not layout);
+the reflow must complete before a subsequent update arrives, or drag-heavy
+pinning will look unstable. Exact values belong in one shared motion-token file.
 
 ---
 
@@ -495,7 +549,10 @@ fixed maximum height with no motion.
 | Overlay preview diverges from real overlay | Streamer approves a layout OBS renders differently | Shared component; validate in real OBS in 3E, not only in Chromium |
 | Auto-scroll jitters as content updates | Visible on stream | Drive from measured overflow, not fixed timing; pause on change |
 | Drag-and-drop unreliable in OBS CEF | Cannot reorder | Reordering is a dashboard-only concern; OBS only renders `/overlay` |
-| Reconnect loop shows stale as live | Incorrect on stream | Explicit states per §3.7; resync on gap; revision tracked |
+| Frozen snapshot lingers after a game/server switch | Viewers see stale progress indefinitely | Raised thresholds plus the disconnection fade (§3.7); `disconnectAfterMs` bounds the worst case |
+| Overlay flickers on slow updates | Visible on stream | No visible stale state; 20 s headroom before anything reacts (§3.7) |
+| Keyed list re-render kills reflow animation | Quests snap instead of transitioning | Keyed list with `animate:flip`; asserted by a test, not by eye |
+| Fade and item animation collide | Half-faded zooming boxes | Fixed precedence order (§3.8 rule list) |
 | Token leaked into DOM or logs | Local credential exposure | Read once from `location.search`; never rendered; redaction review in 3E |
 | Silent scope creep into quest pinning | Violates a core non-goal | `docs/web-frontend.md` §1.1; catalog is chapters only |
 | Frontend re-derives progression | Diverges from FTB truth | Selectors own all derivation; components consume only |
@@ -521,8 +578,14 @@ Phase 3 is complete when:
       auto-removed.
 - [ ] Display settings persist, broadcast, and match the overlay.
 - [ ] `/` links to both routes with the token preserved.
-- [ ] Disconnected, reconnecting, unauthorized, synchronizing, stale, and empty
-      states each render visibly — never a blank frame.
+- [ ] A stale overlay renders **identically** to a live one; no badge, dim, or
+      empty state appears on a slow update.
+- [ ] The overlay fades out on `disconnected`, and does not fade during
+      `synchronizing` or `ready`.
+- [ ] Pinning or unpinning a quest zooms its box, and the remaining quests
+      transition to their new positions rather than snapping.
+- [ ] Disconnected, reconnecting, unauthorized, synchronizing, and empty states
+      each leave the user informed — never a blank frame.
 - [ ] Mutation controls are disabled with a stated reason before a snapshot.
 - [ ] No token appears in the DOM, console, served HTML, or logs.
 - [ ] OBS shows a transparent, correctly framed overlay that survives a refresh
@@ -541,8 +604,7 @@ Start with 3A only, and do not begin 3B until 3A passes:
 
 1. Add the `@questbridge/protocol` dependency and the endpoint/client modules.
 2. Add the store, the connection state machine, and the selectors.
-3. Correct the `AGENTS.md` `description` → `subtitle` lines.
-4. Add unit tests for all of the above, including the reconnect and resync paths.
+3. Add unit tests for all of the above, including the reconnect and resync paths.
 
 This keeps the first increment verifiable without any UI, which is where the
 connection lifecycle mistakes are cheapest to catch.
