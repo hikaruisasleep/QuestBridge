@@ -13,9 +13,10 @@
 	 */
 	import { onMount } from 'svelte';
 
-	import type { PinnedChapter } from '#lib/stores/app-state.ts';
+	import type { ClientAppState, PinnedChapter } from '#lib/stores/app-state.ts';
 	import { getAppContext } from '#lib/stores/app-context.svelte.ts';
 	import CatalogList from '#lib/components/control/CatalogList.svelte';
+	import DisplaySettings from '#lib/components/control/DisplaySettings.svelte';
 	import PinList from '#lib/components/control/PinList.svelte';
 	import EmptyHint from '#lib/components/common/EmptyHint.svelte';
 	import OverlayView from '#lib/components/overlay/OverlayView.svelte';
@@ -101,6 +102,18 @@
 		}
 	}
 
+	function updateDisplay(display: ClientAppState['display']): void {
+		// The complete object is sent: the schema is a strictObject and partial
+		// objects are rejected (`docs/phase-2-plan.md` §9).
+		if (app.updateDisplay(display) === null) {
+			reportError(
+				'display',
+				'not_connected',
+				'Not connected to the QuestBridge host, so the settings were not saved.'
+			);
+		}
+	}
+
 	// The host answers every mutation either with an authoritative broadcast or
 	// with a `request.error`, so both end a pending action.
 	$effect(() => {
@@ -182,6 +195,11 @@
 				isPinned={(chapterId) =>
 					pins.some((pin) => (pin.kind === 'resolved' ? pin.chapter.id : pin.chapterId) === chapterId)}
 				onPin={pin}
+			/>
+			<DisplaySettings
+				display={app.state.display}
+				disabledReason={mutationBlockedReason}
+				onChange={updateDisplay}
 			/>
 		</div>
 
