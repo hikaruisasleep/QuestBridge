@@ -210,13 +210,15 @@ export class SequenceTracker {
   }
 
   observe(sequence: number, options: { snapshot?: boolean } = {}): SequenceObservation {
-    if (sequence <= this.#lastAccepted) {
-      return "duplicate";
-    }
-
+    // A full snapshot is self-contained and is always accepted, per the
+    // protocol contract. It resets the expected sequence even after a gap.
     if (options.snapshot === true) {
       this.#lastAccepted = sequence;
       return "accepted";
+    }
+
+    if (sequence <= this.#lastAccepted) {
+      return "duplicate";
     }
 
     if (sequence > this.#lastAccepted + 1) {
@@ -249,13 +251,15 @@ export class RevisionTracker {
   }
 
   observe(revision: number, options: { snapshot?: boolean } = {}): RevisionObservation {
-    if (revision <= this.#lastRevision) {
-      return "stale";
-    }
-
+    // A full snapshot is self-contained and is always applied, per the
+    // protocol contract, even when its revision is older than local state.
     if (options.snapshot === true) {
       this.#lastRevision = revision;
       return "accepted";
+    }
+
+    if (revision <= this.#lastRevision) {
+      return "stale";
     }
 
     if (revision > this.#lastRevision + 1) {

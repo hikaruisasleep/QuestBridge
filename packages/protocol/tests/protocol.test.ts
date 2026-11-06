@@ -781,6 +781,16 @@ describe("sequence tracking", () => {
     expect(tracker.observe(9)).toBe("duplicate");
   });
 
+  it("accepts an older snapshot because snapshots are self-contained", () => {
+    const tracker = new SequenceTracker();
+    expect(tracker.observe(1)).toBe("accepted");
+    expect(tracker.observe(2)).toBe("accepted");
+    expect(tracker.observe(3)).toBe("accepted");
+    expect(tracker.observe(2, { snapshot: true })).toBe("accepted");
+    expect(tracker.lastAccepted).toBe(2);
+    expect(tracker.observe(3)).toBe("accepted");
+  });
+
   it("resets", () => {
     const tracker = new SequenceTracker();
     tracker.observe(4, { snapshot: true });
@@ -811,6 +821,16 @@ describe("revision tracking", () => {
     expect(tracker.observe(7, { snapshot: true })).toBe("accepted");
     expect(tracker.observe(8)).toBe("accepted");
     expect(tracker.observe(7)).toBe("stale");
+  });
+
+  it("accepts an older snapshot because snapshots are self-contained", () => {
+    const tracker = new RevisionTracker();
+    expect(tracker.observe(0)).toBe("accepted");
+    expect(tracker.observe(1)).toBe("accepted");
+    expect(tracker.observe(2)).toBe("accepted");
+    expect(tracker.observe(1, { snapshot: true })).toBe("accepted");
+    expect(tracker.lastRevision).toBe(1);
+    expect(tracker.observe(2)).toBe("accepted");
   });
 });
 
