@@ -609,8 +609,34 @@ listener registration across repeated world reloads.
 
 ### 4F — ATM10 verification and recorded fixtures
 
-**Status (2026-11-07): not started.** This requires launching the Prism instance
-with the built jar, which this conversation could not do. Nothing here is claimed.
+**Status (2026-11-07): the fixture half is partially done; the verification half
+has not started and cannot be done without a live client.**
+
+Done, from real ATM10 data already present on this machine:
+
+- `packages/protocol/fixtures/atm10-recorded-snapshot.json` — a sanitized
+  `minecraft.snapshot` built from the 2026-11-06 live run, validated through the
+  host's `parseFrame` path. `fixtures/README.md` states its provenance and, more
+  importantly, that it proves the **encoder** handles real ATM10 shapes and not
+  that the **mapper** extracted them correctly.
+
+Not done, and not obtainable from committed material:
+
+- Single-player and multiplayer runs with the built jar.
+- Completion-driven pin removal, team change, quest reload, and world change.
+- Confirmation that `FtbSnapshotMapper` produced the recorded values, rather
+  than the 4A probe log.
+
+Why it is blocked rather than pending:
+
+1. **The client is a GUI game** needing an account login. This session's rules
+   forbid spawning windows, and it has no way to drive a first-person game.
+2. **The installed jar is still Stage 4A.** `questbridge-0pre.1.jar` sits in the
+   Prism instance's `mods` folder and contains no transport and no
+   configuration. A launch today would publish nothing and prove nothing.
+3. **Steps 1 and 2 below write outside this repository** — into the Prism
+   instance and the host config directory — and were not performed without the
+   user's confirmation.
 
 Ready for the session:
 
