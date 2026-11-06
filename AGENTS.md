@@ -468,7 +468,7 @@ The frontend must consume normalized data, not raw Java object representations.
 interface Chapter {
   id: string;
   title: string;
-  description?: string;
+  subtitle?: string;
   order: number;
   progress: number | null;
   status:
@@ -478,6 +478,12 @@ interface Chapter {
     | "unknown";
 }
 ```
+
+The field is `subtitle`, not `description`: FTB Quests `2101.1.30` exposes
+chapter subtitles and no chapter description accessor (`docs/protocol.md` §8.1,
+`docs/ftb-quests-integration.md` §4.3). Do not call a subtitle a description in
+code, UI labels, or documentation. Quest descriptions are separate and are
+genuinely available (§7.3).
 
 ## 7.2 Chapter pins
 
@@ -775,7 +781,7 @@ Provide:
 
 - Search.
 - Chapter name.
-- Chapter description.
+- Chapter subtitle.
 - Current progress.
 - Completion state.
 - Pin/unpin action.
