@@ -1,6 +1,7 @@
 # FTB Quests Integration
 
-**Status:** Reconnaissance complete against pack files; the target pack is now installed locally, and its identity, exact mod versions, chapter catalog, and FTB API class availability are verified from that installation; live quest synchronization in a running client is not yet verified  
+**Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources; live quest synchronization in a running client is not yet verified
+
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B remains pending review in `docs/proposals.md`.  
 **Date:** 2026-11-06  
 **Target pack:** All the Mods 10: To the Sky (ATM10 TTS / ATM10SKY) 2.3.1  
@@ -17,11 +18,27 @@ The following sources were inspected:
 
 1. The published ATM10SKY 2.3.1 CurseForge pack archive.
 2. Its `manifest.json`, `overrides/config/ftbquests/quests`, and language files.
-3. FTB Quests source at tag `v2101.1.30`, commit `89b7a6d7acf86f02aa399b941f1e7d6b8d8476de`.
+3. FTB Quests source at tag `v2101.1.30`, commit `89b7a6d7acf86f02aa399b941f1e7d6b8d8476de`, including the `net/` payload classes, `BaseQuestFile`, `TeamData`, `PinnedQuestsTracker`, and the translation sync classes.
 4. The published FTB Quests, FTB Teams, and FTB Library JARs, inspected with `javap`.
 5. The NeoForge MDK build in this repository, compiled with JDK 21. The build declares the exact FTB Quests, Teams, and Library dependencies from Proposal D (applied).
+6. The FTB documentation repository’s versioned 1.21.1 pages: the SNBT technical page and the quest/chapter developer pages. These document persistence and authoring, not the client-server wire protocol.
 
-The target pack is installed locally as a Prism Launcher instance and was inspected directly on 2026-11-06; see section 1.1. Pack identity, mod versions, chapter catalog, and API class availability are therefore verified. Live quest synchronization in a running client remains unverified until Phase 5.
+The target pack is installed locally as a Prism Launcher instance and was inspected directly on 2026-11-06; see section 1.1. Pack identity, mod versions, chapter catalog, API class availability, transport format, and team/pin semantics are therefore verified. Live quest synchronization in a running client remains unverified until Phase 5. The upstream `main` branch is not the target: it has moved to JSON5 and a newer Minecraft generation, while ATM10 TTS 2.3.1 ships `v2101.1.30`, which uses SNBT persistence and Architectury packet transport.
+
+### Research sources
+
+Primary sources used for the transport, team, pin, and completion findings:
+
+- [FTB Quests `v2101.1.30` network payloads](https://github.com/FTBTeam/FTB-Quests/tree/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/net)
+- [`SyncQuestsMessage`](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/net/SyncQuestsMessage.java)
+- [`BaseQuestFile`](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/quest/BaseQuestFile.java)
+- [`TeamData`](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/quest/TeamData.java)
+- [`PinnedQuestsTracker`](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/client/PinnedQuestsTracker.java)
+- [`ServerQuestFile` login sync flow](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/quest/ServerQuestFile.java)
+- [`SyncTranslationTableMessage`](https://github.com/FTBTeam/FTB-Quests/blob/v2101.1.30/common/src/main/java/dev/ftb/mods/ftbquests/net/SyncTranslationTableMessage.java)
+- [FTB docs: SNBT (1.21.1)](https://github.com/FTBTeam/docs/blob/main/mods_versioned_docs/version-1.21.1/mods/technical/SNBT/index.md)
+- [FTB docs: quest developer pages (1.21.1)](https://github.com/FTBTeam/docs/tree/main/mods_versioned_docs/version-1.21.1/mods/suite/Quests/Developer)
+- [FTB docs: pinning](https://github.com/FTBTeam/docs/blob/main/docs/marketplace/Addons/quests/howto/quests/pinning.md)
 
 ### Artifacts used
 
@@ -324,6 +341,10 @@ unknown    -> FTB data unavailable
 
 Do not derive `completed` solely from progress.
 
+`TeamData.isCompleted(chapter)` is the only authoritative chapter-completion signal. FTB records a chapter as completed when a quest completion satisfies `chapter.isCompletedRaw(teamData)`; `Quest.onCompleted` then calls `chapter.onCompleted`, which writes the chapter ID into the team's `completed` map. Empty chapters, `alwaysInvisible` chapters, and chapters whose quests are all optional can report `progress = 100` without ever entering that map. The overlay must therefore render chapter completion from `status`, and treat `progress` as secondary information.
+
+Chapter completion is team-wide, like all other progression state. It is not stored per player.
+
 ---
 
 ## 6. Quest and task progress
@@ -445,6 +466,8 @@ Verified native behavior in `PinnedQuestsTracker`:
 - QuestBridge’s current-objectives list must use only real manual quest IDs.
 - ID `1` must always be filtered out before resolving quests.
 
+`TeamData.PerPlayerData` also serializes an `auto_pin` boolean, but `PinnedQuestsTracker` in this version decides auto mode from the presence of ID `1` in `pinned_quests`; the boolean is not consulted by the tracker. Auto-pin support is a lower-priority concern for QuestBridge: the MVP only needs to filter ID `1` out of the manual list. Mirroring the native auto-generated list is a later product decision.
+
 ### 7.3 Pin ordering limitation
 
 FTB does not expose pin ordering.
@@ -474,21 +497,24 @@ TogglePinnedMessage (client -> server)
 
 There is no public client event dedicated to pin changes. The adapter must detect changes through reconciliation. A two-second interval is sufficient for the overlay.
 
-Completed pinned quests remain in the pinned set and must remain visible while pinned.
+Completed pinned quests are **removed by FTB**, not retained. In `TeamData.markTaskCompleted`, when a task completion causes the quest to become completed, the server removes that quest ID from every player’s `pinned_quests` and sends `TogglePinnedResponseMessage(questId, false)`. QuestBridge must follow FTB: once an objective disappears from the pin set it is no longer a current objective, and the overlay must not fabricate a completed pinned entry. A brief completed state may be observable only if a reconciliation snapshot races the completion packet. This also means the user-facing `pinning.md` wording (“until you unpin them or claim the reward”) is imprecise for `v2101.1.30`: the pin is removed at completion, before any reward claim.
 
 Unresolved pinned quest IDs must be reported, not silently deleted or substituted.
 
 ---
 
-## 8. Team progression
+## 8. Team progression and player data
 
 Verified facts:
 
-- `ClientQuestFile.selfTeamData` is the current team’s progression data.
+- FTB progression is team-wide. `task_progress`, `started`, `completed`, `completion_count`, and `repeatable` are stored on `TeamData`, not on individual players.
+- Chapter and quest completion therefore come from the current team’s data. Selecting a player UUID is not required to read completion or progress.
+- `player_data` is the only per-player section. It maps player UUID to `can_edit`, `auto_pin`, and `pinned_quests`; it carries no progression.
+- `ClientQuestFile.selfTeamData` is the current team’s data.
 - `TeamData.getTeamId()` exposes the team UUID.
-- Team progression is shared between team members.
-- Manual pins remain per player.
 - On a team change, FTB sends new team data and replaces `selfTeamData`.
+- In ATM10TTS, quests are set up for team-wide completion and the team is treated as a single progression unit. Selecting a specific player UUID or an arbitrary `player_data` entry does not change the progression or chapter-completion data retrieved. The adapter should not gate chapter completion or progression on player selection.
+- Stock FTB still stores pins per player. The ATM10TTS uniformity is a pack/usage property, not a universal FTB guarantee; revisit this assumption if a future pack gives team members different pin sets.
 
 The adapter should publish a full snapshot when the team ID changes.
 
@@ -526,14 +552,65 @@ Reconciliation should compare:
 
 - Quest file instance identity.
 - Team ID.
-- Player UUID.
+- Player UUID (for pin storage; not required for ATM10TTS progression).
 - Pinned ID set.
 - Chapter progress values.
+- Chapter completion values.
 - Pinned quest and task progress.
 - Relevant titles.
 - Data readiness.
 
 Snapshots must be captured on the Minecraft client thread. Serialization and network I/O must run on a background executor. FTB methods must not be called from arbitrary threads.
+
+### 9.4 FTB’s own network transport (verified)
+
+FTB does not use QuestBridge’s JSON/WebSocket format, and it does not send SNBT over the network. In `v2101.1.30`, synchronization uses Minecraft custom payloads:
+
+- Payloads implement `CustomPacketPayload` and are registered through FTB Library’s `NetworkHelper` over Architectury’s `NetworkManager`.
+- The payload body is a binary `FriendlyByteBuf` encoded by a `StreamCodec`, not JSON or NBT text.
+- Packet type IDs are namespaced under `ftbquests`, for example `ftbquests:sync_quests_message` and `ftbquests:sync_team_data_message`.
+
+Full synchronization on login:
+
+```text
+Server -> client: ftbquests:sync_quests_message
+  BaseQuestFile.STREAM_CODEC -> writeNetDataFull(buf)
+  - task type table (identifier -> internal id)
+  - reward type table
+  - file-level settings
+  - chapter groups, chapters, quests, tasks, rewards, links, images
+  - per-object network data (icons, tags, chapter/quest/task-specific fields)
+Client  -> server: request team data
+Server -> client: ftbquests:sync_team_data_message
+  TeamData.STREAM_CODEC
+  - team UUID and name
+  - task progress map
+  - started/completed/repeatable maps (timestamps sent relative to now)
+  - completion counts
+  - locked and rewards-blocked flags
+  - claimed rewards
+  - per-player data: can_edit, auto_pin, pinned_quests
+```
+
+Translations are separate. The server sends `ftbquests:sync_translation_table` for the active locale on login, and `ftbquests:sync_translation_to_client` when a quest object’s translation changes. Quest titles can therefore be unresolved immediately after the quest-file sync.
+
+Ordinary changes are incremental packets, not full snapshots:
+
+- `ftbquests:update_task_progress_message` — team UUID, task ID, new progress.
+- `ftbquests:object_started_message` / `object_completed_message` — team UUID and object ID.
+- `ftbquests:toggle_pinned_message` (client → server) and `toggle_pinned_response_message` (server → client).
+- `ftbquests:team_data_changed_message`, `update_team_data_message`, `sync_lock_message`, `sync_reward_blocking_message`, and others.
+
+Identifiers are binary `long` values on the wire. FTB renders them as 16-character uppercase hexadecimal strings with `QuestObjectBase.getCodeString(long)` (`%016X`). QuestBridge uses those strings as opaque IDs.
+
+Persistence is a different format from transport. In `v2101.1.30`, quest definitions and team data are stored as SNBT (`.snbt`). The current upstream `main` branch has moved to JSON5 for a newer Minecraft generation; it must not be used as the target reference for ATM10 TTS 2.3.1.
+
+Consequences for QuestBridge:
+
+- The adapter must read FTB’s synchronized in-memory state; it must not parse, replay, or forward FTB packet bytes.
+- The host must not depend on Minecraft, `FriendlyByteBuf`, FTB task/reward registry IDs, or NBT.
+- QuestBridge’s WebSocket protocol remains the normalized boundary between the adapter and the host. FTB’s transport is internal, version-specific, and not available outside the Minecraft client connection.
+- The docs repository documents SNBT and quest authoring, not this wire protocol; the source tag is authoritative for transport details.
 
 ---
 
@@ -581,8 +658,10 @@ Requirements:
 
 - Client-only mod.
 - Read-only access.
+- Read FTB’s synchronized in-memory client state; never parse, replay, or forward FTB packet bytes.
 - Never call FTB APIs off the client thread.
-- Never publish automatic pin ID `1` as a quest.
+- Never publish automatic pin ID `1` as a quest. Auto-pin mode reconstruction is out of MVP scope.
+- Treat chapter completion as `TeamData.isCompleted(chapter)`; never infer it from progress.
 - Publish full snapshots after reload, world change, team change, and reconnect.
 - Publish only changed data during ordinary progression.
 - Reconcile every two seconds.
@@ -603,17 +682,25 @@ Implementation timing follows Proposal C, which is adopted and places the adapte
 - `dev.ftb.mods.ftbquests.client.ClientQuestFile` and `dev.ftb.mods.ftbquests.events.ObjectCompletedEvent` exist and load at runtime in this pack (section 1.3).
 - The installed chapter catalog contains 55 chapters and 3,834 quests (section 1.2).
 - Exact five initial chapter IDs and titles.
-- `AUTO_PIN_ID` is `1`.
-- Manual pins are per-player and stored in team data.
+- `AUTO_PIN_ID` is `1`. `PinnedQuestsTracker` uses that ID; the per-player `auto_pin` boolean is serialized but not consulted by the tracker.
+- Manual pins are per-player and stored in `team_data.player_data[uuid].pinned_quests`.
+- Progression, chapter completion, and quest completion are team-wide and live on `TeamData`, not in `player_data`.
+- In ATM10TTS, the team is treated as a single progression unit; selecting a player UUID or an arbitrary `player_data` entry does not change the progression view.
 - Pin order is not exposed.
 - Chapter progress semantics and optional-quest exclusion.
+- Chapter completion is recorded by `Quest.onCompleted` calling `chapter.onCompleted` after `chapter.isCompletedRaw(teamData)`; `TeamData.isCompleted(chapter)` is authoritative.
+- FTB removes a completed quest from the pin set and notifies clients with `TogglePinnedResponseMessage(id, false)`.
+- FTB’s sync transport is binary Minecraft custom payloads using `StreamCodec`/`FriendlyByteBuf`, not JSON or SNBT.
+- Translations are synchronized separately from the quest file.
 - Chapter descriptions are not exposed.
+- Background: the FTB docs repository does not specify the client-server wire protocol; its SNBT and developer pages cover persistence and authoring.
 - Single-player uses the same synchronization path as multiplayer.
 - Baseline NeoForge build succeeds with JDK 21. The exact FTB dependency compilation is declared and resolves (Proposal D applied).
 
 ### Assumptions / unverified
 
 - The pack installed on this machine is ATM10SKY 2.3.1; that is verified here but remains an assumption on any other machine.
+- The ATM10TTS assumption that team members share the same effective pin/progression view may not hold for other packs or team configurations. Stock FTB stores pins per player.
 - Translation data arrives reliably after quest sync. The pack ships a language splitter and keeps the merged file, so the translation source is not a single file.
 - Client-side FTB events fire as expected in the real client. `ObjectCompletedEvent` is confirmed to exist and be loadable; its firing behaviour is not.
 - Java’s WebSocket client works reliably inside the Minecraft client.
@@ -637,13 +724,15 @@ The remaining items require a live client and must be verified in Phase 5:
 - [ ] All five ATM10 TTS chapters resolve by ID.
 - [ ] Chapter titles come from FTB, not hardcoded strings.
 - [ ] Chapter progress matches the FTB quest book.
+- [ ] Chapter completion uses `TeamData.isCompleted(chapter)`, not `progress == 100`.
 - [ ] Optional quests are excluded from chapter progress.
 - [ ] Manual pins appear in the overlay.
 - [ ] Automatic pin ID `1` is excluded.
-- [ ] Completed pinned quests remain visible.
+- [ ] A completed quest is removed from the pin set by FTB, and the overlay reflects that removal rather than fabricating a retained objective.
 - [ ] Task current/target progress matches FTB.
 - [ ] Pin changes appear automatically within the reconciliation interval.
 - [ ] Quest completion appears automatically.
+- [ ] The adapter reads in-memory client state; it does not parse or forward FTB packet bytes.
 - [ ] Quest reload triggers a fresh snapshot.
 - [ ] World change triggers a fresh snapshot.
 - [ ] Team change triggers a fresh snapshot.

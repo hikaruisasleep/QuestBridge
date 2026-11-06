@@ -238,7 +238,7 @@ Implement in this order:
 - Five initial chapters.
 - Manual pins and automatic-pin exclusion.
 - Task counts and numeric progress.
-- Completed pinned quests.
+- Completion-driven pin removal (FTB unpins a completed quest).
 - Team changes, quest reloads, world changes, disconnects, and reconnects.
 - Record a sanitized real snapshot fixture.
 - Update documentation with runtime results.

@@ -168,8 +168,8 @@ No server-side mod, Pterodactyl integration, SFTP access, or server filesystem a
 Responsibilities:
 
 - Detect when FTB Quests client data is available.
-- Capture chapter catalog, progress, quest/task progress, and manual pins.
-- Filter out automatic pin ID `1`.
+- Capture chapter catalog, chapter completion, progress, quest/task progress, and manual pins.
+- Filter out automatic pin ID `1`. Auto-pin mode reconstruction is out of MVP scope.
 - Detect quest reloads, world changes, team changes, disconnect, and reconnect.
 - Publish protocol messages to the local host.
 - Reconcile periodically to catch changes that FTB does not expose via events.
@@ -278,6 +278,8 @@ Unavailable progress is `null`, not zero.
 ---
 
 ## 5. Protocol
+
+FTB’s own client-server synchronization is internal, version-specific, and binary (Minecraft custom payloads using `StreamCodec`). QuestBridge does not reuse or tunnel it. The adapter reads FTB’s synchronized in-memory state and publishes this separate JSON contract. See `docs/protocol.md` section 2.2.
 
 All messages use a versioned envelope:
 
@@ -469,13 +471,15 @@ Raw chapter pin configuration is stored separately from the chapter catalog.
 
 The host does not delete a configured chapter ID if the catalog no longer contains it. The frontend renders an unresolved entry for that ID.
 
+Chapter completion is FTB’s `TeamData.isCompleted(chapter)`. It is not derived from `progress === 100`: empty, `alwaysInvisible`, and all-optional chapters can report 100 without being completed. The overlay should present completion as the primary chapter state, with progress as secondary information.
+
 ### 6.3 Manual objectives
 
 Manual quest pin IDs come from FTB. The host resolves them against the quest catalog.
 
 - Missing quest IDs are exposed as unresolved.
-- Completed quests remain present while pinned.
-- Automatic pin ID `1` is never exposed as a quest.
+- FTB removes a quest from the player’s pin set when the quest completes. The objective normally disappears on completion, and the host must not fabricate a retained completed objective.
+- Automatic pin ID `1` is never exposed as a quest. Auto-pin mode is out of MVP scope; only the ID filter is required.
 - The source does not expose pin ordering; a deterministic fallback is used.
 
 ---
@@ -795,7 +799,7 @@ UI fixtures, protocol-level mock data, and real Minecraft integration are three 
 - Completed chapters.
 - Locked chapters.
 - Manual quest pins.
-- Completed pinned quests.
+- Completion-driven pin removal (FTB unpins a completed quest).
 - Task progress.
 - Disconnected state.
 - Stale state.

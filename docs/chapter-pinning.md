@@ -266,9 +266,11 @@ A configured pin resolves when the catalog contains the exact ID.
 The overlay displays:
 
 - Chapter title from FTB.
-- Progress from FTB.
-- Completion/locked state.
+- Completion state from FTB.
+- Progress from FTB as secondary information.
 - Position from QuestBridge configuration.
+
+Completion is `TeamData.isCompleted(chapter)`, not `progress === 100`. Empty, `alwaysInvisible`, and all-optional chapters can report 100 without ever being marked completed. The overlay must show completion only from the explicit completion state; progress must never imply it.
 
 ### 6.2 Unresolved chapter
 

@@ -1,6 +1,6 @@
 # QuestBridge Protocol v1
 
-**Status:** Draft specification, prepared for Phase 1. Nothing in this document is implemented or runtime-verified yet.
+**Status:** Draft specification informed by the FTB Quests `v2101.1.30` source. Nothing in this document is implemented or runtime-verified yet. MVP priority is reading FTB’s manually pinned quests from client memory and displaying completion for the selected chapters; auto-pin behavior is explicitly deferred.
 **Date:** 2026-11-06
 **Applies to:** the Minecraft adapter, the mock publisher, the host, and the Svelte frontend.
 **Security note:** Proposal B (token and cookie transport authentication) remains pending in `docs/proposals.md`. This document defines the message contract and assumes the host has already authenticated the connection and established its role. Transport authentication, origin checks, and token handling are deliberately out of scope here.
@@ -14,7 +14,7 @@ This document is the normative contract between the four components. Where it di
 The protocol carries:
 
 - FTB Quests chapter catalog, chapter progress, and chapter status from Minecraft to the host.
-- The current player's manually pinned FTB Quests, resolved against the quest file, from Minecraft to the host.
+- The manually pinned FTB Quests, resolved against the quest file, from Minecraft to the host. Stock FTB stores these per player; ATM10TTS treats the team as a single progression unit.
 - Quest and task progress for those pinned quests.
 - Connection and synchronization lifecycle information.
 - Host-owned chapter pin configuration and display settings to browsers.
@@ -65,6 +65,27 @@ Until Proposal B is implemented, the host may run without transport authenticati
 The default port is `8765`. The host may be configured to another port. Browsers and the adapter receive the actual port from the host's startup output or configuration; the protocol itself does not negotiate ports.
 
 The WebSocket path `/ws` is provisional until Phase 2 implements the host. If the host chooses separate paths per role, the message contract stays unchanged.
+
+### 2.2 Relationship to FTB’s internal transport
+
+FTB’s own client-server synchronization is **not** this protocol, and QuestBridge must not tunnel or reuse it.
+
+In FTB Quests `v2101.1.30`:
+
+- Payloads implement Minecraft’s `CustomPacketPayload` and are registered through FTB Library’s `NetworkHelper` over Architectury’s `NetworkManager`.
+- Payload bodies are binary `FriendlyByteBuf` encoded by `StreamCodec`; they are neither JSON nor SNBT.
+- `ftbquests:sync_quests_message` sends the full quest-file object graph. The client replaces its quest file and requests team data.
+- `ftbquests:sync_team_data_message` sends team progression, team metadata, and per-player `can_edit` / `auto_pin` / `pinned_quests`.
+- Translations arrive separately through `sync_translation_table` and `sync_translation_to_client`.
+- Ordinary changes use incremental packets such as `update_task_progress_message`, `object_started_message`, `object_completed_message`, and `toggle_pinned_response_message`.
+- Identifiers are binary `long` values on the wire; the Java API renders them as 16-character uppercase hex through `QuestObjectBase.getCodeString(long)`.
+- Quest definitions and team data are persisted as SNBT in this release. The upstream `main` branch has moved to JSON5 for a newer Minecraft generation and is not the target reference.
+
+Consequences for this contract:
+
+- The adapter reads FTB’s synchronized **in-memory** client state on the Minecraft thread and projects it into this JSON protocol.
+- The adapter must not parse, replay, or forward FTB packet bytes, and the host must not depend on Minecraft, `FriendlyByteBuf`, FTB task/reward registry IDs, or NBT.
+- FTB’s transport is internal, version-specific, and confined to the Minecraft client-server connection; it is not an external protocol that a Node host can join.
 
 ---
 
@@ -434,13 +455,31 @@ interface AppState {
 
 FTB does not expose manual pin order; its pinned collection is an unordered set. The adapter must:
 
-1. Read the current player's pinned IDs from team data.
+1. Read the pinned IDs from the team’s player data. Stock FTB stores them per player; ATM10TTS is treated as team-uniform, so a UUID-specific lookup is not required for the target pack.
 2. Remove the automatic tracker ID `1`.
 3. Resolve each remaining ID against the quest file.
 4. Order resolved quests by chapter catalog order, then by quest order within the chapter. This is a deterministic QuestBridge fallback, not FTB ordering.
 5. Sort unresolved IDs ascending for stable output.
 
 The adapter transmits `manualPinIds` in that same fallback order. The host preserves the received array order for display and never reorders objectives on its own.
+
+### 8.8 Pin domains and chapter completion authority
+
+Two different “pinned” concepts exist, and they must never be conflated:
+
+| Concept | Owner | Used for | Never used for |
+|---|---|---|---|
+| Chapter pins | QuestBridge host configuration | Major progression section; up to five selected chapters | Current objectives; any FTB state |
+| Quest pins | FTB Quests manual pins | Current objectives checklist | Chapter pins; chapter completion |
+| Auto-pin | FTB Quests | FTB’s own automatic tracker | Chapter pins; manual objective list |
+
+Rules:
+
+- Chapter pins are host configuration. They are not read from `pinned_quests`, `player_data`, or any FTB chapter-pinning feature.
+- Quest pins are read from FTB and are never written by QuestBridge.
+- FTB’s special automatic ID `1` is not a quest and must be filtered out of `manualPinIds`. Auto-pin mode is out of MVP scope; a manual pin set that coexists with ID `1` is still reported as the manual set, with `1` removed.
+- Chapter completion is `status: "completed"` sourced from FTB’s `TeamData.isCompleted(chapter)`. It is **not** derived from `progress === 100`. Empty, `alwaysInvisible`, and all-optional chapters can report 100 without a completion record.
+- FTB removes a quest from its pin set when the quest completes. The adapter reports the resulting pin set; the host does not fabricate a retained completed objective.
 
 ---
 
@@ -628,7 +667,7 @@ Rules:
 }
 ```
 
-Same objective-set invariants as `minecraft.snapshot`. The host replaces its objective set atomically. Completed pinned quests are not removed. If a newly pinned quest ID cannot be resolved, it appears in `unresolvedPinnedQuestIds` and is preserved.
+Same objective-set invariants as `minecraft.snapshot`. The host replaces its objective set atomically and never removes an objective on its own. FTB itself removes a quest from the player’s pin set when the quest completes (`v2101.1.30`), so the adapter normally reports that removal through `minecraft.pins` and the overlay drops the objective. QuestBridge must not fabricate a retained completed pin. If a newly pinned quest ID cannot be resolved, it appears in `unresolvedPinnedQuestIds` and is preserved.
 
 ### 9.7 `minecraft.heartbeat`
 
@@ -1063,6 +1102,12 @@ The `role` in `browser.hello` is a permission claim, not proof of identity. It i
 
 This section turns the contract into the Phase 1 work. It is a plan, not a description of existing code.
 
+Scope priority for the MVP:
+
+- **P0:** read FTB’s manually pinned quests from client memory and display completion for the QuestBridge-selected chapters.
+- **P1:** chapter progress, task counts, and numeric progress details.
+- **P2:** auto-pin mode reconstruction and special handling beyond filtering ID `1`. This must not block Phase 1.
+
 ### 13.1 Packages
 
 ```text
@@ -1111,10 +1156,12 @@ Required fixture content:
 - Optional quests and optional tasks.
 - Locked quests and completed quests.
 - Numeric task progress on some tasks.
-- At least 3 manually pinned quests, including one completed pinned quest.
+- At least 3 manually pinned quests, including a completed quest for the transient completed state that FTB removes from the pin set in a later pins message.
+- A chapter with `status: "completed"` and a chapter with `progress: 100` but a non-completed status, to prove completion is not derived from progress.
 - Chapter progress values derived deterministically from the fixture.
 - One unresolved pinned quest ID in at least one scenario.
 - Chapter pin fixtures: empty, one pin, five pins, and an unresolved pin.
+- An auto-pin ID `1` value only for the filter test; do not construct an auto-generated objective list.
 
 Fixtures must be frozen data with a fixed timestamp so tests are reproducible.
 
@@ -1126,8 +1173,9 @@ Each scenario is a deterministic script of protocol messages with injected timin
 |---|---|
 | `unavailable` | Connect, hello, status `unavailable`, heartbeats, no snapshot |
 | `ready` | Hello, synchronizing, full snapshot, heartbeats |
-| `progress` | Ready, then chapter and task progress changes, then quest completion |
-| `pins` | Ready, then add and remove manual pins, including an unresolved ID |
+| `progress` | Ready, then chapter progress changes, a chapter completion, and then quest completion with the resulting pin removal |
+| `chapter-completion` | Ready, then a selected chapter’s `status` changes to `completed` without any quest-pin change |
+| `pins` | Ready, then add and remove manual pins, including an unresolved ID and a completed quest that FTB unpins |
 | `reload` | Ready, then a new catalog and snapshot after a simulated quest reload |
 | `world-change` | Ready, then a snapshot with a new world name/dimension and reset progress |
 | `team-change` | Ready, then a snapshot with a new team ID and different progress |
@@ -1136,6 +1184,8 @@ Each scenario is a deterministic script of protocol messages with injected timin
 | `full` | Deterministic sequence combining all of the above |
 
 The mock must also support `--scenario=<name>` and a fixed seed. It must not require Minecraft, the host source, or network access beyond loopback.
+
+P0 scenarios are `ready`, `progress`, `chapter-completion`, and `pins`. Auto-pin mode reconstruction is not a Phase 1 scenario; only the ID `1` filter is tested.
 
 ### 13.4 Protocol tests
 
@@ -1151,6 +1201,8 @@ At minimum:
 - Out-of-range `progress` and `percentage` rejected.
 - `progress: null` accepted and preserved.
 - Auto pin ID `"1"` rejected in `manualPinIds`.
+- Chapter completion is independent of progress: `progress: 100` with a non-completed status is valid, and `status: "completed"` is accepted as authoritative.
+- A completed quest disappearing from `manualPinIds` is a valid pin update; there is no retained-completed field to fabricate.
 - Objective-set invariants: resolved/unresolved partition, disjointness, ordering.
 - Chapter pin config: empty, 1–5 pins, 6 rejected, duplicates rejected, non-contiguous positions rejected, unresolved IDs accepted.
 - Display config: complete accepted, partial rejected.
@@ -1166,7 +1218,8 @@ At minimum:
 - `unavailable` never emits a snapshot.
 - `ready` emits exactly one initial snapshot.
 - `progress` emits only changed sections.
-- `pins` replaces the objective set atomically.
+- `chapter-completion` changes a selected chapter’s completion status without changing quest pins.
+- `pins` replaces the objective set atomically, including removal of a completed quest’s pin.
 - `reload`, `world-change`, and `team-change` emit fresh full snapshots.
 - `disconnect` reconnects with a new connection sequence and a fresh snapshot.
 - `stale` stops heartbeats without closing the socket.
@@ -1183,6 +1236,7 @@ Phase 1 is complete when:
 4. A test-only collector can consume the mock lifecycle end to end.
 5. `npm run build --workspaces --if-present` and `npm test --workspaces --if-present` pass.
 6. No real ATM10 TTS identifiers appear in mock fixtures.
+7. The P0 scenarios `ready`, `progress`, `chapter-completion`, and `pins` pass; auto-pin mode remains out of scope.
 
 Passing Phase 1 does not establish FTB Quests compatibility. That requires Phase 5.
 
