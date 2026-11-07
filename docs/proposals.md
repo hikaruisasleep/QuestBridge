@@ -412,7 +412,180 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 
 ---
 
-## 6. Decisions requested
+## 6. Proposal E — Runtime token discovery and config-load ordering
+
+**Status:** Proposed 2026-11-07. **Not approved. Not implemented.** The user has
+explicitly asked that this be recorded rather than built, so the findings below
+are documented and the code is untouched.
+**Origin:** The first two live Phase 5 sessions. The adapter never published,
+because it read its configuration before NeoForge loaded it
+(`docs/troubleshooting.md` §2.1). Diagnosing that produced a second question:
+where should the adapter get its token, given the host generates it.
+
+### Proposal (as requested)
+
+Have the mod **connect to the transport backend at runtime**, resolving the
+token when it needs it rather than once at startup. The stated motivation is
+resilience: a token that can differ between runs, and restarts of either the
+host or the game mid-session, should not require reconfiguring anything by hand.
+
+### Correction to the motivating premise
+
+**The token does not change between startups.** Verified in
+`packages/host/src/auth.ts` `TokenStore.load()`: the host reads `tokens.json` and
+**reuses** it. Regeneration happens only when the file is missing, unreadable, or
+fails validation.
+
+Verified on the development machine: `tokens.json` was created at 16:55:30 and
+its modification time has not moved since, across at least three host starts
+(including the 17:19 session). The token has been constant.
+
+So the "different every time" problem does not exist. What exists is narrower:
+
+| Scenario | Behaviour today |
+|---|---|
+| Host restarts | Token unchanged; adapter reconnects with 1→30 s backoff (verified in 4C/4D) |
+| Game restarts | Token unchanged; a new adapter connects normally |
+| `tokens.json` deleted, corrupt, or invalid | **Regenerated, silently invalidating every configured client** |
+
+The real defect is the load-order bug, not token instability. The proposal is
+still worth considering, but for a different reason than the one that prompted
+it, and the record should say so.
+
+### Two independent problems
+
+**E1 — the adapter reads its config before NeoForge loads it (the actual bug).**
+
+```java
+// QuestBridge.java
+modContainer.registerConfig(ModConfig.Type.CLIENT, QuestBridgeConfig.SPEC); // queues loading
+this.client = new QuestBridgeClient();  // reads it immediately
+```
+
+`registerConfig` only *schedules* loading. `QuestBridgeClient` is constructed on
+the next line and calls `QuestBridgeConfig.resolveMinecraftToken()`, which
+catches `IllegalStateException` and returns `""` while the spec is unloaded. The
+adapter then concludes "no token, stay idle" permanently.
+
+Evidence from the client log, 2026-11-07:
+
+```text
+17:23:13.096  [QuestBridge] no minecraftToken configured; not publishing.
+17:23:29.590  ConfigTracker: Failed to load config questbridge-client.toml ... Attempting to recreate
+```
+
+Sixteen seconds apart. The documented configuration path cannot work on
+`0pre.2`, even with a perfectly valid file.
+
+**E2 — the token is resolved once and frozen.**
+
+`ConnectionController` takes `url` and `bearerToken` as `final` constructor
+fields, and `#connect()` uses those fields:
+
+```java
+opened = WebSocketConnection.open(url, bearerToken, listener);
+```
+
+Every reconnect reuses the value captured at construction. A regenerated token
+therefore requires a full Minecraft restart, even though the reconnect path
+itself is already robust.
+
+### The API hook, verified
+
+`net.neoforged.fml.event.config.ModConfigEvent` exists in FancyModLoader
+`loader-4.0.44.jar` (shipped with NeoForge 21.1.250), with three subclasses:
+
+```text
+ModConfigEvent.Loading
+ModConfigEvent.Reloading
+ModConfigEvent.Unloading
+```
+
+`javap` confirms `ModConfigEvent extends Event implements IModBusEvent`, so it
+registers on the **mod** event bus — the `IEventBus` the mod constructor already
+receives. No new dependency, no reflection, no mixin.
+
+`ModConfigEvent.Loading` is the correct trigger: it fires when the spec becomes
+readable, which is exactly the moment the current code fails to wait for.
+
+### Sketch (not a design)
+
+1. Construct the client without starting transport.
+2. Register `ModConfigEvent.Loading` and `ModConfigEvent.Reloading` on the mod
+   event bus.
+3. Start transport from that callback, not from the constructor.
+4. Give `ConnectionController` a token *supplier* rather than a token value, and
+   call it inside `#connect()`, so each attempt re-resolves.
+
+Token precedence would remain: system property, then environment variable, then
+discovered file, then the configured value.
+
+If discovery is adopted, the file is the host's own
+`%APPDATA%\QuestBridge\tokens.json` (or `$XDG_CONFIG_HOME/questbridge/…`, or the
+`QUESTBRIDGE_CONFIG_DIR` override), mirroring `packages/host/src/paths.ts`. This
+is preferable to an ad-hoc env var because it survives regeneration, needs no
+manual copying, and keeps the credential out of process listings.
+
+### Security consideration
+
+Discovery means the adapter reads the host's token file directly, rather than
+being handed the value. Both are local, single-user, same-machine reads. It is
+**not** a new trust boundary: the host's token file was already readable by any
+process running as this user, which is the same set of processes that could read
+an environment variable. The `minecraftToken` boundary — publisher vs. reader —
+is unchanged (`docs/local-authentication.md` §1.1).
+
+Worth stating because it will otherwise be raised: this does not weaken
+authentication, but it does make the credential discoverable without
+configuration, which is the point.
+
+### Alternatives considered
+
+| Alternative | Assessment |
+|---|---|
+| Environment variable only | Works today, no source change. Still requires configured setup once, does not fix E1, and does not survive a token change without a restart. Does not satisfy the stated request. |
+| Fix E1 only, keep configured token | Fixes the documented path and is the minimum correct change, but leaves E2 and still requires the token to be configured on the client. |
+| Read the token file once, at startup | Fixes configuration tedium but not E2; a regenerated token would still need a game restart. |
+| An unauthenticated localhost publisher endpoint | Rejected: the `minecraftToken` boundary exists precisely so a stray local process cannot inject fabricated quest progression. |
+| A handshake that exchanges a fresh token per connection | Over-engineering for a single-user loopback application, and it needs protocol v2 (objects are strict). |
+
+### Version impact
+
+Adopting E1, E2, or discovery changes mod source, so under
+`docs/versioning.md` §3.5 the version becomes **`0pre.3`**. The user has
+confirmed the version question is to be settled when implementation is
+authorised; this proposal does not change it.
+
+### Impact if adopted
+
+- The documented `config/questbridge-client.toml` path works.
+- No manual token configuration is required on the client.
+- A token change, or a host restart, is picked up on the next reconnect without
+  restarting Minecraft.
+- Mod source changes; a rebuild and jar swap are required.
+- Phase 5 Sequence A must be re-run against the new jar, and the current
+  session-1/2 observations remain valid only for the `0pre.2` build.
+
+### Impact if not adopted
+
+- The documented configuration path stays broken; only `-D` and the environment
+  variable work.
+- Every token regeneration continues to require a Minecraft restart.
+- Phase 5 can still proceed using the environment-variable workaround.
+
+### Recommendation
+
+Adopt **E1 first** — it is a genuine defect, it is small, and it is the reason
+Phase 5 has produced no transport evidence. Adopt **E2 and discovery together**
+second, since E2 alone has little value without a reason for the token to change,
+and discovery is the reason.
+
+The user has asked to hold implementation and record findings only. This proposal
+therefore remains a proposal.
+
+---
+
+## 7. Decisions requested
 
 | ID | Proposal | Recommendation | Decision |
 |---|---|---|---|
@@ -420,6 +593,7 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 | B | Cookie-after-token-redirect authentication with three roles | Adopt | Adopted, then simplified to two tokens (2026-11-06) |
 | C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
 | D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
+| E | Runtime token discovery and config-load ordering | Adopt E1, then E2 + discovery | **Proposed; not decided** |
 
 A decision can be:
 
@@ -428,4 +602,4 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation. Proposal E is recorded but not decided; it awaits authorisation, and the user has asked that findings be documented before any fix.

@@ -8,6 +8,15 @@ path was never exercised, because of an adapter configuration defect. See
 `docs/testing-logs/2026-11-07-phase5-session-2.md`, and
 `docs/troubleshooting.md` §2.1. Every item in `AGENTS.md` §18 that requires a real
 client remains unchecked, and no defect has been fixed yet.
+
+**Blocked on one decision (2026-11-07).** Publishing requires a token the adapter
+cannot currently read from its own config, so `/control` has no chapter catalog
+and chapters cannot be pinned before a run. The fixes are recorded in
+`docs/proposals.md` Proposal E — the config-load ordering defect (E1) and runtime
+token discovery (E2) — and the user has asked that they be documented rather than
+implemented. Phase 5 cannot produce transport evidence until that decision is
+taken; a `QUESTBRIDGE_MINECRAFT_TOKEN` environment variable unblocks a run
+without a source change.
 **Date:** 2026-11-07
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests
 2101.1.30

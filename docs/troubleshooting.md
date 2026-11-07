@@ -77,6 +77,13 @@ The adapter read the token **sixteen seconds before NeoForge loaded the config
 file**. The documented file path can therefore never supply the token on this
 version, even when the file is perfectly valid.
 
+**A related trap: the dashboard's chapter catalog is empty while this is broken.**
+`/control` shows no chapters because the host has never received a catalog. This
+is a *consequence* of the defect, not a separate one, and it is not a UI bug —
+the host is faithfully rendering "no data". It also means chapters cannot be
+pinned before the first successful connection, which is why the Phase 5 guide's
+"pin chapters first" step is not possible until publishing works.
+
 **Workarounds that bypass the config file.** Both are read directly, before or
 independently of the config spec:
 
@@ -89,8 +96,61 @@ In Prism Launcher these belong in the instance's **Environment Variables**
 (preferred) or **JVM arguments**. The system property takes precedence over the
 environment variable, which takes precedence over the file.
 
+**A design that would remove the manual step entirely** — plus the load-order fix
+it depends on — is Proposal E in `docs/proposals.md`. It is proposed, not
+approved, and deliberately not implemented.
+
 **Not fixed** as of this writing: the defect is recorded, not patched. Fixing it
 changes mod source and therefore requires a new version (§4).
+
+### 2.1.1 The token does not change between host startups — verified
+
+**Commonly assumed, and wrong.** The token is not regenerated on each host start,
+so a stable token can be configured once and relied upon.
+
+**Evidence.** `packages/host/src/auth.ts` `TokenStore.load()` reads
+`tokens.json` if it exists and **reuses** it; `createTokens()` is reached only
+when the file is missing, unreadable, or fails validation. On the development
+machine `tokens.json` was created at 16:55:30 and its modification time has not
+moved across at least three host starts (including the 17:19 session).
+
+**When it *does* change**, and these are the cases that matter:
+
+- `tokens.json` is deleted.
+- It is corrupt or fails validation — the host backs it up and regenerates it,
+  which is deliberate: a damaged token file must not lock the user out
+  (`docs/local-authentication.md` §2.2).
+- The host runs with a different config directory, so it reads a different file.
+
+**Consequence.** A regenerated token silently invalidates every configured
+client. The adapter has no recovery path for this: `ConnectionController` takes
+`url` and `bearerToken` as `final` fields and reuses them on every reconnect
+attempt, so a new token requires restarting Minecraft. Recorded because it is the
+real limitation; token instability across ordinary restarts is not.
+
+This is stated here to stop the misdiagnosis being repeated: if publishing stops
+after a host restart, the cause is §2.1, **not** a changed token. Compare the
+failure against §2.3 to tell them apart.
+
+### 2.1.2 The adapter reuses a frozen token on every reconnect — verified
+
+`ConnectionController` resolves the token once, in the client constructor, and
+stores it as a `final` field:
+
+```java
+opened = WebSocketConnection.open(url, bearerToken, listener);  // inside #connect()
+```
+
+Every reconnect attempt — including the 1→30 s backoff path that is otherwise
+correct and was verified in 4C/4D — reuses the value captured at startup.
+
+**Symptom.** The token is regenerated; the adapter retries forever with the old
+value and the host answers `401`. Only restarting Minecraft clears it.
+
+**Related to** §2.1 but distinct: §2.1 is *when* the token is read (too early);
+this is *how often* (once, ever). Fixing §2.1 alone would not fix this.
+
+Recorded as `docs/proposals.md` Proposal E2; not implemented.
 
 ### 2.2 `Invalid bare key: 'hostUrl'` after hand-editing the config
 
@@ -383,9 +443,27 @@ Session narratives: `docs/testing-logs/2026-11-07-phase5-session-1.md` and
 
 ### 5.3 Defects recorded and not fixed
 
-§2.1, §2.2, and §4.1 are recorded and **not fixed**. The adapter defect in §2.1
-changes mod source and therefore takes the next version under
-`docs/versioning.md` §3.5. That decision belongs to the user.
+Every entry below is recorded and **not fixed**, by explicit user instruction to
+document findings before changing anything.
+
+| Entry | Kind | Fix cost |
+|---|---|---|
+| §2.1 adapter reads config before it loads | Mod defect | Source change → version bump |
+| §2.1.2 token frozen at startup, reused on every reconnect | Mod defect | Source change → version bump |
+| §2.2 BOM truncates the client config | Configuration trap | Operator fix (already applied) |
+| §4.1 mapper chapter values not logged | Observability gap | Source change → version bump |
+| §4.3 55 chapters vs 54 files | Suspected, unexplained | Unknown; needs a dump to settle |
+| §4.4 `phase5:watch` vacuous PASS | Tool defect | Tooling only, no version bump |
+| §4.5 watch cannot express "not observed" | Tool defect | Tooling only, no version bump |
+
+The mod defects are collected as Proposal E in `docs/proposals.md`, which is
+proposed and **not decided**. Fixing them changes mod source and therefore takes
+the next version under `docs/versioning.md` §3.5. That decision belongs to the
+user.
+
+The two tooling defects (§4.4, §4.5) are the cheapest and the most consequential
+to leave: they affect the *evidence* rather than the product, and a run reported
+through them can show a PASS that was never earned.
 
 ---
 
