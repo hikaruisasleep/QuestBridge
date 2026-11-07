@@ -1,6 +1,6 @@
 # QuestBridge Development
 
-**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stages 4B–4E are implemented and verified against the real host; Stage 4F (live ATM10 verification) is blocked pending a live client launch. `docs/4f-verification-guide.md` documents the verification steps.
+**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stages 4B–4E are implemented and verified against the real host. The former Stage 4F is now Sequence A of Phase 5, whose tooling (`scripts/phase5/`, §9) and operator runbook (`docs/phase-5-verification-guide.md`) are in place; no live run has been performed yet.
 
 **Date:** 2026-11-06
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
@@ -279,11 +279,40 @@ The Java adapter must implement the same wire format manually. It cannot import 
 
 ---
 
+## 7.1 Phase 5 verification tooling
+
+Phase 5 verification is collaborative: the user drives Minecraft and the agent
+runs the host and reads the results (`docs/phase-5-plan.md` §5). Four scripts in
+`scripts/phase5/` support that, exposed as npm scripts. They are development
+instruments; nothing in the host, frontend, or mod imports them.
+
+| Command | Side | Purpose |
+|---|---|---|
+| `npm run phase5:check` | agent | Read-only readiness check: toolchain, builds, host tokens, installed jar, client config, and the saved-world baseline. Never mutates anything. Exit 2 means not ready. |
+| `npm run phase5:session` | either | Starts the real host with the built frontend, loads tokens through the host's own loader, prints the tokenized overlay and dashboard URLs, and writes `session.json` to `.questbridge/phase5/<timestamp>/`. |
+| `npm run phase5:watch -- --session <dir> --expect <checks>` | agent | Observes the host as a `control` browser, logs every change, and evaluates assertions. |
+| `npm run phase5:capture -- <dump>` | agent | Reads the adapter's `-Dquestbridge.dumpSnapshot` file and checks it contains what a live run must demonstrate. |
+
+`phase5:validate` is `scripts/validate-snapshot.mjs` under a clearer name: it
+validates captured messages through the same `parseFrame` path the host uses.
+
+`phase5:watch` accepts `--expect ready,no-auto-pin,progress-change,...`; the full
+list is in `docs/phase-5-plan.md` §4.2. Its ledger accumulates across the whole
+run, so a change that lands between two received states is still recorded.
+
+The tooling needs the built packages and the built frontend. Run `npm run build`
+first. The operator's step-by-step runbook is
+`docs/phase-5-verification-guide.md`.
+
+---
+
 ## 8. Current limitations
 
-- No FTB Quests network adapter. Stage 4A is a client-thread diagnostic probe;
-  the network adapter is Stage 4B–4F. Every frontend run therefore uses the mock
-  publisher, and mock success is not FTB compatibility.
+- No live FTB verification yet. Stage 4A is a client-thread diagnostic probe and
+  is the only stage that has run inside a real client; the network adapter is
+  Stage 4B–4E, verified against the real host but never in Minecraft. Every
+  frontend run therefore uses the mock publisher, and mock success is not FTB
+  compatibility. Phase 5 exists to close this (`docs/phase-5-plan.md`).
 - Mock chapter progress is fixed fixture data, not derived from a live quest
   book.
 - The OBS-facing behaviour has been verified in Chromium at the documented

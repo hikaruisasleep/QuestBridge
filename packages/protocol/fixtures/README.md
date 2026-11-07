@@ -17,8 +17,8 @@ resolved manual pin with two tasks.
 the 4A probe log into `minecraft-mod/src/testVerification/java/RecordedFixtureHarness.java`,
 not produced by `FtbSnapshotMapper` reading FTB objects. A passing validation
 here says the wire format survives real values; it says nothing about whether the
-mapper extracts them correctly. Only the Stage 4F live session can establish that
-(`docs/phase-4-plan.md` §8).
+mapper extracts them correctly. Only a live run can establish that: Phase 5's
+Sequence A (`docs/phase-5-plan.md` §6), read with `npm run phase5:capture`.
 
 ## Sanitisation applied
 

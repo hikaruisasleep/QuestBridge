@@ -1,13 +1,14 @@
-# Stage 4 Plan â€” Minecraft Adapter
+# Stage 4 Plan — Minecraft Adapter
 
-**Status:** Stage 4A implemented and verified against the live client. **Stages 4Bâ€“4E
-are implemented and verified against the real host (no Minecraft client required);
-Stage 4F (live ATM10 verification) is blocked pending a live client launch.** Phases 2
-and 3 are complete.
+**Status:** Stage 4A implemented and verified against the live client. **Stages 4B–4E
+are implemented and verified against the real host (no Minecraft client required).
+The former Stage 4F has been retired and folded into Phase 5 as its first test
+sequence — see `docs/phase-5-plan.md` §1 and §6 (Sequence A).** Phases 2 and 3 are
+complete.
 **Date:** 2026-11-07 (rewritten; originally 2026-11-06, before Phases 2 and 3 existed)
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
-**Version:** `0pre.2` â€” the Stage 4B conversation's single bump from `0pre.1`
-(`docs/versioning.md` Â§3.4). It stays `0pre.2` for this conversation.
+**Version:** `0pre.2` — the Stage 4B conversation's single bump from `0pre.1`
+(`docs/versioning.md` §3.4). It stays `0pre.2` for this conversation.
 
 ---
 
@@ -16,7 +17,7 @@ and 3 are complete.
 Stage 4A was built first, on purpose, to answer two questions with the least code:
 can a NeoForge client mod load at all, and can it actually read FTB Quests data
 from a running client? It answered both. At the time there was no host, no
-frontend, and no browser roles â€” the only thing to publish to was a standalone
+frontend, and no browser roles — the only thing to publish to was a standalone
 collector.
 
 That context is gone. Phases 2 and 3 now exist and are verified, and they change
@@ -234,14 +235,14 @@ Package rules:
 
 JSON: use `com.google.gson`, which Minecraft already ships. Confirm it is on the
 mod's compile classpath at the start of 4B. If it is not, hand-write a small strict
-encoder; do not add a runtime library. Encode exactly the v1 field names â€” protocol
+encoder; do not add a runtime library. Encode exactly the v1 field names — protocol
 objects are `strictObject` on the receiving side, so an extra field is rejected.
 
 ### 4.1 Reuse from Stage 4A
 
 | 4A asset | Becomes |
 |---|---|
-| `ProbeReport` | `QuestSnapshot`, extended with the fields listed in Â§2.3 |
+| `ProbeReport` | `QuestSnapshot`, extended with the fields listed in §2.3 |
 | `ProbeReport.ChapterProbe` | `ChapterSnapshot`, adding `subtitle` and `order` |
 | `ProbeReport.QuestProbe` | `QuestSnapshot` quest record, adding `optional`, `hidden`, `description`, `dependencies`, `percentage` |
 | `FtbQuestProbe.isReady()` | `FtbQuestProgressProvider.isAvailable()` |
@@ -280,7 +281,7 @@ Before readiness, publish `minecraft.status` with `unavailable` or
 | `status` | see below |
 
 Status mapping. FTB has no chapter-level lock API (`docs/ftb-quests-integration.md`
-Â§5.3), so availability is derived:
+§5.3), so availability is derived:
 
 ```text
 completed   teamData.isCompleted(chapter)
@@ -291,7 +292,7 @@ unknown     the derivation could not be performed
 
 Chapter completion is **never** derived from `progress == 100`: empty,
 `alwaysInvisible`, and all-optional chapters can report 100 without a completion
-record. Chapter visibility is not progression availability â€” `isVisible` must not
+record. Chapter visibility is not progression availability — `isVisible` must not
 become `locked`.
 
 **Protocol v1 has no chapter visibility field.** The 4A probe reports `visible` and
@@ -333,7 +334,7 @@ Only resolved manual pins are transmitted.
 | `progress.completedTasks` | required tasks completed |
 | `progress.totalRequiredTasks` | required tasks total |
 
-Required task rules â€” optional tasks must never block completion:
+Required task rules — optional tasks must never block completion:
 
 ```text
 totalRequiredTasks = tasks where !task.isOptionalForProgression(teamData)
@@ -356,7 +357,7 @@ completedTasks     = required tasks where teamData.isCompleted(task)
 | `status` | `completed` / `in_progress` / `incomplete` |
 
 `current` and `target` are emitted only when FTB exposes meaningful numeric
-progress. **Omit rather than synthesize `0`/`1`** â€” the overlay renders an em dash
+progress. **Omit rather than synthesize `0`/`1`** — the overlay renders an em dash
 for absent progress and a fabricated number would be indistinguishable from real
 data. Boolean tasks with `maxProgress == 1` may still carry numbers; the UI decides
 whether to show them.
@@ -375,7 +376,7 @@ whether to show them.
 | `capturedAt` | capture instant |
 
 World identity is display data, never a security identifier. `null` is the correct
-value when it is unavailable â€” not an empty string.
+value when it is unavailable — not an empty string.
 
 ---
 
@@ -414,7 +415,7 @@ Connection policy:
 - Reconnect with backoff 1, 2, 4, 8, 16, 30 s, capped.
 - Sequence resets to 1 on every WebSocket connection; `sessionId` is generated once
   per client process and reused.
-- On connect: hello â†’ status â†’ fresh full snapshot.
+- On connect: hello → status → fresh full snapshot.
 - On `host.request_snapshot`, force a fresh capture.
 - Log connection failures at most once per backoff stage. Never log the token or a
   server address (the host rejects `detail` strings containing them).
@@ -446,7 +447,7 @@ the row. QuestBridge must not fabricate a retained completed pin.
 Each milestone has a real-data exit criterion. Do not start a later milestone
 before the earlier one shows live FTB data reaching its target.
 
-### 4A â€” Live FTB probe, no network â€” **DONE**
+### 4A — Live FTB probe, no network — **DONE**
 
 **Status (2026-11-06):** Implemented and verified. `./gradlew build` produces
 `build/libs/questbridge-0pre.1.jar`. The capture is in
@@ -457,34 +458,34 @@ Delivered: client-only entry, readiness gate, two-second reconciliation, structu
 change-only logging, client-side FTB metadata dependencies, FTB imports isolated to
 `adapter/ftb`.
 
-### 4B â€” Normalized snapshot and JSON
+### 4B — Normalized snapshot and JSON
 
 **Status (2026-11-07): implemented and verified against the real host.**
 Live-data exit criterion was validated via `scripts/validate-snapshot.mjs` over
 messages produced by the actual Java encoder (`EncoderHarness`), through the
 host's `parseFrame` path. The missing live ATM10 capture remains blocked on a
-live client launch â€” the encoder itself is proven.
+live client launch — the encoder itself is proven.
 
 Delivered:
 
-- `adapter/QuestSnapshot.java` â€” immutable DTOs. Chapter `progress` is
+- `adapter/QuestSnapshot.java` — immutable DTOs. Chapter `progress` is
   `Integer`, task `current`/`target` are `Long`, so "unavailable" can be
   represented instead of a fabricated `0`. `QuestSnapshot.Identity` carries the
   file/team/world keys that force a full snapshot.
-- `adapter/QuestProgressProvider.java` â€” FTB-free capture interface, including
+- `adapter/QuestProgressProvider.java` — FTB-free capture interface, including
   the `Unavailable` phase that maps to `minecraft.status`.
-- `adapter/ftb/FtbQuestProgressProvider.java` â€” readiness gate, pin capture with
+- `adapter/ftb/FtbQuestProgressProvider.java` — readiness gate, pin capture with
   the automatic ID removed before resolution, fallback ordering, and event
   hooks. Listeners increment an atomic counter only; they never touch FTB state.
-- `adapter/ftb/FtbSnapshotMapper.java` â€” the field mapping in Â§5. All FTB imports
+- `adapter/ftb/FtbSnapshotMapper.java` — the field mapping in §5. All FTB imports
   stay in `adapter.ftb`.
 - `protocol/ProtocolJson.java`, `protocol/JsonObjectBuilder.java`,
-  `protocol/ProtocolMessages.java` â€” the v1 encoder. Gson is on the compile
+  `protocol/ProtocolMessages.java` — the v1 encoder. Gson is on the compile
   classpath (`com.google.code.gson:gson:2.10.1`, via NeoForge/FML), so no
   handwritten encoder and no added runtime dependency.
-- `protocol/Sanitizer.java` â€” coerces values into schema-legal ranges (ID
+- `protocol/Sanitizer.java` — coerces values into schema-legal ranges (ID
   length, empty titles, percentage bounds, non-negative task counts).
-- `scripts/validate-snapshot.mjs` â€” validates files through the same
+- `scripts/validate-snapshot.mjs` — validates files through the same
   `parseFrame(text, "minecraft_to_host")` path the host uses, printing every
   issue rather than the first.
 
@@ -503,7 +504,7 @@ Decisions taken during implementation:
 
 Exit criterion status:
 
-- [x] Real encoder output validates against `minecraftSnapshotPayloadSchema` â€”
+- [x] Real encoder output validates against `minecraftSnapshotPayloadSchema` —
       proven by `scripts/validate-snapshot.mjs` over messages produced by the
       actual Java encoder (`EncoderHarness`), and the validator was itself proven
       to reject a missing required field, an extra field, and auto pin ID `1`.
@@ -519,23 +520,23 @@ conversation did not have. They are not claimed.
 Do not proceed to 4C on the strength of "it looks right"; the schema is strict and
 will reject a missing required field.
 
-### 4C â€” Minimal WebSocket publisher
+### 4C — Minimal WebSocket publisher
 
 **Status (2026-11-07): implemented and verified against the real host.**
 Verified without a Minecraft client, using the transport classes directly.
 
 Delivered:
 
-- `transport/WebSocketConnection.java` â€” `java.net.http.WebSocket`, bearer
+- `transport/WebSocketConnection.java` — `java.net.http.WebSocket`, bearer
   token on the upgrade, no `Origin` header.
-- `transport/ConnectionController.java` â€” connect, hello, welcome, status,
+- `transport/ConnectionController.java` — connect, hello, welcome, status,
   heartbeat, reconnect with backoff, and coalescing of client captures.
-- `transport/SnapshotDiffer.java` â€” message selection and per-connection
+- `transport/SnapshotDiffer.java` — message selection and per-connection
   sequence numbering.
-- `transport/TransportExecutor.java` â€” the single transport thread.
-- `transport/TransportLog.java` â€” transport logging with no dependency on the
+- `transport/TransportExecutor.java` — the single transport thread.
+- `transport/TransportLog.java` — transport logging with no dependency on the
   mod entry class.
-- `QuestBridgeConfig.java` â€” `config/questbridge-client.toml`, with system
+- `QuestBridgeConfig.java` — `config/questbridge-client.toml`, with system
   property and environment variable overrides.
 
 **Three defects were found during 4C, all of which presented identically as "the
@@ -564,19 +565,19 @@ Evidence against the real host (`packages/host`, not the collector):
 | reconnect | 4 failed handshakes backed off 1, 2, 4, 8 s, then connected and published a fresh snapshot |
 | host down 20 s | 5 attempts across 20 s, routine log volume ~0 lines |
 
-### 4D â€” Incremental updates and lifecycle
+### 4D — Incremental updates and lifecycle
 
 **Status (2026-11-07): implemented and verified against the real host.**
 All transport-level lifecycle behavior was verified against the real host:
 full snapshot on new connection, `host.request_snapshot` answered, reconnect
-backoff 1â†’2â†’4â†’8â†’16â†’30 s capped, oversize frame skipped, host-down 20 s â†’
+backoff 1→2→4→8→16→30 s capped, oversize frame skipped, host-down 20 s →
 5 attempts across 20 s, routine log volume ~0 lines.
 
 Parts still requiring a live client: pinning a quest appearing within one
 interval, completion removing an objective, a chapter completing, a quest reload,
 and a world change.
 
-### 4E â€” Hardening
+### 4E — Hardening
 
 **Status (2026-11-07): implemented and verified against the real host.**
 
@@ -601,65 +602,57 @@ The following remain documented caveats (not yet verified against a live client)
 - No crash or stall in a live client with the host absent
 - Listener registration across repeated world reloads.
 
-### 4F â€” ATM10 verification and recorded fixtures
+### 4F — ATM10 verification and recorded fixtures — **retired into Phase 5**
 
-**Status (2026-11-07): the fixture half is done; the live ATM10 verification
-half is blocked pending a live client launch. A complete verification guide
-exists at `docs/4f-verification-guide.md` for the session that runs it.**
+**Status (2026-11-07):** retired. The live-verification half is now **Sequence A**
+of Phase 5 (`docs/phase-5-plan.md` §6), run with the tooling in
+`scripts/phase5/`. The operator's runbook is
+`docs/phase-5-verification-guide.md`; `docs/4f-verification-guide.md` is kept
+only as a redirect and a record of the defects in the retired guide.
 
-Done, from real ATM10 data already present on this machine:
+Why it was folded rather than kept as a gate: 4F contained no code, asked the
+same questions of the same system as Phase 5, and its "blocked" status described
+a calendar problem, not an engineering one. Keeping it separate made the project
+read as more blocked than it was, and produced two documents describing one
+session (`docs/phase-5-plan.md` §1).
 
-- `packages/protocol/fixtures/atm10-recorded-snapshot.json` â€” a sanitized
+The fixture half of 4F remains done, from real ATM10 data already present on this
+machine:
+
+- `packages/protocol/fixtures/atm10-recorded-snapshot.json` — a sanitized
   `minecraft.snapshot` built from the 2026-11-06 live run, validated through the
   host's `parseFrame` path. `fixtures/README.md` states its provenance and, more
   importantly, that it proves the **encoder** handles real ATM10 shapes and not
   that the **mapper** extracted them correctly.
 
-Not done, and not obtainable from committed material:
+Still not established, and not obtainable from committed material:
 
 - Single-player and multiplayer runs with the built jar.
 - Completion-driven pin removal, team change, quest reload, and world change.
 - Confirmation that `FtbSnapshotMapper` produced the recorded values, rather
   than the 4A probe log.
 
-Why it is blocked rather than pending:
+Why it needed a human in the loop, which shaped the Phase 5 protocol:
 
-1. **The client is a GUI game** needing an account login. This session's rules
-   forbid spawning windows, and it has no way to drive a first-person game.
-2. **The installed jar is still Stage 4A.** `questbridge-0pre.1.jar` sits in the
-   Prism instance's `mods` folder and contains no transport and no
-   configuration. A launch today would publish nothing and prove nothing.
-3. **Steps 1 and 2 below write outside this repository** â€” into the Prism
-   instance and the host config directory â€” and were not performed without the
-   user's confirmation.
+1. **The client is a GUI game** needing an account login. This environment cannot
+   spawn windows or drive a first-person game.
+2. **The installed jar was Stage 4A.** `questbridge-0pre.1.jar` in the Prism
+   instance's `mods` folder contains no transport and no configuration. A launch
+   with it would publish nothing and prove nothing.
+3. **The setup steps write outside this repository** — into the Prism instance and
+   the host config directory — and are not performed without the user's
+   confirmation.
 
-Ready for the session:
+Everything this milestone listed as "ready" is now wired into the Phase 5
+scripts rather than described as manual steps:
 
-- `minecraft-mod/src/testVerification/java/CapturePlan.java` prints the exact
-  message sequence the client publishes and the specific values the capture must
-  demonstrate.
-- `scripts/validate-snapshot.mjs` validates every captured message through the
-  host's own `parseFrame` path.
-- `-Dquestbridge.dumpSnapshot=<path>` appends each encoded `minecraft.snapshot`
-  envelope as it is captured.
-
-Steps, in order:
-
-1. **Install the current jar.** `questbridge-0pre.1.jar` (Stage 4A) is still in the
-   Prism instance's `mods` folder and knows nothing about transport or
-   configuration. It must be replaced by `questbridge-0pre.2.jar`.
-2. **Provide the token.** Run `npm run host -- --print-urls`, then paste the
-   `minecraftToken` from `tokens.json` into
-   `config/questbridge-client.toml`, or pass `-Dquestbridge.minecraftToken=`.
-3. **Start the host** with `--build-dir apps/web-app/build`.
-4. **Launch the client** and load an ATM10 world.
-5. **Check the capture** with
-   `node scripts/validate-snapshot.mjs <dump>` and read the values listed by
-   `CapturePlan`.
-
-The install and token steps change files in the Prism instance and the host
-configuration directory, which are outside this repository. They are deliberately
-not performed automatically.
+| 4F asset | Now |
+|---|---|
+| `CapturePlan.java` | The expectations in `docs/phase-5-plan.md` §6, Sequence A |
+| `scripts/validate-snapshot.mjs` | `npm run phase5:validate` |
+| `-Dquestbridge.dumpSnapshot=<path>` | Read by `npm run phase5:capture` |
+| Manual host start | `npm run phase5:session` |
+| Manual launch checklist | `docs/phase-5-verification-guide.md` |
 
 ---
 
@@ -696,8 +689,8 @@ script that prints every schema issue is faster to iterate against.
 
 | Area | Test |
 |---|---|
-| Startup | No FTB data yet â†’ status unavailable/synchronizing, no empty snapshot |
-| Ready | Quest and team sync complete â†’ exactly one snapshot |
+| Startup | No FTB data yet → status unavailable/synchronizing, no empty snapshot |
+| Ready | Quest and team sync complete → exactly one snapshot |
 | Chapters | Five expected IDs, titles, progress, completion |
 | Pins | Add, remove, complete, unresolved ID |
 | Auto pin | ID `1` never appears in objectives |
@@ -743,7 +736,7 @@ script that prints every schema issue is faster to iterate against.
 
 1. **Configuration transport.** System properties and an environment variable for
    now, mirroring the mock publisher. A client config file is worth adding once the
-   token and URL are stable; it is not needed to reach 4F.
+   token and URL are stable; it is not needed to reach Phase 5's live run.
 2. **Subtitle joining.** Newline join; the protocol carries one optional string.
 3. **World name policy.** Display-only; `null` when unavailable.
 
@@ -753,12 +746,12 @@ None of these changes protocol v1.
 
 ## 11. First implementation action
 
-Start with **4B**, not 4A â€” 4A is done.
+Start with **4B**, not 4A — 4A is done.
 
-1. Copy `ProbeReport` to `adapter/QuestSnapshot.java` and add the fields in Â§2.3.
+1. Copy `ProbeReport` to `adapter/QuestSnapshot.java` and add the fields in §2.3.
 2. Rename `FtbQuestProbe` to `FtbQuestProgressProvider` behind the
    `QuestProgressProvider` interface.
-3. Write `FtbSnapshotMapper` to produce single-line JSON per Â§5, using Gson.
+3. Write `FtbSnapshotMapper` to produce single-line JSON per §5, using Gson.
 4. Keep writing the human-readable 4A log alongside the JSON during this milestone.
 5. Validate the JSON with `@questbridge/protocol` before writing any transport code.
 
@@ -768,9 +761,9 @@ Do not add WebSocket code until a real captured snapshot validates.
 
 ## 12. Out of scope
 
-- Host core, persistence, authentication (Phase 2 â€” done).
-- Svelte overlay and dashboard (Phase 3 â€” done).
-- Chapter pin configuration and browser roles (Phase 2/3 â€” done).
+- Host core, persistence, authentication (Phase 2 — done).
+- Svelte overlay and dashboard (Phase 3 — done).
+- Chapter pin configuration and browser roles (Phase 2/3 — done).
 - Auto-pin tracker reconstruction.
 - Quest pin mutation.
 - Full quest-book transmission.

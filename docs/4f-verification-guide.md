@@ -1,299 +1,77 @@
-# Stage 4F Live ATM10 Verification Guide
+# Stage 4F — retired, folded into Phase 5
 
-**Purpose:** Guide a future agent (or the user) through completing the remaining
-Phase 4 verification steps. This guide assumes the code base has already been
-merged onto `master` with the `0pre.2` version, all 4B–4E adapter work committed,
-and the Prism instance still holds the Stage 4A jar.
-
----
-
-## Prerequisites
-
-1. **Verify branch and clean state** — before touching anything:
-   - You are on the `master` branch (`git branch` shows `* master`)
-   - Your working tree is clean (`git status` shows nothing uncommitted)
-   - Your local `master` is up-to-date with the remote (`git pull origin master`)
-   - The phase 4B–4E adapter code is already present and committed in the tree
-
-2. **Verify the build** — from the workspace root:
-   ```powershell
-   $nodeDir = "$env:APPDATA\fnm\node-versions\v24.22.1\installation"
-   $env:Path = "$nodeDir;$env:Path"
-   ./gradlew :minecraft-mod:build   # should exit 0
-   npm test                          # all 534 tests should pass
-   ```
-
-3. **Inspect the Prism instance** — the instance mods directory:
-   ```
-   D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky\minecraft\mods\
-   ```
-   It must contain `questbridge-0pre.1.jar`. That file is **not** the correct one —
-   it needs to be replaced with `questbridge-0pre.2.jar`.
-
-4. **Download `questbridge-0pre.2.jar`** — it should be at:
-   ```
-   D:\QuestBridge\minecraft-mod\build\libs\questbridge-0pre.2.jar
-   ```
-   (If the build hasn't been run recently, rebuild it first.)
-
-5. **Have a Minecraft account** — Stage 4F requires a live Minecraft login to the
-   Prism instance.
-
-6. **Know the minecraftToken** — you'll need this to configure the client. It is
-   stored in the Prism instance's secret area (e.g. `tokens.json` or similar). If
-   it's not on the machine, ask the user to provide it from their Prism account.
+**Status:** Retired 2026-11-07. **Superseded by `docs/phase-5-plan.md` and
+`docs/phase-5-verification-guide.md`.** This page is kept only so a reader who
+follows an old link learns where the content went and which parts of it were
+wrong.
 
 ---
 
-## Step 1 — Swap the jar
+## 1. Why it was retired
 
-The Prism instance is still running the Stage 4A probe (`questbridge-0pre.1.jar`),
-which contains **no transport code and no configuration hooks**. The Stage 4B–4E
-adapter code will publish nothing until `0pre.2` is loaded.
+Stage 4F was defined as a blocking preliminary stage — "verify the adapter
+against a live client before anything else". It contained no code. Its content
+was a list of observations, and "blocked" described a calendar problem rather
+than an engineering one.
 
-**Do this in a PowerShell session with elevated privileges if needed:**
+It also overlapped almost entirely with Phase 5, whose subject *is* real ATM10
+TTS integration. Two documents described one session, and the split made the
+project's status read as more blocked than it was.
 
-```powershell
-# Change to the Prism instance mods directory
-cd "D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky\minecraft\mods\"
+Stage 4F is now **Sequence A** of the Phase 5 run (`docs/phase-5-plan.md` §6).
+Nothing was dropped: every 4F check appears there, with the rest of the run
+around it.
 
-# Back up the old jar (optional but recommended)
-Move-Item questbridge-0pre.1.jar questbridge-0pre.1.jar.bak
+---
 
-# Copy the new jar in its place
-Copy-Item "D:\QuestBridge\minecraft-mod\build\libs\questbridge-0pre.2.jar" .\questbridge-0pre.2.jar
+## 2. Where the content lives now
 
-# Verify
-Get-ChildItem questbridge-*.jar | Select-Object Name, Length, LastWriteTime
+| Old 4F content | Now |
+|---|---|
+| Prerequisites (instance, jar, token) | `docs/phase-5-verification-guide.md` §1–2 |
+| Step 1 — swap the jar | §2.1 |
+| Step 2 — configure the token | §2.2 |
+| Step 3 — start the host | §3, via `scripts/phase5/start-session.mjs` |
+| Step 4 — launch the client | §4 |
+| Step 5 — OBS overlay | §9 |
+| Step 6 — verification checklist | `docs/phase-5-plan.md` §6 (Sequences A–D) and §8 |
+| Step 7 — mark Phase 4 done | `docs/phase-5-plan.md` §10 |
+| Failure table | `docs/phase-5-verification-guide.md` §10 |
+
+---
+
+## 3. Defects in the old guide
+
+These were corrected in the replacement documents. They are recorded here
+because anyone who used the old guide may have been misled by them.
+
+1. **Wrong token location.** It said the token was in a `tokens.json` under the
+   Prism directory. It is in the *host's* config directory — on Windows
+   `%APPDATA%\QuestBridge\tokens.json` (`packages/host/src/paths.ts`). The
+   adapter's own config is `config/questbridge-client.toml` in the Minecraft
+   instance.
+
+2. **Wrong token shape.** It described the token as UUID-shaped. Tokens are 32
+   random bytes as `base64url`, 43 characters (`docs/local-authentication.md`
+   §2).
+
+3. **Wrong version.** It was written for `0pre.2` becoming the installed jar, but
+   it also asserted the jar must be rebuilt and swapped for a specific path that
+   has since moved. Phase 5 keeps `0pre.2` and swaps nothing beyond the stale
+   `0pre.1` jar that is actually installed.
+
+4. **Claimed outcomes prematurely.** Its post-completion checklist asked the
+   agent to confirm `npm test` "all 534 pass" and to check `AGENTS.md` §18 boxes
+   *after* the user confirmed. That is the right order, but the guide's framing
+   implied the session would close the phase rather than feed Phase 5.
+
+---
+
+## 4. If you need the raw history
+
+The retired guide is in this repository's history:
+
+```text
+git log --oneline -- docs/4f-verification-guide.md
+git show <commit>:docs/4f-verification-guide.md
 ```
-
-If the jar swap fails (permission denied), run PowerShell as Administrator, or
-pause and ask the user for assistance.
-
----
-
-## Step 2 — Configure the token
-
-The host authenticates clients via a `minecraftToken`. Without it, the adapter
-logs once and stays idle.
-
-1. **Locate the token file** — in a typical Prism install it is at:
-   ```
-   D:\Games\Minecraft\PrismLauncher\tokens.json
-   ```
-   If it's not there, ask the user where they keep their Prism secrets, or have
-   them log into the Prism web UI to retrieve it.
-
-2. **Extract the token value** — it should be a string like
-   `"01234567-89ab-cdef-0123-456789abcdef"` (a UUID-style token). Note it down.
-
-3. **Write it into the client config** — the client reads from `config/questbridge-client.toml`
-   in the working directory, or it can be overridden with `-Dquestbridge.minecraftToken`
-   on the command line. The simplest path is:
-
-   ```powershell
-   # Change to the QuestBridge workspace
-   cd "D:\QuestBridge"
-
-   # Create config directory if missing
-   if (-not (Test-Path "config")) { New-Item -ItemType Directory -Path config }
-
-   # Write the config file
-   Set-Content -Path config\questbridge-client.toml -Value @"
-   [client]
-   minecraft_token = "<TOKEN>"
-   "@
-   ```
-
-   Replace `<TOKEN>` with the actual value you extracted.
-
-   Alternatively, use the command-line flag (only works when starting the client
-   manually, not through Prism's normal launch flow):
-   ```bash
-   java -Dquestbridge.minecraftToken="<TOKEN>" -jar minecraft-mod\build\libs\questbridge-0pre.2.jar
-   ```
-
-   For Prism, the `config/questbridge-client.toml` approach is preferred.
-
----
-
-## Step 3 — Start the host
-
-The host is a Node.js process that listens on `ws://127.0.0.1:8765/ws` by default.
-
-**From the QuestBridge workspace:**
-
-```powershell
-$nodeDir = "$env:APPDATA\fnm\node-versions\v24.22.1\installation"
-$env:Path = "$nodeDir;$env:Path"
-npm run host
-```
-
-You should see output similar to:
-
-```
-[npm] > questbridge@0.0.1 start:host
-[npm] > node packages/host/dist/index.js
-[host] listening on ws://127.0.0.1:8765/ws
-```
-
-If it fails with `EADDRINUSE`, something else is on port 8765 — kill it and retry.
-
----
-
-## Step 4 — Launch the client and load an ATM10 world
-
-Now start Minecraft through Prism Launcher with the **All the Mods 10: To the Sky** instance.
-
-1. Open Prism Launcher.
-2. Select the instance **All the Mods 10: To the Sky**.
-3. Click **Play** (or **Launch**).
-4. When the game finishes loading, join a world (single-player or multiplayer).
-
-The client should now connect to the host, publish a `hello` payload, and after a
-brief handshake reach `connection=ready`. The host console should show:
-
-```
-hello payload accepted
-```
-
-followed later by:
-
-```
-snapshot accepted (5 chapters, 1 pin)
-progress messages (e.g. chapter progress, quest progress)
-heartbeat messages
-```
-
-If you see `host.error` in the logs, the token may be wrong or the jar version doesn't match.
-
----
-
-## Step 5 — Verify the overlay appears in OBS
-
-With Minecraft running and the client connected:
-
-1. Open OBS Studio.
-2. Add a new **Browser Source**.
-3. Set the URL to `http://127.0.0.1:8765/overlay`.
-4. Set width to **380** and height to **650** (the suggested defaults; adjust if
-   the overlay looks wrong).
-5. Enable **Chroma Key** with color `#00FF00` (solid green) — no UI colour should
-   be in that family.
-6. Disable **Refresh browser when scene becomes active** (to avoid flicker).
-7. The overlay should now display:
-   - The chapter catalog (5 max, configurable)
-   - Chapter progress bars
-   - Manual quest pins (FTB Quests objectives)
-   - Task progress bars where available
-   - A uniform green key colour for chroma keying
-
-If the overlay is blank, check:
-
-- The host console for errors (`host.error` lines).
-- The Minecraft log for QuestBridge messages (`[QuestBridge/]:`).
-- That the jar swap was successful and the token is correct.
-- That the host is still running.
-
----
-
-## Step 6 — Run the verification checklist
-
-Once the overlay appears, the user (or agent) should confirm each item below.
-These map directly to the Definition of Done in `AGENTS.md` §18:
-
-| Checklist item | What to verify |
-|----------------|----------------|
-| Monorepo builds | `./gradlew build` → exit 0; `npm test` → all 534 pass |
-| Host runs locally | `npm run host` starts and reports `listening on ws://127.0.0.1:8765/ws` |
-| Mock publisher connects | `npm run mock` starts without errors |
-| Chapter catalog received | 5 chapters appear in the overlay (ATM10 TTS chapters) |
-| Chapter pin configuration persists | Pin selections survive a host restart |
-| Up to five chapters can be selected | Pin selections up to 5, verify the 5th disables after 5 |
-| Chapters can be reordered | Drag reorder in the dashboard, verify overlay updates |
-| Missing chapters are handled safely | If a chapter ID is missing after a modpack update, it stays stored as unresolved |
-| Manual FTB Quests pins received | Pinned quests appear in the objective checklist |
-| Automatic pins are excluded | Only manually pinned quests appear (not FTB's auto-tracker) |
-| Chapter progress is displayed | Chapter progress bars show correct percentages |
-| Quest progress is displayed | Quest completion state and progress bars |
-| Task progress is displayed where available | Numeric task progress (e.g. `3/8`) appears |
-| Overlay paints a uniform key colour | Chroma key `#00FF00` works in OBS with no green UI colours |
-| OBS Browser Source works | The source renders without error |
-| Disconnects are represented accurately | Kill the host process; overlay should fade to disconnected state |
-| Reconnection restores current state | Re-launch the world; overlay should restore the last snapshot |
-| Actual NeoForge integration compiles | `./gradlew build` still passes |
-| Client-only installation is verified | The jar in the Prism instance is `questbridge-0pre.2.jar` |
-| Single-player integration is tested | Load a single-player world, verify overlay works |
-| Multiplayer integration is tested | Connect to a multiplayer server, verify overlay works |
-| **Actual ATM10 TTS progression is verified** | The overlay reflects real FTB Quests data from the running game |
-
-If every item is checked, **the Phase 4 objective is complete**.
-
----
-
-## Step 7 — Mark Phase 4 done and update versioning
-
-After all checks pass:
-
-1. **Update the documented version** in `docs/versioning.md` (confirm it's `0pre.2`).
-
-2. **Optionally update AGENTS.md** §18 boxes (these are claims; checking them
-   requires the live run above).
-
-3. **Commit the final state** (if you're an agent, not the user):
-   ```bash
-   git add -A
-   git commit -q -m "Phase 4 complete: live ATM10 verification passed
-   (all §18 items checked, 0pre.2 documented version confirmed)"
-   git push origin master
-   ```
-
-4. **Clear the blocked goal** (if using the DeepSeek Harness goal system):
-   ```python
-   update_goal({
-       "goal_id": "goal-3ac0bfc8-b990-4509-ad03-d420be9ef7ad",
-       "revision": 1,
-       "action": "complete"
-   })
-   ```
-
----
-
-## What to Do If Something Fails
-
-| Symptom | Likely cause | Fix |
-|---------|-------------|-----|
-| Host starts but no hello payload | Wrong jar version; token missing or incorrect | Re-check jar swap; verify token in config |
-| Overlay blank, host shows `host.error` | Protocol version mismatch; adapter not loaded | Rebuild the jar; verify `mod_version=0pre.2` in `minecraft-mod/gradle.properties` |
-| Chapter catalog empty or wrong | Chapter discovery code not reading FTB data correctly | Check `FtbSnapshotMapper.java` and `QuestSnapshot.java`; inspect FTB Quests version |
-| Task progress shows `null` | Tasks without numeric progress, or FTB version difference | Verify task `current`/`target` values in the live game; consult `docs/ftb-quests-integration.md` |
-| OBS chroma key not working | UI colour accidentally uses `#00FF00` or similar | Check the overlay CSS; ensure no element uses that exact colour |
-| Client disconnects after a few seconds | Host process crashed; network interruption | Restart host; check firewall/port 8765 accessibility |
-
-If the user encounters a failure not covered above, pause and ask for the relevant
-log excerpts before proceeding.
-
----
-
-## Post-Completion Checklist for the Agent
-
-After the user confirms everything works:
-
-- [ ] Verify `./gradlew build` → exit 0 on the merged master.
-- [ ] Verify `npm test` → all 534 tests pass.
-- [ ] Confirm the jar in the Prism instance is `questbridge-0pre.2.jar`.
-- [ ] Confirm the token is correctly placed in `config/questbridge-client.toml`.
-- [ ] Confirm the host started and the overlay appears in OBS.
-- [ ] Go through the §18 verification checklist with the user; mark each item.
-- [ ] Update `docs/versioning.md` if the documented version needs changing.
-- [ ] (Optional) Commit and push the final state to `origin master`.
-- [ ] (Optional) Clear the Phase 4 goal as completed in the goal system.
-
----
-
-**End of guide.** This document is intended for any future agent who needs to
-complete Stage 4F live verification. It assumes the code base is already on
-`master` with version `0pre.2`, and that the Prism instance currently holds the
-Stage 4A jar. All file paths are absolute under `D:\QuestBridge` (the workspace root)
-and `D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky` (the
-Prism instance).

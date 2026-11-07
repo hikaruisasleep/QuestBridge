@@ -280,7 +280,7 @@ Quests and are read-only to QuestBridge; a quest-pinning UI is a non-goal
 
 ### Phase 4 — Minecraft adapter
 
-**Status:** Stage 4A implemented and verified; Stage 4B–4F planned. Phases 2 and 3 are implemented. See `docs/phase-4-plan.md`.
+**Status:** Stage 4A implemented and verified; Stages 4B–4E implemented and verified against the real host. The former 4F is now Phase 5's first test sequence. Phases 2 and 3 are implemented. See `docs/phase-4-plan.md` and `docs/phase-5-plan.md`.
 
 - Client-only NeoForge mod.
 - Isolated FTB adapter interface and exact-version implementation.
@@ -331,7 +331,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stage 4B–4F remain planned. Phase 2 (host core) is implemented through milestone 2G in `docs/phase-2-plan.md`, and Phase 3 (Svelte UI) is implemented in `docs/phase-3-plan.md`. Phases 5–6 have not started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stages 4B–4E are implemented and verified against the real host. Phase 2 (host core) is implemented through milestone 2G in `docs/phase-2-plan.md`, and Phase 3 (Svelte UI) is implemented in `docs/phase-3-plan.md`. Phase 5 has started: its verification tooling and operator runbook are in place, but no live run has been performed (`docs/phase-5-plan.md`). Phase 6 has not started. The three documents are now written.
 
 ### Impact if adopted
 

@@ -1,6 +1,6 @@
 # FTB Quests Integration
 
-**Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources. Stage 4A verified live quest and team synchronization in the installed client on 2026-11-06 (`docs/testing-logs/2026-11-06-1.log`); the network adapter is not yet implemented
+**Status:** Reconnaissance complete against pack files and the exact FTB Quests `v2101.1.30` source; the target pack is installed locally, and its identity, exact mod versions, chapter catalog, FTB API class availability, network transport format, and team/pin semantics are verified from those sources. Stage 4A verified live quest and team synchronization in the installed client on 2026-11-06 (`docs/testing-logs/2026-11-06-1.log`). The network adapter (Stages 4B–4E) is implemented and verified against the real host, but it has not yet run inside a client; confirming this document's per-field claims against live data is Phase 5 (`docs/phase-5-plan.md`).
 
 **Proposal status:** Proposal A is approved and applied. Proposal C is adopted and Phase 0 is applied. Proposal D is applied. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; it is specified in `docs/local-authentication.md`.  
 **Date:** 2026-11-06  
@@ -691,7 +691,7 @@ Requirements:
 - Fail gracefully when FTB data or translations are unavailable.
 - Log FTB version mismatches clearly.
 
-Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phases 2 (host core) and 3 (dashboard and overlay) are implemented, so Stage 4B–4F now target a real end-to-end pipeline rather than a standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan was rewritten on 2026-11-07 and is in `docs/phase-4-plan.md`.
+Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phases 2 (host core) and 3 (dashboard and overlay) are implemented, and Stages 4B–4E target a real end-to-end pipeline rather than a standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan was rewritten on 2026-11-07 and is in `docs/phase-4-plan.md`. Live verification of this document's claims is Phase 5 (`docs/phase-5-plan.md`), run with `scripts/phase5/`.
 
 ---
 
@@ -740,7 +740,7 @@ QuestBridge should compile against the exact installed FTB Quests release and de
 
 Already established by inspection and client logs: the five chapter IDs and their titles exist in the pack data (section 2), the title and description accessors are documented from the FTB source and jars (section 4.3), and the client-side access pattern is loadable in this pack (section 1.3).
 
-Stage 4A has now verified the startup/readiness path, all five chapter resolutions and titles, one real manual pin, and real task progress in the live client. The remaining items still require the network adapter or Phase 5 verification:
+Stage 4A has now verified the startup/readiness path, all five chapter resolutions and titles, one real manual pin, and real task progress in the live client. The remaining items require the network adapter and are the subject of Phase 5, sequenced in `docs/phase-5-plan.md` §6 with per-item evidence rules in §5.4:
 
 - [x] Data unavailable during client startup.
 - [x] Data becomes ready after quest and team synchronization.
