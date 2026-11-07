@@ -106,6 +106,33 @@ Example, which is how `0pre.2` came to be:
 0pre.3  written by the next conversation, however it is described
 ```
 
+### 3.5 A bump requires a source change
+
+**Decided 2026-11-07, by explicit product decision.** The bump in §3.1 is not
+unconditional. A conversation that changes **no mod source code** does not earn
+a new version, because a version identifies a build and no new build exists.
+
+This applies to testing, verification, documentation, and tooling sessions:
+
+- Phase 5 is entirely testing. It produces measurements, run logs, and possibly
+  a defect list — not a new jar.
+- A documentation or tooling conversation that leaves `minecraft-mod/src/`
+  byte-identical does not bump the version.
+
+The version after such a conversation is therefore the version it started on,
+and it moves only when source changes justify a build. Phase 5 was the case that
+produced this rule: the policy's unconditional bump would have minted
+`0pre.3` for a phase that added no adapter code and shipped no artifact.
+
+Rules:
+
+- Check whether the conversation changed mod source before applying §3.1.
+- If it did, bump once as §3.1 describes.
+- If it did not, keep the documented version, and say so in the closing note so
+  the next conversation is not surprised.
+- A fix discovered *by* testing does change source: fix it, then bump, and
+  re-run the affected checks.
+
 ---
 
 ## 4. Major version bumps
@@ -135,7 +162,10 @@ Agents must not infer a major bump from:
 Before changing code or building an artifact:
 
 - [ ] Read the **Current documented version** in this document.
-- [ ] If this is a new conversation, bump only the minor component by one.
+- [ ] Determine whether this conversation will change **mod source code**.
+- [ ] If it will, treat it as a new conversation and bump only the minor
+      component by one (§3.1, §3.5).
+- [ ] If it will not (testing, docs, tooling), keep the current version (§3.5).
 - [ ] Do not freeze the version because the work is still "Stage 4" (§3.4).
 - [ ] Confirm the active version with the user.
 - [ ] Confirm `mod_version` matches the active version.
@@ -153,5 +183,6 @@ Before the conversation closes:
 ## 6. Related documents
 
 - `docs/development.md` — build and test workflow.
-- `docs/phase-4-plan.md` — current Stage 4 implementation status and artifact.
+- `docs/phase-4-plan.md` — Stage 4 implementation status and artifact.
+- `docs/phase-5-plan.md` — Phase 5 (live testing), the case behind §3.5.
 - `AGENTS.md` — agent-level versioning rule.
