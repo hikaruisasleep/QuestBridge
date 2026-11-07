@@ -1,27 +1,34 @@
 # Phase 5 Plan — Real ATM10 TTS Integration
 
-**Status:** In progress. The verification tooling is built and tested. Sessions 1
-and 2 (2026-11-07) loaded the adapter in a live client and verified mapper
-behaviour from logs — including completion-driven unpin removal — but the network
-path was never exercised, because of an adapter configuration defect. See
+**Status:** In progress. Sessions 1 and 2 (2026-11-07) loaded the adapter in a
+live client and verified mapper behaviour from logs — including
+completion-driven unpin removal — but the network path was never exercised,
+because of an adapter configuration defect. **That defect is now fixed.**
+Proposal E was adopted on 2026-11-07 and implemented in `0pre.3`, which also
+closes the §4.1 observability gap and the two `phase5:watch` defects. See §12.
+Sequences A–D have still not been run against a publishing client: the `0pre.3`
+jar exists and compiles, but no live run has used it. Every item in `AGENTS.md`
+§18 that requires a real client remains unchecked. See
 `docs/testing-logs/2026-11-07-phase5-session-1.md`,
 `docs/testing-logs/2026-11-07-phase5-session-2.md`, and
-`docs/troubleshooting.md` §2.1. Every item in `AGENTS.md` §18 that requires a real
-client remains unchecked, and no defect has been fixed yet.
+`docs/troubleshooting.md` §2.1.
 
-**Blocked on one decision (2026-11-07).** Publishing requires a token the adapter
-cannot currently read from its own config, so `/control` has no chapter catalog
-and chapters cannot be pinned before a run. The fixes are recorded in
-`docs/proposals.md` Proposal E — the config-load ordering defect (E1) and runtime
-token discovery (E2) — and the user has asked that they be documented rather than
-implemented. Phase 5 cannot produce transport evidence until that decision is
-taken; a `QUESTBRIDGE_MINECRAFT_TOKEN` environment variable unblocks a run
-without a source change.
+**Decision taken (2026-11-07).** Publishing required a token the adapter could
+not read from its own config, so `/control` had no chapter catalog and chapters
+could not be pinned before a run. The fix was recorded as Proposal E in
+`docs/proposals.md` — the config-load ordering defect (E1), the frozen token
+(E2), and runtime token discovery — and was **adopted and implemented** the same
+day in `0pre.3`. This plan's §12 records what was built and what it obliges
+Phase 5 to re-run. It is **no longer necessary** to set
+`QUESTBRIDGE_MINECRAFT_TOKEN` by hand, though the variable still works and still
+takes precedence.
 **Date:** 2026-11-07
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests
 2101.1.30
-**Mod version:** stays `0pre.2`. Phase 5 is testing only; a new version is cut
-*after* the results, and only if they demand a source change.
+**Mod version:** **`0pre.3`.** Phase 5 was testing-only until the Proposal E
+decision; that decision changes mod source, so under `docs/versioning.md` §3.5 it
+carries a build. Sessions 1 and 2 are `0pre.2` observations; §12.4 states
+precisely what carries over.
 **Normative companions:** `docs/protocol.md` (the contract),
 `docs/ftb-quests-integration.md` (what FTB provides), `docs/phase-4-plan.md`
 (how the adapter was built), `docs/phase-5-verification-guide.md` (the runbook),
@@ -35,6 +42,13 @@ without a source change.
 |---|---|---|---|
 | [1](testing-logs/2026-11-07-phase5-session-1.md) | 2026-11-07 | single-player | Adapter loaded and read real data; publishing blocked by defect D1. Two defects recorded, none fixed. |
 | [2](testing-logs/2026-11-07-phase5-session-2.md) | 2026-11-07 | single-player | Same process, no restart. Mapper behaviour verified from logs; completion-driven unpin confirmed; chapter fields proved unobservable without a dump. |
+
+**No session 3 has been run.** The Proposal E fixes produced a `0pre.3` build and
+an offline verification record
+([2026-11-07-phase5-build-0pre3.md](testing-logs/2026-11-07-phase5-build-0pre3.md)),
+but launching the client against it is a live session that has not happened. That
+record is deliberately **not** listed as a session above, because it contains no
+client observation and calling it one would misrepresent what has been verified.
 
 A known, unfixed defect that stops a session is **not** a reason to renumber or
 restart a sequence: session 2 continued from the first incomplete check.
@@ -82,17 +96,23 @@ old 4F content; sequences B and C follow in the same run. There is no
 | `packages/mock-publisher` | 11 deterministic scenarios | 30 tests |
 | `packages/host` | Loopback transport, two-token auth, chapter pins, persistence | 250 tests |
 | `apps/web-app` | `/`, `/overlay`, `/control` in a static build | 169 tests |
-| `minecraft-mod` | Stages 4A–4E; builds as `0pre.2` | compiles; live-verified only at 4A |
+| `minecraft-mod` | Stages 4A–4E plus the Proposal E fixes; builds as `0pre.3` | compiles; live-verified only at 4A |
 | **Verification tooling** | `scripts/phase5/*` | exercised against the mock; see §4 |
 
-`npm test` passes: **534 tests**. That total is unchanged by this phase; Phase 5
-adds no product code.
+`npm test` passes: **534 tests**. Phase 5 adds no product code of its own: the
+`0pre.3` change is all inside `minecraft-mod/src/main/java`, and the two tooling
+defects in `scripts/phase5/watch.mjs` are covered by that script's own checks
+rather than by an npm test project. Both numbers are unaffected.
 
 **What has never happened:** the adapter built in 4B–4E has never run inside a
 real client. Every transport and encoding claim was verified with harnesses
 (`EncoderHarness`, `TransportHarness`, `PersistentHarness`) driving the real
 classes against the real host, but always outside Minecraft. The gap is
 narrow and specific: *the mapper reading FTB objects on a live client thread.*
+The `0pre.3` fixes were also verified outside Minecraft (§12.5); they change
+*when* the transport starts and *where* the token comes from, neither of which a
+harness can exercise, so §12.5 states what the offline evidence does and does not
+cover.
 
 `packages/protocol/fixtures/atm10-recorded-snapshot.json` does not close it. Its
 own README says so: the values were transcribed from the 4A probe log into a
@@ -196,6 +216,17 @@ Passed as `--expect ready,no-auto-pin,...`:
 The ledger **accumulates**: a change that happens between two received states is
 still recorded. A live run is not a script, and the host coalesces updates, so
 adjacent-state comparison would silently miss short-lived events.
+
+**Every assertion is tri-state.** A check reports `pass`, `fail`, or
+`not_observed`, and `not_observed` is what an unexercised check gets — never a
+pass. This is the fix for `docs/troubleshooting.md` §4.4 and §4.5, which recorded
+that `no-auto-pin` and `objectives-partition` used to pass vacuously on a dead
+connection because neither bad thing had been seen. Those two assertions in
+particular now require a `ready` connection with a non-zero chapter count before
+they can pass; below that precondition they are not observed, not true.
+
+`watch.mjs` exits `0` only when every requested check genuinely passed, `1` when
+one failed, and non-zero without a pass when a check never became testable.
 
 ### 4.3 Tooling limits, stated plainly
 
@@ -347,7 +378,9 @@ One log per session: `docs/testing-logs/<date>-phase5-<mode>.md`.
 
 Each entry records the check, the tool output it rests on, the user's
 observation, and a verdict from {pass, fail, not observed}. A check that was not
-exercised is **not observed** — never pass.
+exercised is **not observed** — never pass. Since the §4.4/§4.5 fix, `watch.mjs`
+reports that third state itself rather than forcing it into one of two buckets, so
+the tool and this rule now agree.
 
 At session end the agent runs `phase5:check` again, collects `watch` JSON
 reports, the host log, and the capture dump, and updates §8's table. Only checks
@@ -373,6 +406,18 @@ with recorded evidence may change.
 | End to end | Actual ATM10 TTS progression is verified | not observed |
 | Jar installed | Client-only installation is verified | not observed |
 
+**Added 2026-11-07 by §12**, because the Proposal E fixes create checks the
+previous runs could not perform. These are adapter-internal behaviours rather than
+`AGENTS.md` §18 items, so the §18 column names the closest item and none of them
+is a substitute for the rows above.
+
+| Check | §18 item | Status |
+|---|---|---|
+| Transport starts from the config-load event, not the constructor | (none — §12.6 item 3) | not observed |
+| The documented config path supplies the token (E1) | (none — §12.6 item 2) | not observed |
+| A regenerated token is picked up on reconnect (E2) | (none — §12.6 item 5) | not observed |
+| Mapper chapter values appear in `4B` logs (§4.1 fix) | Chapter progress is displayed | not observed |
+
 Items already proven without a client (build, host, mock, chapter pinning,
 chroma keying) are recorded in `docs/phase-2-plan.md` §17 and
 `docs/phase-3-plan.md` §14 and are **not** re-claimed here.
@@ -380,6 +425,9 @@ chroma keying) are recorded in `docs/phase-2-plan.md` §17 and
 `AGENTS.md` §18 stays unchecked until these rows hold evidence. Passing every
 sequence, with no defects, checks them. Any defect becomes a source change, a new
 mod version after the fact (§10), and a re-run of the affected sequence.
+
+**§12's offline results move none of the rows above.** They are recorded in
+§12.5 with their boundary, and nothing in them is a client observation.
 
 ---
 
@@ -398,12 +446,12 @@ mod version after the fact (§10), and a re-run of the affected sequence.
 
 ## 10. After Phase 5
 
-Phase 5 adds no version. When the results are in:
+When the results are in:
 
-1. **No defects** — no new version. `0pre.2` is the version the project has been
-   developing against, and testing does not create a build. The documented
-   version in `docs/versioning.md` is updated only when the conversation closes,
-   per that document's own rule.
+1. **No defects** — no new version. `0pre.3` is the version the project has been
+   developing against since the Proposal E decision, and testing does not create a
+   build. The documented version in `docs/versioning.md` is updated only when the
+   conversation closes, per that document's own rule.
 2. **Defects found** — fix them, then cut the next version as a separate,
    justified build, and re-run only the affected sequences.
 3. **Recorded fixture** — the first sanitised live capture replaces the
@@ -412,12 +460,195 @@ Phase 5 adds no version. When the results are in:
 
 `AGENTS.md` §18 may then be checked only for items with recorded evidence.
 
+**Amended 2026-11-07.** This section previously said Phase 5 "adds no version" and
+named `0pre.2`, which was true while Phase 5 was testing only. The Proposal E
+decision changed mod source, so §12 applies and `0pre.3` exists. The principle
+this section states is unchanged — *testing produces measurements, not builds* —
+but it now has to be read alongside the separate rule that a fix discovered *by*
+testing does change source and takes a version (`docs/versioning.md` §3.5).
+
 ---
 
 ## 11. Out of scope
 
-- Any source change to the mod, host, protocol, or frontend.
 - Auto-pin tracker reconstruction.
 - Quest pin mutation; FTB remains the only pinning interface.
 - New features of any kind (`AGENTS.md` §2.4, §19).
 - Protocol v1 changes.
+
+**Amended 2026-11-07.** "Any source change to the mod, host, protocol, or
+frontend" was the first item here and has been removed. It was correct while
+Phase 5 was testing only; the Proposal E decision turned three defects into mod
+source changes, which §12 records. The remaining four items still hold without
+qualification, and protocol v1 in particular is untouched by §12.
+
+---
+
+## 12. Proposal E — what was built, and what it obliges next
+
+**Status:** Implemented in `0pre.3` on 2026-11-07. Verified offline (§12.5);
+**not** verified in a live client, because that requires the user to launch
+Minecraft. The decision is recorded in `docs/proposals.md` §6.1.
+
+This section exists because Phase 5's plan is the document that says what to test,
+and §12 changes the preconditions of every sequence in §6. It records the change,
+the reasoning, the evidence boundary, and the re-runs the change requires.
+
+### 12.1 What changed, and why
+
+Four recorded defects were fixed. Three come from Proposal E; the fourth is the
+observability gap that made the mapper's chapter values unverifiable.
+
+| Defect | Fix | Why it could not wait |
+|---|---|---|
+| `docs/troubleshooting.md` §2.1 — the adapter reads its config before NeoForge loads it | Transport now starts from `ModConfigEvent.Loading` / `Reloading`, not from the mod constructor | Phase 5 has produced no transport evidence at all because of it |
+| `docs/troubleshooting.md` §2.1.2 — the token is resolved once and frozen | `ConnectionController` takes a token **supplier** and calls it on every connect attempt | Without it, a regenerated token still needs a Minecraft restart |
+| Proposal E discovery — no token can be found automatically | The adapter reads the host's own `tokens.json`, at the host's documented paths | This is the reason E2 has any value: a token that can change is worth re-reading |
+| `docs/troubleshooting.md` §4.1 — mapper chapter values are never logged | `logSnapshot()` now prints per-chapter `id`, `title`, `order`, `progress`, `status`, `subtitle` | The mapper's chapter output was unverifiable from logs, which is why session 2's chapter finding had to be retracted |
+
+The reasoning for doing all four together rather than in the proposed two steps is
+in `docs/proposals.md` §6.1: they share one rebuild, one jar swap, and one re-run.
+Splitting them would have produced an intermediate jar that fixes nothing
+observable.
+
+### 12.2 Token precedence — the one place implementation tightened the sketch
+
+The proposal listed precedence as system property, environment variable,
+discovered file, then the configured value. **Implementation puts the configured
+`minecraftToken` ahead of discovery.** Full precedence, with reasons:
+
+```text
+1. -Dquestbridge.minecraftToken=<token>            explicit, per-launch override
+2. QUESTBRIDGE_MINECRAFT_TOKEN=<token>             explicit, per-instance override
+3. config/questbridge-client.toml minecraftToken   the user's stated intent
+4. discovered host tokens.json                     the fallback that unblocks a run
+```
+
+**Rejected alternative:** discovery before the config file, as sketched. It is
+defensible — a just-discovered token is likelier to be current than a stale
+hand-copied one — but it would make the config file's `minecraftToken` field
+un-honourable. A configuration value that the program may silently ignore is worse
+than no configuration value, because it produces a symptom ("I set it and nothing
+changed") that cannot be diagnosed from the file. Discovery exists for the case
+where *nothing* is configured, which is exactly where sessions 1 and 2 were.
+
+The normative statement of this order is `docs/ftb-quests-integration.md` §11.1.
+
+### 12.3 Security consequences, restated
+
+Stated here as well as in `docs/local-authentication.md` §2.3, because §12 is
+where a reader will look for "what did adopting this cost".
+
+- **No new trust boundary.** Discovery reads a file that every process running as
+  this user could already read. It does not widen `minecraftToken`'s meaning:
+  publisher-versus-reader is unchanged, and a browser still cannot publish.
+- **The credential becomes discoverable without configuration.** That is the
+  point of the feature, and it is a real change in posture rather than a
+  no-op: previously an attacker needed the token value, now they need only read a
+  file at a known path. On a single-user loopback machine those are the same
+  attacker, which is why the change is acceptable — but it is a change.
+- **The token is still never logged.** Discovery logs the *path* it read and
+  whether a token was found, never the value. This is asserted by the
+  adapter's own log lines and by the redaction rule in `docs/phase-4-plan.md` §4.
+- **`--print-urls` remains the only way to display a token**, and it still prints
+  browser URLs only.
+
+### 12.4 What carries over from sessions 1 and 2, and what does not
+
+Neither session reached the host, so neither produced transport evidence. What
+they established divides cleanly:
+
+**Still valid, because the fix does not touch the code that produced it:**
+
+- The mapper's objective behaviour: pin addition within the reconciliation
+  window, completion-driven unpin removal with nothing retained, and automatic pin
+  ID `1` excluded. `FtbSnapshotMapper` and `FtbQuestProgressProvider` were not
+  modified by §12.1.
+- The 55-chapter catalog and the five expected ATM10 chapter IDs resolving.
+- Zero client-thread violations.
+
+**Superseded, and must be re-taken:**
+
+- Everything about the adapter's configuration path. §2.1 and §2.2 of
+  `docs/troubleshooting.md` describe `0pre.2` behaviour; the config file is now
+  read in time, and the documented path is the one that works.
+- Any claim about whether the adapter publishes. It did not on `0pre.2`; the
+  `0pre.3` behaviour is unverified until a live run.
+- The mapper's chapter values, now that §4.1 is fixed: they were never observed,
+  and the new log line is the instrument that will observe them. **No value may be
+  quoted until a run prints one.**
+
+**Unchanged either way:** `AGENTS.md` §18. Not one box moves on the strength of
+§12, because §12 was verified offline.
+
+### 12.5 Verification: what was actually run, and its boundary
+
+Recorded in full in
+[2026-11-07-phase5-build-0pre3.md](testing-logs/2026-11-07-phase5-build-0pre3.md).
+In summary:
+
+| Claim | Evidence | Boundary |
+|---|---|---|
+| The mod compiles as `0pre.3` | `./gradlew build`, jar named `questbridge-0pre.3.jar` | Compilation only |
+| The version is consistent across sources | `gradle.properties`, the jar filename, `META-INF/neoforge.mods.toml` | — |
+| Token precedence resolves as §12.2 describes | Harness driving the real resolver with each source set and unset | The resolver only; not the in-game config event |
+| Discovery finds and parses a real `tokens.json` | Harness against a temporary host config directory | The file-reading path only |
+| **The transport now starts at the right time in a real client** | **Not verified** | Needs a live launch |
+| **Publishing actually works end to end** | **Not verified** | Needs a live launch |
+
+The two "not verified" rows are the reason this section is not called a
+verification of Proposal E. The fix is in the interaction between NeoForge's
+config lifecycle and the mod constructor, which no out-of-game harness can
+reproduce: the defect was that a *callback did not exist yet*, and only the game
+fires it.
+
+### 12.6 What §12 obliges Phase 5 to do next
+
+The next live run is the first that can produce transport evidence, and it has one
+extra check the previous runs could not perform:
+
+1. **Re-run Sequence A from the top** (§6), on a client that reaches
+   `[QuestBridge] publishing to ws://…`. The absence of that line was the fastest
+   signal of the old defect; its presence is the first check.
+2. **Do not set `QUESTBRIDGE_MINECRAFT_TOKEN` for the first attempt.** The point
+   of the fix is that the documented path works; a run that pre-sets the variable
+   cannot distinguish a fixed adapter from a working workaround. Set it only if
+   discovery is the thing being diagnosed.
+3. **Verify E1 directly**: the client log must show the adapter *deferring*
+   transport startup to the config-load event rather than warning "no
+   minecraftToken configured". Both lines exist and are distinguishable.
+4. **Verify the §4.1 fix** by reading chapter `progress`, `status`, and `subtitle`
+   from the `4B` lines, per `docs/troubleshooting.md` §4.2's rule that only `4B`
+   is evidence about the published snapshot.
+5. **Verify E2** by regenerating `tokens.json` mid-session and confirming the
+   adapter recovers on its next reconnect rather than needing a restart. This is
+   the check §2.1.2 says was impossible before, and it is the one that most
+   directly tests the change.
+6. **Add `-Dquestbridge.dumpSnapshot=<path>`** on every run, as before
+   (`docs/troubleshooting.md` §4.1's workaround, still the only validatable
+   artifact).
+
+Items 3, 4, and 5 are new to the sequence list and are added to §8's acceptance
+table below.
+
+### 12.7 The two tooling defects, fixed alongside
+
+`docs/troubleshooting.md` §4.4 and §4.5 recorded that `phase5:watch` reported
+vacuous PASS results and could not express "not observed". Both are fixed in
+`scripts/phase5/watch.mjs`:
+
+- **Every assertion now has a precondition.** The absence assertions
+  (`no-auto-pin`, `objectives-partition`) require a `ready` connection with a
+  non-zero chapter count before they can pass. With no data they return
+  **not observed**, not pass.
+- **The report expresses three states.** Each assertion is `pass`, `fail`, or
+  `not_observed`, and the exit code distinguishes them: `0` only when every
+  requested check genuinely passed, `1` on a failure, and a non-zero code when a
+  check was requested but never became testable.
+
+Fixing this has no version impact — `docs/versioning.md` §3.5 — but it does change
+what a `watch` report means, so §4.2 of this plan (which lists the checks) and
+§7 (which requires a verdict per check) both now describe the tri-state form. Both
+are updated.
+
+---
