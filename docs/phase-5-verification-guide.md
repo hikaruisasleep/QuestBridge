@@ -10,6 +10,12 @@ host and reads the results.
 > Stage 4F is not a separate prerequisite any more. It is Sequence A of this
 > guide (`docs/phase-5-plan.md` §1, §6).
 
+> **Before your first run, read `docs/troubleshooting.md` §2.1.** On `0pre.2` the
+> adapter reads its configuration before NeoForge loads it, so
+> `config/questbridge-client.toml` never supplies the token and the host receives
+> nothing. Set `QUESTBRIDGE_MINECRAFT_TOKEN` in the Prism instance's environment
+> instead, or the run will stall exactly as session 1 did.
+
 ---
 
 ## 0. Ground rules
@@ -68,19 +74,36 @@ the game from starting.
 
 ### 2.2 Give the client the Minecraft token
 
-The client reads `config/questbridge-client.toml` from its game directory. The
-token is in the host's token file, which on Windows is:
+The adapter supports two ways to receive the token. **On `0pre.2` only the second
+works** — the config file is read before NeoForge loads it
+(`docs/troubleshooting.md` §2.1).
+
+The token is in the host's token file, which on Windows is:
 
 ```text
 %APPDATA%\QuestBridge\tokens.json
 ```
 
 Take the `minecraftToken` value (a 43-character base64url string — **not** a
-UUID, and **not** in the Prism directory) and write:
+UUID, and **not** in the Prism directory).
+
+#### 2.2a Preferred: instance environment variable
+
+In Prism Launcher: select the instance → **Edit** → **Environment Variables** →
+add
 
 ```text
-D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky\minecraft\config\questbridge-client.toml
+QUESTBRIDGE_MINECRAFT_TOKEN = <the minecraftToken value>
 ```
+
+This is read directly by the adapter and is unaffected by the load-order defect.
+It also keeps the credential out of `instance.cfg`, so it does not travel with an
+exported instance.
+
+#### 2.2b Documented but non-functional on `0pre.2`: the client config
+
+The documented path is
+`D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky\minecraft\config\questbridge-client.toml`:
 
 ```toml
 hostUrl = "ws://127.0.0.1:8765/ws"
@@ -88,15 +111,26 @@ minecraftToken = "<the minecraftToken value>"
 enabled = true
 ```
 
-`enabled` defaults to true; `hostUrl` defaults to `ws://127.0.0.1:8765/ws`. Keep
-`hostUrl` in step with the port the host is started on.
+Writing this file is harmless, and it will work once the load-order defect is
+fixed. Two cautions:
+
+- **Write it without a UTF-8 BOM.** A BOM makes NeoForge reject the file and
+  recreate it with the token blanked. PowerShell 5.1's
+  `Set-Content -Encoding UTF8` writes one — see `docs/troubleshooting.md` §2.2.
+- Do not rely on it for a run until the defect is fixed.
 
 > An earlier version of this guide incorrectly pointed at a `tokens.json` inside
 > the Prism directory and described the token as UUID-shaped. Both were wrong;
 > the host's config directory is the only source.
 
-`check-environment` verifies that this file exists, is enabled, and that its token
-matches the host's, so this step is self-checking.
+`check-environment` verifies that the token is configured and matches the host's
+**in the file**. It cannot detect the load-order defect, because the file is
+correct and simply never read in time. Confirm the adapter actually publishing by
+looking for `[QuestBridge] publishing to ws://…` in the client log — its absence
+is the fastest signal that the adapter is idle.
+
+`enabled` defaults to true; `hostUrl` defaults to `ws://127.0.0.1:8765/ws`. Keep
+the endpoint in step with the port the host is started on.
 
 ---
 

@@ -113,36 +113,27 @@ questbridge/
 └── ...
 ```
 
-**Remaining planned layout (frontend routes not yet implemented):**
+**Remaining planned layout (not yet present):**
 
 ```text
 questbridge/
 ├── README.md                    # planned
 ├── LICENSE                      # planned
-├── scripts/                     # planned
 │
-├── apps/
-│   └── web-app/
-│       └── src/routes/
-│           ├── overlay/         # planned (Phase 3)
-│           └── control/         # planned (Phase 3)
-│
-├── docs/
-│   └── troubleshooting.md       # planned
-│
-└── ...
+└── docs/
+    └── (all other documents exist; see §1 above)
 ```
 
 Notes:
 
-- **Implemented:** `minecraft-mod/`, `apps/web-app/` (static build with three routes), `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, web frontend, development, versioning, Phase 2 and Stage 4 plans), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
-- **Planned, not yet present:** `README.md`, `LICENSE`, `scripts/`, `docs/troubleshooting.md`.
-- **Planned tree note:** the tree above lists `troubleshooting.md` (a planned
-  document) and a `packages/host/src/routes/` directory that were proposed and
-  never created. The host has no `routes/` directory because its routing is small
-  enough to live in `http.ts`. The planned troubleshooting content currently
-  lives in `docs/development.md` §8 and
-  `docs/testing-logs/2026-11-07-phase3-overlay.md` §4.
+- **Implemented:** `minecraft-mod/`, `apps/web-app/` (static build with three routes), `packages/protocol`, `packages/mock-publisher`, `packages/host`, `docs/` (architecture, proposals, FTB integration, chapter pinning, protocol, local authentication, web frontend, development, versioning, troubleshooting, the Phase 2, 3, 4 and 5 plans, and the Phase 5 verification guide), `scripts/` (snapshot validation, state inspection, the Phase 5 tools, and a mojibake repair utility), `AGENTS.md`, `.gitignore`, root `package.json`, `package-lock.json`, `.nvmrc`.
+- **Planned, not yet present:** `README.md`, `LICENSE`.
+- **Planned tree note:** the tree above previously listed a
+  `packages/host/src/routes/` directory that was proposed and never created. The
+  host has no `routes/` directory because its routing is small enough to live in
+  `http.ts`. `docs/troubleshooting.md` was listed as planned from Phase 2 until
+  2026-11-07, when the first live Phase 5 session produced enough real failures
+  to write it; it now documents the adapter config defect in §2.1.
 - `packages/protocol` exports the v1 envelope, Zod schemas, models, factories, parsers, and sequence/revision trackers. Its 85 tests cover the contract invariants.
 - `packages/mock-publisher` implements the Minecraft side of the protocol with synthetic fixtures and eleven deterministic lifecycle scenarios. It also includes a standalone collector CLI for user testing. Its 30 tests cover fixture requirements, scenario validity and ordering, the normalized collector model, and real WebSocket collector replays.
 - `packages/host` implements the Phase 2 host core: loopback HTTP and WebSocket transport, two-token authentication, config and state stores, chapter pin resolution, Minecraft and browser sessions, and static serving with per-file-class caching. Its 232 tests cover the units plus end-to-end runs against the mock publisher.

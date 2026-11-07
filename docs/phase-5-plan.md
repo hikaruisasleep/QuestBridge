@@ -1,8 +1,11 @@
 # Phase 5 Plan — Real ATM10 TTS Integration
 
-**Status:** Planning complete; the verification tooling is built and tested. No
-live run has been performed yet, so every item in `AGENTS.md` §18 that requires a
-real client remains unchecked.
+**Status:** In progress. The verification tooling is built and tested. Session 1
+(2026-11-07) loaded the adapter in a live client and confirmed the mapper runs,
+but the network path was never exercised because of an adapter configuration
+defect — see `docs/testing-logs/2026-11-07-phase5-session-1.md`. Every item in
+`AGENTS.md` §18 that requires a real client remains unchecked, and no defect has
+been fixed yet.
 **Date:** 2026-11-07
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests
 2101.1.30
@@ -10,7 +13,19 @@ real client remains unchecked.
 *after* the results, and only if they demand a source change.
 **Normative companions:** `docs/protocol.md` (the contract),
 `docs/ftb-quests-integration.md` (what FTB provides), `docs/phase-4-plan.md`
-(how the adapter was built), `docs/phase-5-verification-guide.md` (the runbook).
+(how the adapter was built), `docs/phase-5-verification-guide.md` (the runbook),
+`docs/troubleshooting.md` (failures seen in practice).
+
+---
+
+## 1.1 Session log
+
+| Session | Date | Mode | Outcome |
+|---|---|---|---|
+| [1](testing-logs/2026-11-07-phase5-session-1.md) | 2026-11-07 | single-player | Adapter loaded and read real data; publishing blocked by defect D1. Two defects recorded, none fixed. |
+
+A known, unfixed defect that stops a session is **not** a reason to renumber or
+restart a sequence: session 2 continues from the first incomplete check.
 
 ---
 
