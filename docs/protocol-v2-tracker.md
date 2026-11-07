@@ -39,7 +39,7 @@ These are independent and must not be conflated:
 | | Value | Moved by |
 |---|---|---|
 | Protocol version | `1` (`packages/protocol/src/version.ts`) | A wire-format change |
-| Mod version | `0pre.2` (`docs/versioning.md`) | A mod source change |
+| Mod version | `0pre.3` (`docs/versioning.md`) | A mod source change |
 
 Protocol v2 does **not** imply a major mod version bump, and a mod version bump
 does not imply protocol v2. `docs/versioning.md` §4 governs the mod version

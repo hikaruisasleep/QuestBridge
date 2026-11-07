@@ -30,7 +30,7 @@ around it.
 |---|---|
 | Prerequisites (instance, jar, token) | `docs/phase-5-verification-guide.md` §1–2 |
 | Step 1 — swap the jar | §2.1 |
-| Step 2 — configure the token | §2.2 |
+| Step 2 — configure the token | §2.2 (optional since `0pre.3`; the adapter discovers the host's token) |
 | Step 3 — start the host | §3, via `scripts/phase5/start-session.mjs` |
 | Step 4 — launch the client | §4 |
 | Step 5 — OBS overlay | §9 |
@@ -57,8 +57,10 @@ because anyone who used the old guide may have been misled by them.
 
 3. **Wrong version.** It was written for `0pre.2` becoming the installed jar, but
    it also asserted the jar must be rebuilt and swapped for a specific path that
-   has since moved. Phase 5 keeps `0pre.2` and swaps nothing beyond the stale
-   `0pre.1` jar that is actually installed.
+   has since moved. At the time Phase 5 kept `0pre.2` and swapped nothing beyond
+   the stale `0pre.1` jar that was actually installed. **The mod has since moved
+   to `0pre.3`** (`docs/proposals.md` §6.1), so this item is now doubly stale:
+   the replacement guide, not this page, is where the current artifact is named.
 
 4. **Claimed outcomes prematurely.** Its post-completion checklist asked the
    agent to confirm `npm test` "all 534 pass" and to check `AGENTS.md` §18 boxes

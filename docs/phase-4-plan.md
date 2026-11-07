@@ -8,7 +8,10 @@ complete.
 **Date:** 2026-11-07 (rewritten; originally 2026-11-06, before Phases 2 and 3 existed)
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests 2101.1.30
 **Version:** `0pre.2` — the Stage 4B conversation's single bump from `0pre.1`
-(`docs/versioning.md` §3.4). It stays `0pre.2` for this conversation.
+(`docs/versioning.md` §3.4). It stayed `0pre.2` for that conversation. **The mod
+is now `0pre.3`**, written by the later Proposal E conversation
+(`docs/proposals.md` §6.1, `docs/phase-5-plan.md` §12); this document describes
+the Stage 4 work as it was done and its version line is historical.
 
 ---
 
@@ -734,9 +737,11 @@ script that prints every schema issue is faster to iterate against.
 
 ### Open decisions
 
-1. **Configuration transport.** System properties and an environment variable for
-   now, mirroring the mock publisher. A client config file is worth adding once the
-   token and URL are stable; it is not needed to reach Phase 5's live run.
+1. **Configuration transport — resolved.** The client config file was added, and
+   `0pre.3` fixed the ordering that made it unreadable at startup. Token
+   resolution is now four-deep (property, environment variable, config file,
+   discovery) and normative in `docs/ftb-quests-integration.md` §11.1. Closed by
+   `docs/proposals.md` §6.1.
 2. **Subtitle joining.** Newline join; the protocol carries one optional string.
 3. **World name policy.** Display-only; `null` when unavailable.
 

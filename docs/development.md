@@ -1,8 +1,8 @@
 # QuestBridge Development
 
-**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stages 4B–4E are implemented and verified against the real host. The former Stage 4F is now Sequence A of Phase 5, whose tooling (`scripts/phase5/`, §9) and operator runbook (`docs/phase-5-verification-guide.md`) are in place; no live run has been performed yet.
+**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stages 4B–4E are implemented and verified against the real host. The former Stage 4F is Sequence A of Phase 5, whose tooling (`scripts/phase5/`, §9) and operator runbook (`docs/phase-5-verification-guide.md`) are in place. Phase 5's sessions 1 and 2 loaded the adapter in a live client but never reached the host, because of an adapter configuration defect; **that defect and two others are fixed in `0pre.3`** (`docs/phase-5-plan.md` §12), verified offline only. No phase-5 sequence has yet run against a publishing client.
 
-**Date:** 2026-11-06
+**Date:** 2026-11-07
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
 
 ---
@@ -14,7 +14,7 @@ packages/protocol/        @questbridge/protocol — v1 types, Zod schemas, messa
 packages/mock-publisher/  @questbridge/mock-publisher — fixtures, scenarios, CLI
 packages/host/            @questbridge/host — loopback host, state store, chapter pins, transport
 apps/web-app/             Svelte 5 + SvelteKit static frontend, three routes (see docs/web-frontend.md)
-minecraft-mod/            NeoForge client mod (Stage 4A live probe; network adapter not implemented)
+minecraft-mod/            NeoForge client mod (Stages 4A–4E + the 0pre.3 Proposal E fixes)
 docs/                     Architecture, protocol, pinning, plans, FTB reconnaissance
 ```
 
@@ -67,18 +67,25 @@ cd minecraft-mod
 
 The full policy is in [`docs/versioning.md`](versioning.md). In short:
 
-- Pre-Done versions use `0pre.<minor>`, for example `0pre.2`.
+- Pre-Done versions use `0pre.<minor>`, for example `0pre.3`.
 - Each new conversation reads the documented version and increments the minor
   component by exactly one, then stays on that version for the whole thread.
 - Do not increment for individual commits, fixes, or rebuilds.
+- **A bump requires a source change** (`docs/versioning.md` §3.5). Testing,
+  documentation, and tooling sessions keep the current version; a fix discovered
+  *by* testing does change source and takes the bump.
 - When the conversation closes, update the documented version.
 - Major bumps happen only on explicit user request; `1.0.0` is not automatic.
 - A phase name is not a thread: a new Stage 4 conversation still takes its bump
   (`docs/versioning.md` §3.4).
 
-The documented version is `0pre.2`. The Gradle `mod_version` value flows
-into both the jar filename (`questbridge-0pre.2.jar`) and
+The documented version is `0pre.3`. The Gradle `mod_version` value flows
+into both the jar filename (`questbridge-0pre.3.jar`) and
 `META-INF/neoforge.mods.toml`.
+
+`0pre.3` exists because the Proposal E fixes change mod source
+(`docs/proposals.md` §6.1). The two Phase 5 testing sessions before it did not,
+and correctly kept `0pre.2` — the same policy producing both outcomes.
 
 ---
 
@@ -291,6 +298,7 @@ instruments; nothing in the host, frontend, or mod imports them.
 | `npm run phase5:check` | agent | Read-only readiness check: toolchain, builds, host tokens, installed jar, client config, and the saved-world baseline. Never mutates anything. Exit 2 means not ready. |
 | `npm run phase5:session` | either | Starts the real host with the built frontend, loads tokens through the host's own loader, prints the tokenized overlay and dashboard URLs, and writes `session.json` to `.questbridge/phase5/<timestamp>/`. |
 | `npm run phase5:watch -- --session <dir> --expect <checks>` | agent | Observes the host as a `control` browser, logs every change, and evaluates assertions. |
+| `npm run phase5:watch:test` | agent | Exercises `watch`'s assertion logic in isolation. 17 checks; see below. |
 | `npm run phase5:capture -- <dump>` | agent | Reads the adapter's `-Dquestbridge.dumpSnapshot` file and checks it contains what a live run must demonstrate. |
 
 `phase5:validate` is `scripts/validate-snapshot.mjs` under a clearer name: it
@@ -299,6 +307,19 @@ validates captured messages through the same `parseFrame` path the host uses.
 `phase5:watch` accepts `--expect ready,no-auto-pin,progress-change,...`; the full
 list is in `docs/phase-5-plan.md` §4.2. Its ledger accumulates across the whole
 run, so a change that lands between two received states is still recorded.
+
+**Assertions are tri-state since 2026-11-07.** Each reports `pass`, `fail`, or
+`not_observed`, and an unexercised check is never a pass — that was a recorded
+defect (`docs/troubleshooting.md` §4.4, §4.5), where a run against a host that
+received nothing reported two absence checks as passing because nothing had been
+checked. `phase5:watch` exits `1` on a failure and `2` when a requested check
+never became testable.
+
+`phase5:watch:test` guards that behaviour. It replays the exact empty ledger from
+the session that produced the false pass and asserts that no assertion passes on
+it, then asserts that a healthy ledger still passes and a real violation still
+fails — so a future change cannot "fix" the false pass by disabling the checks.
+It imports the shipped helpers rather than restating the rule.
 
 The tooling needs the built packages and the built frontend. Run `npm run build`
 first. The operator's step-by-step runbook is
