@@ -432,18 +432,15 @@ function main() {
   process.stdout.write(`[watch] observing ${url}\n`);
   process.stdout.write(`[watch] checks: ${options.expect.length > 0 ? options.expect.join(", ") : "(none — observe only)"}\n`);
 
-  let finished = false;
-  const finish = () => {
-    if (finished) {
-      return;
-    }
-    finished = true;
+  // A live session can run for a long time and may end by a hard kill that no
+  // signal handler sees. Checkpoint the report on every change so the ledger
+  // survives however the process ends, not only on a clean finish.
+  const buildReport = (finishedAt) => {
     const checks = evaluate(ledger, options.expect);
-    const failed = checks.filter((check) => check.passed === false);
-    const report = {
+    return {
       tool: "phase5-watch",
       startedAt,
-      finishedAt: new Date().toISOString(),
+      finishedAt,
       assertions: checks,
       observations: ledger.reported,
       maxChapters: ledger.maxChapters,
@@ -455,6 +452,28 @@ function main() {
       pinHistory: ledger.pinHistory,
       problems: ledger.problems,
     };
+  };
+
+  const checkpoint = () => {
+    if (options.jsonOut === undefined) {
+      return;
+    }
+    try {
+      writeFileSync(options.jsonOut, `${JSON.stringify(buildReport(null), null, 2)}\n`, "utf8");
+    } catch {
+      // A checkpoint failure must never stop observation.
+    }
+  };
+
+  let finished = false;
+  const finish = () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    const checks = evaluate(ledger, options.expect);
+    const failed = checks.filter((check) => check.passed === false);
+    const report = buildReport(new Date().toISOString());
 
     if (options.jsonOut !== undefined) {
       writeFileSync(options.jsonOut, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -521,6 +540,7 @@ function main() {
       for (const event of observe(ledger, state.data, { at }, resolvedEverSeen)) {
         process.stdout.write(`[${at}] ${event}\n`);
       }
+      checkpoint();
       return;
     }
 
@@ -545,6 +565,7 @@ function main() {
       for (const event of observe(ledger, state.data, { at }, resolvedEverSeen)) {
         process.stdout.write(`[${at}] ${event}\n`);
       }
+      checkpoint();
     }
   });
 
