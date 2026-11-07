@@ -1225,6 +1225,8 @@ All agents must:
 19. Never automatically modify FTB quest pins.
 20. Check out a new branch before starting every session.
 21. Commit changes after every major action.
+22. Record verification findings in `docs/troubleshooting.md` (§17.2).
+23. Do not fix what the user has asked you only to record.
 
 ## 17.1 Git workflow
 
@@ -1296,6 +1298,89 @@ Follow `docs/versioning.md`.
 - Update the documented version when the conversation closes.
 - Major version bumps require an explicit user request. Never infer a major bump from completing a phase or the Definition of Done.
 - Do not let a shared phase name freeze the version. A new conversation that merely inherits a phase name from documentation — Stage 4, Phase 4, or any later stage — is a new thread and gets its single bump. A rule such as "the Stage 4 conversation stays on `0pre.1`" does not apply to it, and must never be used to skip the bump. Before starting work, confirm the active version with the user.
+
+---
+
+## 17.2 Recording findings, defects, and fixes
+
+**Every finding from a live verification run goes in `docs/troubleshooting.md`,
+in the same session that found it.** Findings that live only in a conversation
+or a chat transcript are lost, and the next agent re-discovers them.
+
+This applies to, at minimum:
+
+- Any defect in the adapter, host, protocol, or frontend.
+- Any environment or configuration trap that cost time to diagnose.
+- Any observed behaviour that contradicts a document.
+- Any workaround the user had to apply to make progress.
+- Anything suspected but not confirmed, clearly labelled as suspected.
+
+Rules:
+
+1. **Write the finding before proposing a fix.** The record is valuable even
+   when the fix is obvious, and it is the only thing that survives if the fix
+   is deferred.
+2. **Do not fix a defect the user has asked you only to document.** Record it,
+   state the workaround, and wait. This is the user's standing preference:
+   understand first, change later, in a deliberate step.
+3. **A finding is not a claim.** Mark it *verified* (observed on a real client
+   or in real tool output, with the command or log line that shows it) or
+   *suspected* (reasoned from code). Never blur the two.
+4. **Record the scope of what a finding does *not* prove.** A mapper-level
+   observation does not prove the transport, the host, or the overlay. State
+   the boundary explicitly.
+5. **When a defect is fixed, update its entry rather than deleting it** — note
+   the fix, the version that carries it, and how it was verified. The history
+   is what stops a defect being reintroduced.
+6. **Correct your own earlier claims in writing.** If a later check shows an
+   earlier statement was wrong, say so in the entry. An uncorrected wrong claim
+   is worse than the original mistake.
+7. **Cite the evidence, not the conclusion.** "The client log shows
+   `no minecraftToken configured` at 17:23:13, 16 s before NeoForge loaded the
+   config" is worth more than "the config path is broken".
+
+`docs/testing-logs/` holds the session narrative — what was run, in what order,
+and what each check showed. `docs/troubleshooting.md` holds the durable
+diagnostic knowledge — symptom, cause, workaround, status. A session log links
+to the troubleshooting entries it produced; it does not duplicate them.
+
+## 17.3 Collaborative verification
+
+Verification that needs a real Minecraft client is done collaboratively: the
+agent runs the host and reads results, and the user launches the game and
+performs the in-game actions. The agent cannot drive a GUI game.
+
+The protocol is specified in `docs/phase-5-plan.md` §5 and the operator's steps
+are in `docs/phase-5-verification-guide.md`. Rules that follow from it:
+
+- **Name one action at a time.** The user performs a single in-game action and
+  reports it, so any surprise is attributable to one cause.
+- **The user's observation is evidence.** A check that renders on screen is not
+  passed by host state alone.
+- **A disagreement between the user's observation and the agent's reading is a
+  finding**, not an inconvenience. Record it per §17.2 before explaining it.
+- **Never claim a visual result from state data**, and never claim a check the
+  user did not actually exercise — that is *not observed*, not *pass*.
+
+## 17.4 General behavioural preferences
+
+Standing preferences the user has stated. They apply to every session unless
+the user overrides them.
+
+1. **Record before fixing.** When something is found, document it and report.
+   Do not repair it in the same breath. The user decides when a fix happens.
+2. **Do not create a build for testing-only work.** A version bump requires a
+   mod source change (`docs/versioning.md` §3.5). Testing, documentation, and
+   tooling sessions keep the current version.
+3. **Distinguish verified from unverified, always.** State what was actually
+   observed and what was inferred. The user relies on this distinction and
+   has repeatedly asked for it explicitly.
+4. **Correct your own mistakes openly.** If an earlier claim was wrong, retract
+   it plainly and say what the evidence actually supports.
+5. **Do not overstate a result to look useful.** A partial result reported
+   accurately is worth more than a complete one that is not true.
+6. **Prefer the user's judgement on scope.** When work is diminishing returns,
+   say so rather than continuing because it was requested earlier.
 
 ---
 
