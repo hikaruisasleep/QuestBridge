@@ -132,6 +132,18 @@ This is stated here to stop the misdiagnosis being repeated: if publishing stops
 after a host restart, the cause is §2.1, **not** a changed token. Compare the
 failure against §2.3 to tell them apart.
 
+**The lack of expiry is intended, not an oversight.** A token has no TTL and no
+scheduled rotation; it lives until the token file is regenerated. This is
+recorded as accepted risk **R3** in `docs/local-authentication.md` §1: expiry
+would bound nothing here (loopback, single user) while an expiring token in the
+overlay's URL would eventually strand a live OBS source mid-stream. The current
+behaviour is correct and **not planned for change**; see that document's §2.0 for
+the lifetime and the deliberate-rotation procedure.
+
+Do not read §2.1.2 as a request to add expiry. It records why a *regenerated*
+token needs a game restart, which is a consequence of R3 rather than a defect in
+it.
+
 ### 2.1.2 The adapter reuses a frozen token on every reconnect — verified
 
 `ConnectionController` resolves the token once, in the client constructor, and
@@ -464,6 +476,12 @@ user.
 The two tooling defects (§4.4, §4.5) are the cheapest and the most consequential
 to leave: they affect the *evidence* rather than the product, and a run reported
 through them can show a PASS that was never earned.
+
+**Not in this table, deliberately.** Token expiry and token rotation are settled
+design, not defects. See `docs/local-authentication.md` §1 (R3) and §2.0: tokens
+have no lifetime by intent, deliberate rotation is a documented file-deletion
+procedure, and a `--rotate-tokens` flag is not planned. §2.1.1 and §2.1.2 are
+recorded as behaviour to understand, not as work to schedule.
 
 ---
 

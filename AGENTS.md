@@ -1229,6 +1229,14 @@ OBS must be able to access the overlay without exposing authentication credentia
 
 Document the chosen local authentication and origin strategy.
 
+**Accepted risks are decisions, not defects.** `docs/local-authentication.md` §1
+records them: R1 (the browser token does not distinguish roles), R2 (origin
+matching ignores the port), and R3 (tokens have no expiry and no scheduled
+rotation). Do not tighten any of them as an apparent improvement — each was
+chosen deliberately, and R3 in particular exists because an expiring token would
+strand a live OBS source mid-stream. Revising one requires an explicit product
+decision, recorded in that document.
+
 ---
 
 # 14. OBS INTEGRATION

@@ -13,16 +13,21 @@ This document is the normative description of the QuestBridge local authenticati
 
 QuestBridge is a private, single-user application that runs only on the streamer's own machine. The primary control is that the host binds exclusively to `127.0.0.1`, so no traffic arrives from another machine.
 
-Within that boundary the project deliberately prioritises speed and ease of use over defence in depth. Two consequences are **accepted, intended behaviours**, not defects. They must not be tightened without an explicit product decision.
+Within that boundary the project deliberately prioritises speed and ease of use over defence in depth. Three consequences are **accepted, intended behaviours**, not defects. They must not be tightened without an explicit product decision.
 
 | ID | Accepted behaviour | Consequence |
 |---|---|---|
 | R1 | The browser token does not distinguish the `overlay` and `control` roles. | Any holder of the browser token may declare `control` and gain write access. The overlay/control split is a UI convention, not a security boundary. |
 | R2 | Origin allowlisting matches the loopback *hostname* only and ignores the port. | Any page served from `127.0.0.1` or `localhost` on any port may open a WebSocket to the host, provided it presents a token. |
+| R3 | Tokens have no expiry and no scheduled rotation. A token remains valid until the token file is regenerated. | A leaked access URL never becomes invalid. There is no time-based remedy; the only remedy is regenerating the token file (§2.2). |
 
 Rationale for R1: one person owns the tokens on one machine, so a role-binding check would add a configuration step — remembering which token belongs in which browser route — without removing a real attacker. Ease of use wins.
 
 Rationale for R2: the overlay and dashboard are served from the same loopback address, and matching by port would break the ordinary case of running the dashboard from a development server on another port while working on Phase 3.
+
+Rationale for R3: expiry exists to bound the damage of a credential leaked to an untrusted party. Here the only readers are a loopback-only, single-user host and a browser profile the user controls, so there is no untrusted party for a lifetime to bound. Against that, an expiring token would actively harm the product: the token travels in the overlay's URL, so an expiry must either strand a live OBS source mid-stream or force a re-authentication flow — the cookie redirect that Proposal B deliberately removed. A stream overlay that goes dark because a timer elapsed is a worse outcome than a credential that lives as long as the file it is stored in.
+
+R3 is **not planned for implementation**. The current behaviour is correct for this product, and was confirmed as such on 2026-11-07. It is recorded so the absence of expiry is a decision rather than an oversight, and so a future reader does not add expiry as an apparent security improvement — doing so would break the sessionless design in §3 and reintroduce the failure mode that design removed.
 
 ### 1.1 What the credentials actually protect
 
@@ -86,6 +91,41 @@ Generation and storage:
 
 - Compared with a timing-safe comparison: hash both the presented and the stored value with SHA-256 and compare the digests with `crypto.timingSafeEqual`, which avoids the equal-length precondition that the raw function imposes.
 - Never logged and never embedded in HTML or JavaScript bundles.
+
+### 2.0 Lifetime: no expiry, no scheduled rotation
+
+> Numbered `2.0` deliberately: it documents a property of the tokens introduced in
+> §2 above, and renumbering the existing `§2.1` and `§2.2` would invalidate four
+> cross-references, two of them in source comments (`packages/host/src/index.ts`,
+> `packages/host/src/config-store.ts`). See `AGENTS.md` §0.
+
+**A token has no expiry date, no issued-at time, and no TTL. It is valid until the
+token file is regenerated.** `tokens.json` stores exactly
+`{version, browserToken, minecraftToken}` and nothing time-related, and no host
+code path checks age. There is no scheduler, no reaper, and no automatic
+rotation.
+
+The tokens change only when `TokenStore.load()` cannot reuse the file:
+
+- first run, when `tokens.json` does not exist;
+- the file is unreadable;
+- the file is not valid JSON, or does not match the expected shape — in which
+  case it is backed up and replaced (§2.2).
+
+**Rotating a token deliberately** therefore means regenerating the token file:
+stop the host, delete or rename `tokens.json`, and start it again. It will create
+a fresh file and print nothing; `--print-urls` shows the new URLs. Every
+previously issued URL, and every configured Minecraft client, stops working at
+that moment.
+
+`TokenStore.rotate()` exists in the source but is **not wired to any user-facing
+interface** — the CLI exposes only `--port`, `--config-dir`, `--build-dir`,
+`--print-urls`, and `--help`. It is exercised by `packages/host/tests/auth.test.ts`
+and is not a supported operation. A `--rotate-tokens` flag is **not planned**
+(§1, R3); the file-deletion procedure above is the documented method.
+
+This is intentional, not an omission. See §1, R3, for why expiry is rejected
+rather than merely unimplemented.
 
 ### 2.1 Access URLs
 

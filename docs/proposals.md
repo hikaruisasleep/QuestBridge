@@ -177,7 +177,7 @@ Accepted as intended (single-user, loopback-only product; ease of use prioritise
 1. The browser token does not distinguish roles. It may declare either `overlay` or `control`. The overlay/control split is a UI convention, not a security boundary.
 2. Origin allowlisting matches the loopback hostname only and ignores the port.
 
-Both are recorded as accepted risks R1 and R2 in `docs/local-authentication.md` §1 and must not be tightened without an explicit product decision.
+Both are recorded as accepted risks R1 and R2 in `docs/local-authentication.md` §1 and must not be tightened without an explicit product decision. A third, R3, was added on 2026-11-07: tokens have no expiry and no scheduled rotation, confirmed as correct for this product and not planned for change. Proposal B is unaffected by R3 — the cookie layer it removed was about session state, and R3 is about credential lifetime.
 
 ### What was deferred
 

@@ -642,6 +642,8 @@ Tokens are 256-bit random values generated on first run and persisted in a dedic
 
 Unlike `config.json`, which fails closed and is never overwritten when invalid, a corrupt `tokens.json` is backed up and regenerated, so a damaged token file cannot lock the user out permanently.
 
+**Tokens do not expire.** There is no TTL, no issued-at time, and no scheduled rotation; a token is valid until the token file is regenerated, which happens only on first run, an unreadable file, or an invalid one. This is accepted risk **R3** in `docs/local-authentication.md` §1, confirmed as correct for this product on 2026-11-07 and **not planned for change**: expiry would bound nothing for a loopback single-user tool, while an expiring token in the overlay's URL would eventually strand a live OBS source mid-stream. Rotating deliberately means deleting `tokens.json` and restarting the host; `TokenStore.rotate()` exists but is not wired to any user-facing command, and a `--rotate-tokens` flag is not planned. See that document's §2.0.
+
 ### 8.2 Browser authentication
 
 There are no cookies and no login redirect.
