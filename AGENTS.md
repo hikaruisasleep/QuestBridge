@@ -14,6 +14,159 @@
 
 ---
 
+# 0. DOCUMENTATION IS KING
+
+**Documentation is the oxygen you breathe and the ground you stand on.**
+
+If you read only one section of this document, read this one. Every other rule
+here assumes it.
+
+QuestBridge is growing faster than any one person's memory. It is four major
+parts, each with its own language, build, and failure modes, and they are
+developed by different conversations that do not remember each other:
+
+| # | Part | Lives in | Primary document |
+|---|---|---|---|
+| 1 | Minecraft mod (Java adapter) | `minecraft-mod/` | `docs/ftb-quests-integration.md` |
+| 2 | Transport layer (protocol, host, mock) | `packages/protocol`, `packages/host`, `packages/mock-publisher` | `docs/protocol.md` |
+| 3 | Display (the OBS overlay) | `apps/web-app/src/routes/overlay` | `docs/web-frontend.md` |
+| 4 | Control panel (the dashboard) | `apps/web-app/src/routes/control` | `docs/web-frontend.md`, `docs/chapter-pinning.md` |
+
+Four parts, one protocol contract between them, and no shared memory. The
+documents **are** the shared memory. Scope growth does not merely make
+documentation useful; it makes it load-bearing. Past a certain size, an
+undocumented project is not a project — it is a series of unrelated incidents
+that happen to share a directory.
+
+**The failure mode this section exists to prevent is development hell:** work
+that is redone because nobody recorded it was done, decisions re-litigated
+because the reasoning was never written, defects fixed twice because the first
+fix was never noted, and features half-built because two conversations each
+assumed the other had finished. Every one of those is a documentation failure
+before it is an engineering failure.
+
+## 0.1 The rule
+
+> **Every change, every implementation, every suggestion, and every feature
+> request MUST be documented, in the session that produces it, in the repository.**
+
+Not "probably". Not "when there is time". Not "the user will remember". Written
+down, committed, and findable by a stranger who has never read the conversation
+that produced it.
+
+This applies to work that seems too small to record, and it applies most of all
+to work that was **not** done:
+
+- A change that ships without a document entry did not happen.
+- A decision taken without recording its reasoning will be undone by the next
+  conversation, which cannot see the reasoning.
+- A suggestion that is not written down is a suggestion that was refused,
+  whatever anyone intended at the time.
+- A defect found and not recorded will be found again, at the same cost.
+- An assumption left implicit becomes a bug report later.
+
+## 0.2 What "documented" means
+
+Documentation is not a summary written after the fact. To count, a record must
+let a reader who was not present **act**:
+
+1. **What changed**, concretely — files, behaviour, wire format, or version.
+2. **Why**, including the alternatives rejected and the reason. A decision with
+   no recorded alternative is not a decision, it is a preference.
+3. **What was verified**, and how — the command run, the test passed, the log
+   line observed. Against what was merely assumed (`AGENTS.md` §17.2).
+4. **What it does not cover** — the boundary of the claim.
+5. **What remains open** — the loose ends, named rather than implied.
+
+A record missing any of these is a note, not documentation.
+
+## 0.3 Suggestions and feature requests
+
+A suggestion is work in a conversation's head until it is written down. The
+project has lost track of requests before, and §0 exists because of it.
+
+- **A feature request belongs in a document the moment it is made** — not when
+  it is implemented, and not only if it is accepted. Declined and deferred
+  requests must be as findable as accepted ones, because the most expensive
+  mistake is rebuilding something the user already asked for and was already
+  told no about.
+- **Where it goes** depends on whether it changes the wire:
+  - Needs a protocol version change → `docs/protocol-v2-tracker.md`.
+  - Product or architecture decision needing approval → `docs/proposals.md`.
+  - Everything else → the owning document (§0.4), or a plan under `docs/`.
+- **Record it as a request, not as a decision.** "The user asked for X" is a
+  fact. "We will build X" is a different fact and needs its own approval.
+- **Record the source and the date.** A request with no origin cannot be
+  re-examined later, and a plausible-sounding entry can quietly become policy.
+- **Never let an idea live only in a chat.** Conversations end. Documents do not.
+
+## 0.4 Where documentation goes
+
+Choosing the wrong file is how documents rot. Use this table rather than
+inventing a location:
+
+| Kind of information | Document |
+|---|---|
+| Project mission, requirements, rules for agents | `AGENTS.md` (this file) |
+| Component boundaries, data ownership, system shape | `docs/architecture.md` |
+| The wire contract between parts | `docs/protocol.md` |
+| What FTB Quests actually exposes, and its limits | `docs/ftb-quests-integration.md` |
+| Chapter pin rules and the dashboard's selection model | `docs/chapter-pinning.md` |
+| Local tokens, origins, and the security boundary | `docs/local-authentication.md` |
+| The frontend's routes, failure states, and motion rules | `docs/web-frontend.md` |
+| Build, test, and run commands | `docs/development.md` |
+| Version policy | `docs/versioning.md` |
+| Features v1 cannot carry | `docs/protocol-v2-tracker.md` |
+| Defects, traps, symptoms, workarounds | `docs/troubleshooting.md` |
+| Phase scope, milestones, acceptance criteria | `docs/phase-N-plan.md` |
+| How to run a live verification | `docs/phase-5-verification-guide.md` |
+| What a specific run actually did | `docs/testing-logs/<date>-<name>.md` |
+| A proposal awaiting a decision | `docs/proposals.md` |
+
+**Session narrative and durable knowledge are different documents.** A run log
+records what happened once; a troubleshooting entry records what is true from
+then on. A finding belongs in the latter, linked from the former
+(`AGENTS.md` §17.2).
+
+## 0.5 What does not count
+
+- A commit message alone. It is history, not documentation: it cannot be found
+  by reading the docs, and it does not say what remains open.
+- A code comment alone. It explains a line, not a decision or a boundary.
+- A summary that only describes the happy path.
+- A plan written after the work, describing what was done rather than what was
+  decided.
+- Anything that exists only in a conversation, a terminal scrollback, or an
+  agent's context window.
+- A document that contradicts another and leaves the reader to guess which wins.
+
+## 0.6 The test
+
+Before ending any session, answer this honestly:
+
+> **Could a competent agent who has never seen this conversation continue the
+> work from the repository alone — knowing what was done, what was decided, what
+> was verified, what was rejected, and what is next?**
+
+If the answer is no, the session is not finished. The missing documentation is
+not a follow-up task; it is the unfinished part of the work.
+
+## 0.7 Documentation debt is real debt
+
+When documentation must be deferred, it is deferred **explicitly**, in writing:
+
+- name what is missing;
+- name where it should go;
+- name what depends on it;
+- record it where the next session will see it.
+
+Never leave an undocumented change in place and hope it is obvious. Silent
+documentation debt compounds exactly like the development hell it causes, and it
+is the one kind of debt this project cannot afford, because the four parts are
+held together by nothing else.
+
+---
+
 # 1. PROJECT MISSION
 
 QuestBridge is a local streaming companion that reads FTB Quests progression from a running Minecraft client and presents it in a dedicated OBS Browser Source.
@@ -1227,6 +1380,11 @@ All agents must:
 21. Commit changes after every major action.
 22. Record verification findings in `docs/troubleshooting.md` (§17.2).
 23. Do not fix what the user has asked you only to record.
+24. Document every change, decision, suggestion, and feature request (§0).
+
+> **§0 governs all of the above.** If a rule here and §0 ever appear to conflict,
+> §0 wins: an undocumented change is not a completed change, however good the
+> code is.
 
 ## 17.1 Git workflow
 
