@@ -335,7 +335,7 @@ The earlier response was:
 
 > Leave everything else as-is, for now. Prioritize writing the documents.
 
-Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stages 4B–4E are implemented and verified against the real host. Phase 2 (host core) is implemented through milestone 2G in `docs/phase-2-plan.md`, and Phase 3 (Svelte UI) is implemented in `docs/phase-3-plan.md`. Phase 5 has started: its verification tooling and operator runbook are in place, but no live run has been performed (`docs/phase-5-plan.md`). Phase 6 has not started. The three documents are now written.
+Phase 0 (baseline and repository hygiene) is applied, and Phase 1 (shared protocol and mock publisher) is implemented. Phase 4 was started first by explicit product decision: Stage 4A is implemented and verified in the live client, and Stages 4B–4E are implemented and verified against the real host. Phase 2 (host core) is implemented through milestone 2G in `docs/phase-2-plan.md`, and Phase 3 (Svelte UI) is implemented in `docs/phase-3-plan.md`. Phase 5 has started: its verification tooling and operator runbook are in place, and two live sessions have loaded the adapter — neither reached the host, because of the defect Proposal E fixes. No Phase 5 sequence has yet run against a *publishing* client. Phase 6 has not started. The three documents are now written.
 
 ### Impact if adopted
 

@@ -64,7 +64,13 @@ absence means it did not, and the line above it says why.
 
 ## 2. Connectivity
 
-### 2.1 The adapter never publishes from `config/questbridge-client.toml`
+### 2.1 The adapter never published from `config/questbridge-client.toml` — **fixed in `0pre.3`**
+
+> The heading is past tense deliberately. This was the defect that blocked both
+> Phase 5 sessions; it no longer describes current behaviour, and the entry is
+> kept for its diagnosis. If you are on `0pre.3` and the adapter is not
+> publishing, read §2.1.1 and §2.3 instead — §2.1's cause cannot occur, because
+> the code no longer reads the config from the constructor.
 
 **Verified.** Found in the first live Phase 5 session (2026-11-07).
 
@@ -116,21 +122,23 @@ QUESTBRIDGE_MINECRAFT_TOKEN=<token>       environment variable
 ```
 
 In Prism Launcher these belong in the instance's **Environment Variables**
-(preferred) or **JVM arguments**. The system property takes precedence over the
-environment variable, which takes precedence over the file.
+(preferred) or **JVM arguments**. The full precedence is now four-deep and is
+normative in `docs/ftb-quests-integration.md` §11.1: system property, then
+environment variable, then the config file, then discovery of the host's own
+`tokens.json`. These two workarounds remain at the top of it.
 
-**A design that would remove the manual step entirely** — plus the load-order fix
-it depends on — is Proposal E in `docs/proposals.md`. It is proposed, not
-approved, and deliberately not implemented.
+**The design that removes the manual step entirely** was Proposal E in
+`docs/proposals.md`. It was **adopted on 2026-11-07** and implemented in
+`0pre.3`, which is why the load-order fix below and the discovery path exist.
 
-**Not fixed** as of this writing: the defect is recorded, not patched. Fixing it
-changes mod source and therefore requires a new version (§4).
-
-> **Fixed in `0pre.3` (2026-11-07).** `QuestBridge.java` no longer constructs the
-> client's transport; it registers `ModConfigEvent.Loading` and `.Reloading` on
-> the mod event bus and starts transport from that callback. `QuestBridgeClient`
-> gained `startTransportOnce()`, guarded so the two events cannot start two
-> transports. See `docs/proposals.md` §6.1 and `docs/phase-5-plan.md` §12.
+> **This defect is fixed in `0pre.3` (2026-11-07).** On `0pre.2` it was recorded
+> and deliberately not patched, because fixing it changes mod source and so
+> requires a new version (§4); that version was then taken by an explicit
+> decision. `QuestBridge.java` no longer constructs the client's transport; it
+> registers `ModConfigEvent.Loading` and `.Reloading` on the mod event bus and
+> starts transport from that callback. `QuestBridgeClient` gained
+> `startTransportOnce()`, guarded so the two events cannot start two transports.
+> See `docs/proposals.md` §6.1 and `docs/phase-5-plan.md` §12.
 >
 > **How it will be verified:** the client log must show the adapter *deferring*
 > transport startup rather than warning `no minecraftToken configured`, and
