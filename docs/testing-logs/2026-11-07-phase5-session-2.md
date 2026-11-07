@@ -164,3 +164,36 @@ The pin-order script derives its expectation from the pack's SNBT metadata
 (chapter-group order plus `order_index`), which approximates FTB's runtime
 `getAllChapters()` order rather than reading it. That limitation is stated in the
 script and is why §5 says "consistent with" rather than "proven".
+
+---
+
+## 9. Tool defect found in this session's own instrumentation
+
+The continuous `phase5:watch` observer ran for the whole session against a host
+that never received a publisher. Its checkpointed report ended with:
+
+```json
+"maxChapters": 0,
+"statusHistory": [ { "status": "disconnected" } ],
+"assertions": [
+  { "name": "ready",                "passed": false },
+  { "name": "no-auto-pin",          "passed": true  },
+  { "name": "objectives-partition", "passed": true  }
+]
+```
+
+Two checks **passed vacuously**: with no data, "no automatic pin was seen" and
+"no partition violation was seen" are trivially true. They passed because nothing
+was checked, not because the condition held.
+
+This is recorded as `docs/troubleshooting.md` §4.4 and §4.5. It is called out
+here because it is the same class of error this project's rules exist to prevent:
+a PASS that does not correspond to a verified condition. None of those results
+were used as evidence — this session's findings come from the client log — but
+the report alone would have been misleading.
+
+The related gap is that the report cannot express **not observed**, which
+`docs/phase-5-plan.md` §7 requires as a third state distinct from pass and fail.
+
+**Not fixed.** The fix is in the tooling, not the mod, so it needs no version
+bump.

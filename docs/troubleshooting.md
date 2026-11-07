@@ -278,6 +278,71 @@ catalog-discovery defect. It is recorded rather than dismissed.
 **How to settle it:** compare the 55 chapter IDs in a `dumpSnapshot` output
 against the 54 ids parsed from the files. The dump makes the comparison exact.
 
+### 4.4 `phase5:watch` reports vacuous PASS results — verified, tool defect
+
+**Symptom.** A watch run against a host that received **no publisher at all**
+still reports some checks as passed:
+
+```json
+"assertions": [
+  { "name": "ready",               "passed": false },
+  { "name": "no-auto-pin",         "passed": true  },
+  { "name": "objectives-partition","passed": true  },
+  ...
+],
+"observations": { "ready": false, "sawAutoPin": false, ... },
+"maxChapters": 0,
+"statusHistory": [ { "status": "disconnected" } ]
+```
+
+**Cause.** Two assertions are stated as the absence of a bad thing:
+
+```
+"no-auto-pin":        (ledger) => !ledger.reported.sawAutoPin
+"objectives-partition": (ledger) => !ledger.reported.sawPartitionViolation
+```
+
+With no data, neither bad thing was observed, so both are trivially true. The
+check passes because **nothing was checked**.
+
+**Why this is serious.** These assertions exist to detect a fabricated objective
+and a broken objective partition — precisely the defects the mapper checks in
+this phase care about. A vacuous PASS on a dead connection is indistinguishable,
+in the JSON report, from a real PASS on a healthy one. If it were recorded as
+evidence it would be a false claim of the kind `AGENTS.md` §18 forbids.
+
+**Observed in:** session 2, `docs/troubleshooting.md` §5.2. No run has yet read
+those two results as evidence; the session was reported from the client log.
+
+**Fix direction** (not yet applied): each assertion must require its own
+precondition. Positive assertions already do this implicitly — `ready` cannot be
+true without data — but absence assertions need an explicit guard, for example
+requiring `ledger.reported.ready` and a non-zero chapter count before
+`no-auto-pin` or `objectives-partition` may pass. A run that never reached
+`ready` should report those checks as **not observed**, which is a distinct third
+state the current report does not express.
+
+**Status:** recorded, not fixed. Fixing it changes `scripts/phase5/watch.mjs`,
+which is tooling rather than mod source, so it does not require a version bump
+(`docs/versioning.md` §3.5).
+
+### 4.5 `phase5:watch` cannot express "not observed" — suspected, tool defect
+
+Related to §4.4. The report has only `passed: true|false`. There is no way to say
+"this check was never exercised", which `docs/phase-5-plan.md` §7 requires: *"A
+check that was not exercised is **not observed** — never pass."*
+
+Because the report cannot express the third state, an unexercised check lands in
+one of the two wrong buckets. `AGENTS.md` §17.3 says the same for user-driven
+checks.
+
+**Fix direction:** give each assertion a tri-state result and have `evaluate()`
+distinguish "condition proven" from "condition never testable". Until then, read
+`observations` and `maxChapters` alongside the assertion list, and treat a PASS
+with `maxChapters: 0` as not observed.
+
+**Status:** recorded, not fixed.
+
 ---
 
 ## 5. What the sessions established
