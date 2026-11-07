@@ -693,6 +693,62 @@ Requirements:
 
 Implementation timing originally followed Proposal C, which placed the adapter after the protocol, mock publisher, host, and dashboard. Stage 4A was then built first by explicit product decision and is verified in the live client. Phases 2 (host core) and 3 (dashboard and overlay) are implemented, and Stages 4B–4E target a real end-to-end pipeline rather than a standalone collector. The exact FTB build dependencies from Proposal D are declared, so the adapter can compile against them. The Stage 4 plan was rewritten on 2026-11-07 and is in `docs/phase-4-plan.md`. Live verification of this document's claims is Phase 5 (`docs/phase-5-plan.md`), run with `scripts/phase5/`.
 
+### 11.1 Token resolution and configuration timing
+
+Normative for the adapter since `0pre.3` (Proposal E,
+`docs/proposals.md` §6.1). Two rules, and both were defects before that version.
+
+**Rule 1 — the token is resolved on every connect attempt, not once.** The
+controller is given a supplier and calls it inside `connect()`. A token that
+changed on the host is therefore picked up on the next reconnect instead of
+requiring a Minecraft restart. This was `docs/troubleshooting.md` §2.1.2.
+
+**Rule 2 — transport starts from `ModConfigEvent.Loading`, not the mod
+constructor.** `registerConfig` only *schedules* loading, so a read from the
+constructor sees an unloaded spec and silently yields an empty string. This was
+`docs/troubleshooting.md` §2.1, and it is why Phase 5's first two sessions
+produced no transport evidence at all.
+
+Precedence, highest first:
+
+```text
+1. -Dquestbridge.minecraftToken=<token>            explicit, per-launch override
+2. QUESTBRIDGE_MINECRAFT_TOKEN=<token>             explicit, per-instance override
+3. config/questbridge-client.toml minecraftToken   the user's stated intent
+4. discovered host tokens.json                     the fallback that unblocks a run
+```
+
+Discovery is deliberately **last**, inverting the order Proposal E sketched. A
+user who wrote a token into the config file stated an intent, and a configuration
+value the program may silently ignore produces a symptom ("I set it and nothing
+changed") that cannot be diagnosed from the file. Discovery exists for the case
+where nothing is configured, which is where the two blocked sessions were.
+
+Discovery mirrors the host's own path rules (`packages/host/src/paths.ts`),
+including `QUESTBRIDGE_CONFIG_DIR`, so the two resolvers cannot drift:
+`QUESTBRIDGE_CONFIG_DIR`, then `%APPDATA%\QuestBridge` on Windows,
+`~/Library/Application Support/QuestBridge` on macOS, then
+`$XDG_CONFIG_HOME/questbridge` or `~/.config/questbridge`. A
+`-Dquestbridge.tokensFile` property overrides all of them, for unusual setups and
+for the harnesses.
+
+**The token is never logged.** Only its source is, in the
+`[QuestBridge] publishing to … (token from …)` line. `TokenDiscovery.Result`
+overrides `toString()` for the same reason: a default record `toString()` would
+print the credential into any log line or debugger view that formatted it.
+
+**A run with no token is not fatal.** The adapter starts the transport, warns
+with the reason, and keeps retrying, so a host started later is found by discovery
+without the user touching anything. Returning early would freeze the answer taken
+at config load — the same class of mistake as Rule 2.
+
+**Security.** Discovery reads a file every process running as this user could
+already read, so it adds no trust boundary and does not widen `minecraftToken`'s
+meaning: publisher-versus-reader is unchanged, and a browser still cannot publish.
+What does change is that the credential becomes discoverable without
+configuration. That is the purpose of the feature and is recorded as such in
+`docs/local-authentication.md` §2.3.
+
 ---
 
 ## 12. Risks and assumptions

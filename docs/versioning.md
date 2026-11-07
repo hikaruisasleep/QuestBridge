@@ -1,7 +1,7 @@
 # QuestBridge Versioning
 
 **Status:** Active policy  
-**Current documented version:** `0pre.2`  
+**Current documented version:** `0pre.3`  
 **Date:** 2026-11-07  
 **Applies to:** the Minecraft mod version and its artifact name. Private npm workspace packages keep independent SemVer versions; they do not use `0pre.<minor>`.
 
@@ -98,12 +98,14 @@ rule was wrong and has been removed.
 - **Confirm the version with the user before starting work.** A one-line
   agreement here prevents a whole session from being built on the wrong version.
 
-Example, which is how `0pre.2` came to be:
+Example, which is how `0pre.2` came to be, and then how `0pre.3` did:
 
 ```text
 0pre.1  written by the Stage 4A conversation
 0pre.2  written by the Stage 4B conversation, even though it is still "Stage 4"
-0pre.3  written by the next conversation, however it is described
+0pre.3  written by the Proposal E conversation, in Phase 5 — the "next
+        conversation" this example predicted, and a different thread from both
+        Phase 5 testing sessions before it
 ```
 
 ### 3.5 A bump requires a source change
@@ -124,7 +126,11 @@ and it moves only when source changes justify a build. Phase 5 was the case that
 produced this rule: the policy's unconditional bump would have minted
 `0pre.3` for a phase that added no adapter code and shipped no artifact.
 
-Rules:
+**§3.5 is a floor, not a ceiling, and Phase 5 then demonstrated the other half of
+it.** After that rule was written, the Proposal E decision
+(`docs/proposals.md` §6.1) fixed three adapter defects discovered *by* Phase 5's
+testing. Testing produced no build; the fixes derived from it did. `0pre.3` exists
+for that reason, and the distinction is the one the last bullet below draws:
 
 - Check whether the conversation changed mod source before applying §3.1.
 - If it did, bump once as §3.1 describes.
@@ -132,6 +138,12 @@ Rules:
   the next conversation is not surprised.
 - A fix discovered *by* testing does change source: fix it, then bump, and
   re-run the affected checks.
+
+**Worked example, 2026-11-07.** Sessions 1 and 2 were pure testing — no source
+change, so no bump, and `0pre.2` remained correct through both. The defect they
+found was then fixed by a later decision, which did change source, so that work
+took `0pre.3`. Same phase, two conversations, one bump between them — which is
+exactly what §3.4 means by "a phase name is not a development thread".
 
 ---
 

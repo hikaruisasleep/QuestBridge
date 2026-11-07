@@ -155,6 +155,69 @@ Applied to tokens, the fail-closed rule would mean permanent lockout with no rec
 
 If a fresh `tokens.json` cannot be written — for example a permissions failure — that is a fatal startup error reported with the exact path.
 
+### 2.3 Client-side discovery of `minecraftToken`
+
+**Added 2026-11-07** by the Proposal E decision (`docs/proposals.md` §6.1),
+implemented in mod `0pre.3`. The adapter reads the host's own `tokens.json` when
+no token is configured anywhere else, so a machine that has run the host does not
+need the credential copied by hand.
+
+This section exists because it is the one place where adopting Proposal E changed
+the security posture, and it is written so a later reader can re-examine the
+change rather than rediscover it.
+
+**What does not change.**
+
+- **The `minecraftToken` boundary is unchanged.** It still separates publishers
+  from readers. A browser still cannot publish progression, and direction-aware
+  parsing independently rejects every `minecraft.*` type on a browser connection
+  (§1.2). Discovery changes *how the adapter obtains* the credential, not what the
+  credential authorises.
+- **No new trust boundary is crossed.** The token file was already readable by
+  every process running as this user, which is the same set of processes that
+  could read an environment variable. Both are local, single-user, same-machine
+  reads.
+- **The token is still never logged, served, or bundled.** Discovery logs only
+  the path it read and whether a token was found.
+- **Precedence is explicit and ordered**, so discovery cannot silently override a
+  deliberate configuration. Normative statement in
+  `docs/ftb-quests-integration.md` §11.1:
+
+  ```text
+  1. -Dquestbridge.minecraftToken=<token>
+  2. QUESTBRIDGE_MINECRAFT_TOKEN=<token>
+  3. config/questbridge-client.toml minecraftToken
+  4. discovered host tokens.json
+  ```
+
+  Discovery is **last**. Proposal E sketched it ahead of the config file; that was
+  rejected because a configuration value the program may silently ignore is worse
+  than no configuration value. Discovery exists for the case where nothing is
+  configured.
+
+**What does change, stated plainly.** The credential becomes **discoverable
+without configuration**. Previously an attacker needed the token's value; now they
+need only to read a file at a known path. On a single-user loopback machine those
+are the same attacker, which is why the change is acceptable — but the two are not
+identical, and it would be dishonest to record this as a no-op.
+
+**Why it was accepted anyway.** The alternative is the state Phase 5 was actually
+in: the host had generated a credential, the adapter could not find it, and two
+live sessions produced no transport evidence at all. The cost of the discovery
+path is that a same-user process can find the token; the cost of *not* having it
+was a product that did not work without a manual copy step
+(`docs/troubleshooting.md` §2.1).
+
+**This does not touch R1, R2, or R3.** Discovery is about how `minecraftToken` is
+obtained, not about role binding, origin matching, or lifetime. In particular it
+does **not** motivate adding expiry: R3's reasoning — an expiring token in the
+overlay URL would strand a live OBS source — is unaffected.
+
+**If this is ever judged too permissive**, the remedy is
+`discoverToken = false` in `config/questbridge-client.toml`, which restricts the
+adapter to rules 1–3. That switch is documented rather than hidden, because a
+security decision the user cannot reverse is not a decision they own.
+
 ---
 
 ## 3. Transport authentication
@@ -278,12 +341,34 @@ Security tests required for Phase 2:
 - Corrupt `tokens.json` is backed up and regenerated, and the host still starts.
 - Invalid `config.json` is preserved, not overwritten, and the host reports the failure.
 
+Adapter-side checks required since `0pre.3` (§2.3). These are mod tests, not host
+tests, and the two that need a running client are marked:
+
+- The token's source is logged and the **value never is**, for all four
+  precedence rules.
+- `TokenDiscovery.Result.toString()` does not contain the token.
+- Discovery finds a `tokens.json` of the host's own shape and ignores
+  `browserToken`.
+- The four failure modes — missing file, malformed JSON, absent field, empty
+  value — each yield *no token plus a reason*, never an exception.
+- Precedence resolves as §2.3 lists, including that the config file outranks
+  discovery. *(Harness-verified.)*
+- A regenerated token is picked up on the next reconnect without restarting
+  Minecraft. *(Harness-verified against a real host; see
+  `docs/testing-logs/2026-11-07-phase5-build-0pre3.md` §4.2.)*
+- The transport starts from the config-load event, not the constructor.
+  *(**Not yet verified** — needs a live client. See `docs/phase-5-plan.md`
+  §12.5.)*
+
 ---
 
 ## 9. Relationship to other documents
 
 - `AGENTS.md` §13 states the security requirements this document implements.
-- `docs/proposals.md` §3 records Proposal B as submitted and the decision taken.
+- `docs/proposals.md` §3 records Proposal B as submitted and the decision taken;
+  §6.1 records Proposal E, which added §2.3.
 - `docs/architecture.md` §8 summarises the same strategy at a higher level.
 - `docs/phase-2-plan.md` §13.2 and milestone 2D schedule the implementation.
 - `docs/protocol.md` §12 defines the security boundary the message contract assumes.
+- `docs/ftb-quests-integration.md` §11.1 is the normative statement of the
+  adapter's token precedence and configuration timing.

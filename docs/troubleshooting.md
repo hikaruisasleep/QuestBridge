@@ -3,9 +3,20 @@
 **Status:** Created 2026-11-07 from the first live Phase 5 session. Every entry
 marked **verified** was observed on a real client with the real host; entries
 marked **suspected** are reasoned from code and logs but not confirmed.
-**Date:** 2026-11-07
+**Date:** 2026-11-07 (§2.1, §2.1.2, §4.1, §4.4, and §4.5 updated the same day with
+their fixes)
 **Applies to:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, mod
-`0pre.2`, host as of `packages/host` milestone 2G.
+`0pre.2` for the original observations and `0pre.3` for the fixes noted below,
+host as of `packages/host` milestone 2G.
+
+> **Five entries below were fixed on 2026-11-07 in `0pre.3`.** Each keeps its
+> original text and gains a *Fixed* note, because deleting the entry would lose
+> the diagnosis that stops the defect returning (`AGENTS.md` §17.2 rule 5). The
+> five are §2.1, §2.1.2, §4.1, §4.4, and §4.5. **The original observations were
+> all made on `0pre.2`**, and the fix is verified offline only — see
+> `docs/phase-5-plan.md` §12.5 for the exact boundary. Nothing here is a claim
+> about a live client.
+
 
 This document replaces the placeholder that `docs/architecture.md` §1 and
 `docs/phase-4-plan.md` listed as planned-but-absent. It records failures as they
@@ -27,8 +38,16 @@ failure at any step makes every later step look broken in the same way.
 ```
 
 A symptom in step 5 with no evidence in steps 1–4 is a UI problem. A silent
-step 2 with step 1 present is a **configuration** problem, and this version has
-a defect that makes the documented configuration path unreliable — see §2.1.
+step 2 with step 1 present is a **configuration** problem; step 2's message names
+the source it resolved, which is usually enough to see which one is wrong.
+
+**On `0pre.3`, step 2 is expected to succeed without any manual configuration.**
+The adapter finds the host's own `tokens.json`, so a warning at step 2 now means
+genuinely no token exists anywhere — most often because the host has never been
+started, so it has never written one. Start the host; the adapter retries. On
+`0pre.2` the same warning meant the documented path was broken (§2.1), which is a
+different diagnosis with the same symptom, so check the version before
+concluding.
 
 Two log files matter:
 
@@ -36,6 +55,10 @@ Two log files matter:
 |---|---|
 | Minecraft | `<instance>/minecraft/logs/latest.log` |
 | Host | the `host.log` printed by `npm run phase5:session`, under `.questbridge/phase5/<session>/` |
+
+The single most useful client log line is `[QuestBridge] publishing to …`. Its
+presence means the adapter resolved a token and started the transport; its
+absence means it did not, and the line above it says why.
 
 ---
 
@@ -103,6 +126,19 @@ approved, and deliberately not implemented.
 **Not fixed** as of this writing: the defect is recorded, not patched. Fixing it
 changes mod source and therefore requires a new version (§4).
 
+> **Fixed in `0pre.3` (2026-11-07).** `QuestBridge.java` no longer constructs the
+> client's transport; it registers `ModConfigEvent.Loading` and `.Reloading` on
+> the mod event bus and starts transport from that callback. `QuestBridgeClient`
+> gained `startTransportOnce()`, guarded so the two events cannot start two
+> transports. See `docs/proposals.md` §6.1 and `docs/phase-5-plan.md` §12.
+>
+> **How it will be verified:** the client log must show the adapter *deferring*
+> transport startup rather than warning `no minecraftToken configured`, and
+> `[QuestBridge] publishing to ws://…` must appear. That is a live-client check
+> and has **not** been performed; the offline evidence in
+> `docs/phase-5-plan.md` §12.5 cannot cover it, because the defect was that a
+> NeoForge callback had not fired yet and only the game fires it.
+
 ### 2.1.1 The token does not change between host startups — verified
 
 **Commonly assumed, and wrong.** The token is not regenerated on each host start,
@@ -163,6 +199,26 @@ value and the host answers `401`. Only restarting Minecraft clears it.
 this is *how often* (once, ever). Fixing §2.1 alone would not fix this.
 
 Recorded as `docs/proposals.md` Proposal E2; not implemented.
+
+> **Fixed in `0pre.3` (2026-11-07).** `ConnectionController` now takes a
+> `TokenSupplier` and calls it inside `connect()`, instead of holding
+> `bearerToken` as a `final` field. Each attempt re-resolves, so a regenerated
+> token is picked up on the next reconnect rather than needing a restart. The
+> supplier is wrapped so a throw becomes a warning plus "no token" rather than
+> killing the reconnect loop.
+>
+> **Verified offline.** `TokenRefreshHarness` drives the real controller against
+> a dead port and counts supplier invocations: **3 calls for 3 attempts**, where
+> the old implementation would have called it once for the lifetime of the
+> process. It also confirms a wrong token is refused by a real host (two
+> `rejected upgrade with a missing or invalid token` lines in the host log) and
+> that the correct token still connects and publishes. 7/7 checks pass; the
+> harness and its output are recorded in `docs/testing-logs/2026-11-07-phase5-build-0pre3.md`.
+>
+> **Boundary:** this proves the controller re-resolves and the transport
+> survives a throwing supplier. It does not prove the in-game adapter passes a
+> supplier — that is verified by reading `startTransportOnce()` — and it is not a
+> client observation.
 
 ### 2.2 `Invalid bare key: 'hostUrl'` after hand-editing the config
 
@@ -306,6 +362,25 @@ in particular is unobservable without the dump (§4.2).
 **Status:** not fixed. Adding a chapter log line changes mod source and so
 requires a version bump.
 
+> **Fixed in `0pre.3` (2026-11-07).** `QuestBridgeClient.logSnapshot()` now
+> prints one `[QuestBridge 4B] chapter` line per chapter, carrying `id`, `order`,
+> `title`, `subtitle`, `progress`, and `status`. The mapper's per-chapter output
+> is therefore observable from logs without a `dumpSnapshot` file.
+>
+> These are `4B` lines, so §4.2's rule applies: they are evidence about the
+> published snapshot, unlike the `4A` probe's chapter lines, which report FTB's
+> own values. The two now look similar, which is a real risk of confusion; the
+> prefix is still the only thing distinguishing them, and §4.2 still governs.
+>
+> **How it will be verified:** the next live run reads chapter `progress`,
+> `status`, and `subtitle` from the `4B` lines and compares them against the
+> quest book. **No value has been observed yet on `0pre.3`**, so this entry's own
+> subject — the mapper's chapter values — remains unverified. The gap that is
+> closed is the *instrument*, not the measurement.
+>
+> **The `dumpSnapshot` workaround stays in the runbook.** This fix makes a value
+> visible; it does not make it validatable, which is what the dump does.
+
 ### 4.2 Two log prefixes, two different sources — verified
 
 **Symptom.** You report a chapter value as a mapper result and it is not one.
@@ -398,6 +473,24 @@ state the current report does not express.
 which is tooling rather than mod source, so it does not require a version bump
 (`docs/versioning.md` §3.5).
 
+> **Fixed 2026-11-07** (tooling only; no version impact). Each assertion now
+> declares a `precondition` alongside its `check`, and `not_observed` is a real
+> third state. The two absence assertions require `ledger.reported.ready` with a
+> non-zero chapter count before they can pass, so the empty-ledger run from
+> session 2 now reports both as **not observed** rather than PASS.
+>
+> **Verified by** `scripts/phase5/watch-assertions.test.mjs` (`npm run
+> phase5:watch:test`), which replays the **exact empty ledger** from session 2
+> and asserts that no assertion passes on it, then asserts that a healthy ledger
+> still passes and a genuine auto-pin sighting still fails. 17/17 checks pass.
+> The healthy-ledger and real-violation cases matter as much as the empty one:
+> they prove the fix did not simply disable the checks it guards.
+>
+> The test imports the shipped helpers rather than restating the rule, which
+> `watch.mjs`'s new entry-point guard makes possible — previously `evaluate()`
+> could not be reached without running the whole CLI, which is why this defect
+> had no regression test.
+
 ### 4.5 `phase5:watch` cannot express "not observed" — suspected, tool defect
 
 Related to §4.4. The report has only `passed: true|false`. There is no way to say
@@ -414,6 +507,21 @@ distinguish "condition proven" from "condition never testable". Until then, read
 with `maxChapters: 0` as not observed.
 
 **Status:** recorded, not fixed.
+
+> **Fixed 2026-11-07** (tooling only; no version impact). Assertions now report
+> `pass`, `fail`, or `not_observed`, each with a `reason` when not observed, and
+> the JSON report carries an explicit `conclusions` block with per-state counts
+> and the exit code. `watch.mjs` exits `1` on a failure and `2` when a requested
+> check never became testable, so a run whose checks were never exercised cannot
+> exit `0`.
+>
+> **The interim guidance above is no longer needed.** Reading
+> `observations`/`maxChapters` by hand, and treating a PASS with `maxChapters: 0`
+> as not observed, is now performed by the tool. Do not reintroduce it as a
+> habit; it was a workaround for a defect that no longer exists.
+>
+> Verified by the same 17-check regression test as §4.4, which asserts the
+> tri-state and the exit-code precedence directly.
 
 ---
 
@@ -455,33 +563,44 @@ Session narratives: `docs/testing-logs/2026-11-07-phase5-session-1.md` and
 
 ### 5.3 Defects recorded and not fixed
 
-Every entry below is recorded and **not fixed**, by explicit user instruction to
-document findings before changing anything.
+Every entry below was recorded and **not fixed** at the time, by explicit user
+instruction to document findings before changing anything. Five have since been
+fixed in `0pre.3`, by a later explicit decision: see §2.1, §2.1.2, §4.1, §4.4,
+and §4.5. The table states which is which, so a reader does not have to
+cross-reference five entries to find out what still applies.
 
-| Entry | Kind | Fix cost |
-|---|---|---|
-| §2.1 adapter reads config before it loads | Mod defect | Source change → version bump |
-| §2.1.2 token frozen at startup, reused on every reconnect | Mod defect | Source change → version bump |
-| §2.2 BOM truncates the client config | Configuration trap | Operator fix (already applied) |
-| §4.1 mapper chapter values not logged | Observability gap | Source change → version bump |
-| §4.3 55 chapters vs 54 files | Suspected, unexplained | Unknown; needs a dump to settle |
-| §4.4 `phase5:watch` vacuous PASS | Tool defect | Tooling only, no version bump |
-| §4.5 watch cannot express "not observed" | Tool defect | Tooling only, no version bump |
+| Entry | Kind | Fix cost | Status |
+|---|---|---|---|
+| §2.1 adapter reads config before it loads | Mod defect | Source change → version bump | **Fixed in `0pre.3`** |
+| §2.1.2 token frozen at startup, reused on every reconnect | Mod defect | Source change → version bump | **Fixed in `0pre.3`** |
+| §2.2 BOM truncates the client config | Configuration trap | Operator fix (already applied) | Still applies; the trap is in NightConfig, not our code |
+| §4.1 mapper chapter values not logged | Observability gap | Source change → version bump | **Fixed in `0pre.3`** |
+| §4.3 55 chapters vs 54 files | Suspected, unexplained | Unknown; needs a dump to settle | **Still open** |
+| §4.4 `phase5:watch` vacuous PASS | Tool defect | Tooling only, no version bump | **Fixed** |
+| §4.5 watch cannot express "not observed" | Tool defect | Tooling only, no version bump | **Fixed** |
 
-The mod defects are collected as Proposal E in `docs/proposals.md`, which is
-proposed and **not decided**. Fixing them changes mod source and therefore takes
-the next version under `docs/versioning.md` §3.5. That decision belongs to the
-user.
+§4.3 is the only entry in this table that is both unresolved and unexplained. It
+has not been re-examined since it was recorded, and the `0pre.3` change does not
+touch catalog discovery, so its status is unchanged.
 
-The two tooling defects (§4.4, §4.5) are the cheapest and the most consequential
-to leave: they affect the *evidence* rather than the product, and a run reported
-through them can show a PASS that was never earned.
+The mod defects were collected as Proposal E in `docs/proposals.md`, which was
+**adopted on 2026-11-07** and implemented in `0pre.3`
+(`docs/phase-5-plan.md` §12). The fix is verified offline only; the entries above
+state the boundary for each.
+
+The two tooling defects (§4.4, §4.5) were the cheapest and the most consequential
+to leave, because they affected the *evidence* rather than the product: a run
+reported through them could show a PASS that was never earned. Both are fixed and
+now have a regression test — 17 checks, including the empty-ledger case that
+originally produced the false pass.
 
 **Not in this table, deliberately.** Token expiry and token rotation are settled
 design, not defects. See `docs/local-authentication.md` §1 (R3) and §2.0: tokens
 have no lifetime by intent, deliberate rotation is a documented file-deletion
 procedure, and a `--rotate-tokens` flag is not planned. §2.1.1 and §2.1.2 are
-recorded as behaviour to understand, not as work to schedule.
+recorded as behaviour to understand, not as work to schedule — with the note that
+§2.1.2's *symptom* is now fixed while §2.1.1's *cause* remains by design: a token
+still does not change between ordinary restarts, and that is correct.
 
 ---
 
