@@ -304,6 +304,28 @@ The tooling needs the built packages and the built frontend. Run `npm run build`
 first. The operator's step-by-step runbook is
 `docs/phase-5-verification-guide.md`.
 
+### 7.1.1 Recording what a run finds
+
+`AGENTS.md` §17.2 makes this mandatory: **every finding from a live run goes into
+`docs/troubleshooting.md` in the same session that found it.** A finding that
+lives only in a conversation is lost.
+
+- `docs/troubleshooting.md` — durable diagnosis: symptom, cause, workaround,
+  verified-or-suspected, and whether a fix needs a version bump.
+- `docs/testing-logs/<date>-phase5-session-N.md` — the narrative: what was run,
+  in what order, and what each check showed. Link to the troubleshooting
+  entries; do not duplicate them.
+
+Two habits that matter more than they look:
+
+- **Mark each entry verified or suspected.** Verified means observed on a real
+  client or in real tool output, with the command or log line that shows it.
+- **State what a finding does *not* prove.** A mapper-level observation says
+  nothing about the transport, the host, or the overlay.
+
+Defects are recorded and **not fixed** unless the user asks for the fix; see
+`AGENTS.md` §17.2 rule 2 and §17.4 rule 1.
+
 ---
 
 ## 8. Current limitations

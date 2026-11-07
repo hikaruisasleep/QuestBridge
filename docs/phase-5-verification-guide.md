@@ -14,7 +14,12 @@ host and reads the results.
 > adapter reads its configuration before NeoForge loads it, so
 > `config/questbridge-client.toml` never supplies the token and the host receives
 > nothing. Set `QUESTBRIDGE_MINECRAFT_TOKEN` in the Prism instance's environment
-> instead, or the run will stall exactly as session 1 did.
+> instead, or the run will stall exactly as sessions 1 and 2 did.
+
+> **Add `-Dquestbridge.dumpSnapshot=<path>` on every run.** Without it the
+> mapper's per-chapter values are unobservable (`docs/troubleshooting.md` §4.1)
+> and nothing can be validated against the protocol schema. One flag converts the
+> whole run into a validatable artifact.
 
 ---
 

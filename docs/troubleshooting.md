@@ -207,25 +207,124 @@ synchronization without any action.
 
 ---
 
-## 4. What this session established
+## 4. Verification and observability
 
-The first live Phase 5 session on 2026-11-07 verified, from the client's own
-log, that the adapter loads, reaches FTB readiness, and reads real pack data: 55
-chapters, the five expected ATM10 chapter IDs and titles, one manual pin
-(`Easy Ore Duping`) with two `ftbquests:item` tasks showing `0/1`.
+Findings about what the system can and cannot show you. These cost real time in
+session 2 and are recorded so the next run does not repeat the mistake.
 
-It did **not** verify the network path, because §2.1 prevented publishing. No
-overlay data, no host snapshot, and no `AGENTS.md` §18 item may be claimed on the
-strength of this session.
+### 4.1 The mapper's chapter values are not logged — verified
 
-The two defects found (§2.1 and §2.2) are recorded here and **not fixed**. Both
-touch the reason the run stopped; repairing the adapter defect changes mod source
-and therefore takes the next version under `docs/versioning.md` §3.5. That
-decision belongs to the user.
+**Symptom.** You want to check that `FtbSnapshotMapper` reports chapter
+`progress`, `status`, `subtitle`, and `order` correctly, from logs alone. You
+cannot. The mapper computes them and they never appear.
+
+**Cause.** `QuestBridgeClient.logSnapshot()` prints
+`snapshot.chapters().size()` — a **count only**. The per-chapter values are
+carried in the `QuestSnapshot` and would go on the wire, but no log line prints
+them. Only the quest/task objects are logged in full.
+
+**Consequence.** A log-only run can verify chapter *count* and chapter *IDs*
+(from the 4A probe) but **not** the mapper's per-chapter values. Chapter progress
+in particular is unobservable without the dump (§4.2).
+
+**Workaround.** Launch with
+`-Dquestbridge.dumpSnapshot=<path>`, then read the file with
+`npm run phase5:capture`. The dump contains the full encoded snapshot.
+
+**Status:** not fixed. Adding a chapter log line changes mod source and so
+requires a version bump.
+
+### 4.2 Two log prefixes, two different sources — verified
+
+**Symptom.** You report a chapter value as a mapper result and it is not one.
+
+`latest.log` carries two distinct diagnostic channels, and they are not the same
+data:
+
+| Prefix | Source | On the wire? |
+|---|---|---|
+| `[QuestBridge 4B] SNAPSHOT` | `FtbSnapshotMapper` via `logSnapshot()` | **Yes** — this is the transmitted snapshot |
+| `[QuestBridge 4A] READY` / `chapter ...` | `FtbQuestProbe` | **No** — a debug read only |
+
+The 4A probe reports per-chapter `progress`, `status`, `visible`, and
+`explicitlyHidden`, which is why it is tempting to read chapter progress from it.
+Doing so proves FTB's value, **not** the mapper's.
+
+**Rule:** treat only `4B` lines as evidence about the published snapshot. `4A`
+lines are evidence about FTB's own state.
+
+This mistake was made in session 2 and corrected mid-run; the corrected
+attribution is in `docs/testing-logs/2026-11-07-phase5-session-1.md` §3. It is
+recorded here because the prefix difference is a single character.
+
+### 4.3 The adapter reports 55 chapters; the pack has 54 chapter files — suspected
+
+**Observed.** `chapter_groups.snbt` plus 55 files under
+`config/ftbquests/quests/chapters/`. A parser that reads group, `order_index`,
+and chapter `id` from each file resolves **54** of them; `welcome.snbt` does not
+carry the expected top-level fields.
+
+Meanwhile the adapter reports `chapters=55`, matching the file count.
+
+**Not yet explained.** Two possibilities, neither confirmed:
+
+- `welcome.snbt` is a chapter with an unexpected shape that FTB parses and the
+  ad-hoc parser does not;
+- FTB synthesises or retains a chapter that has no corresponding file.
+
+**Why it matters:** a chapter-count mismatch is a plausible early symptom of a
+catalog-discovery defect. It is recorded rather than dismissed.
+
+**How to settle it:** compare the 55 chapter IDs in a `dumpSnapshot` output
+against the 54 ids parsed from the files. The dump makes the comparison exact.
 
 ---
 
-## 5. Reporting a new failure
+## 5. What the sessions established
+
+### 5.1 Session 1 — 2026-11-07, single-player
+
+Verified from the client's own log that the adapter loads, reaches FTB readiness,
+and reads real pack data: 55 chapters, the five expected ATM10 chapter IDs and
+titles, one manual pin (`Easy Ore Duping`) with two `ftbquests:item` tasks at
+`0/1`. The `[QuestBridge 4B] SNAPSHOT` line proves `FtbSnapshotMapper` ran on a
+live client thread for the first time.
+
+It did **not** verify the network path, because §2.1 prevented publishing. No
+overlay data, no host snapshot, and no `AGENTS.md` §18 item may be claimed from
+this session.
+
+### 5.2 Session 2 — 2026-11-07, single-player, log-only
+
+Continued in the same client without a restart, because §2.1 still blocked the
+transport. The adapter's capture path is independent of the transport, so
+mapper behaviour was still observable. Established:
+
+- Pin addition captured within the reconciliation window (`manualPins` 1 → 2).
+- **Completion-driven unpin works**: completing a pinned quest removed it from
+  the pin set, with no retained completed entry — the check most likely to
+  expose a fabricated objective.
+- Automatic pin ID `1` excluded throughout.
+- Cross-chapter pin ordering is **not** chapter-ID order, not descending, and
+  not alphabetical; two candidate rules remain indistinguishable (see
+  `scripts/check-pin-order.mjs`).
+- Zero client-thread violations in `latest.log` and `stderr_stream.log`.
+
+Not established: the mapper's chapter values (§4.1), protocol-schema validity,
+and anything reaching the host or overlay.
+
+Session narratives: `docs/testing-logs/2026-11-07-phase5-session-1.md` and
+`docs/testing-logs/2026-11-07-phase5-session-2.md`.
+
+### 5.3 Defects recorded and not fixed
+
+§2.1, §2.2, and §4.1 are recorded and **not fixed**. The adapter defect in §2.1
+changes mod source and therefore takes the next version under
+`docs/versioning.md` §3.5. That decision belongs to the user.
+
+---
+
+## 6. Reporting a new failure
 
 Record it here when it is understood, with:
 
@@ -237,3 +336,6 @@ Record it here when it is understood, with:
 
 A screenshot of the overlay is worth keeping when the symptom is visual and no
 log line demonstrates it.
+
+This is required, not optional: `AGENTS.md` §17.2 makes recording a finding part
+of the session that found it.

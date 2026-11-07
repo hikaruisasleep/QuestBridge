@@ -1,11 +1,13 @@
 # Phase 5 Plan — Real ATM10 TTS Integration
 
-**Status:** In progress. The verification tooling is built and tested. Session 1
-(2026-11-07) loaded the adapter in a live client and confirmed the mapper runs,
-but the network path was never exercised because of an adapter configuration
-defect — see `docs/testing-logs/2026-11-07-phase5-session-1.md`. Every item in
-`AGENTS.md` §18 that requires a real client remains unchecked, and no defect has
-been fixed yet.
+**Status:** In progress. The verification tooling is built and tested. Sessions 1
+and 2 (2026-11-07) loaded the adapter in a live client and verified mapper
+behaviour from logs — including completion-driven unpin removal — but the network
+path was never exercised, because of an adapter configuration defect. See
+`docs/testing-logs/2026-11-07-phase5-session-1.md`,
+`docs/testing-logs/2026-11-07-phase5-session-2.md`, and
+`docs/troubleshooting.md` §2.1. Every item in `AGENTS.md` §18 that requires a real
+client remains unchecked, and no defect has been fixed yet.
 **Date:** 2026-11-07
 **Target:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, FTB Quests
 2101.1.30
@@ -23,9 +25,14 @@ been fixed yet.
 | Session | Date | Mode | Outcome |
 |---|---|---|---|
 | [1](testing-logs/2026-11-07-phase5-session-1.md) | 2026-11-07 | single-player | Adapter loaded and read real data; publishing blocked by defect D1. Two defects recorded, none fixed. |
+| [2](testing-logs/2026-11-07-phase5-session-2.md) | 2026-11-07 | single-player | Same process, no restart. Mapper behaviour verified from logs; completion-driven unpin confirmed; chapter fields proved unobservable without a dump. |
 
 A known, unfixed defect that stops a session is **not** a reason to renumber or
-restart a sequence: session 2 continues from the first incomplete check.
+restart a sequence: session 2 continued from the first incomplete check.
+
+Per `AGENTS.md` §17.2, every finding from a session goes into
+`docs/troubleshooting.md`. The session logs carry the narrative; the
+troubleshooting entries carry the durable diagnosis.
 
 ---
 
@@ -121,10 +128,18 @@ mod imports them.
 | `start-session.mjs` | `phase5:session` | either | Starts the real host with the built frontend, loads tokens through the host's own loader, prints the tokenized URLs, writes `session.json`. |
 | `watch.mjs` | `phase5:watch` | agent | Connects as `control`, applies revisions like the frontend, logs every observable change, evaluates named assertions. |
 | `read-capture.mjs` | `phase5:capture` | agent | Reads the adapter's `-Dquestbridge.dumpSnapshot` file — the only direct evidence `FtbSnapshotMapper` produced the values. |
+| `check-pin-order.mjs` | — | agent | Tests observed pin order against candidate ordering rules and prints discriminating candidates. |
+| `find-ordering-probe.mjs` | — | agent | Finds a quest whose ID rank differs from its catalog rank. |
 
-Two existing scripts complete the set: `scripts/validate-snapshot.mjs` validates
-captured messages through the same `parseFrame` path the host uses, and
-`scripts/inspect-state.mjs` prints a single state snapshot for a quick check.
+Two existing scripts complete the set: `scripts/validate-snapshot.mjs`
+(`phase5:validate`) validates captured messages through the same `parseFrame`
+path the host uses, and `scripts/inspect-state.mjs` prints a single state
+snapshot for a quick check.
+
+`check-pin-order.mjs` derives its expectation from the pack's SNBT metadata
+(chapter-group order plus each chapter's `order_index`), which **approximates**
+FTB's runtime `getAllChapters()` order rather than reading it. Results from it
+are therefore reported as "consistent with" a rule, never as proof of it.
 
 ### 4.1 How the pieces fit
 
