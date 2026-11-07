@@ -1,6 +1,6 @@
 # QuestBridge Development
 
-**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A (client-side live FTB probe) is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stage 4B–4F have not started; `docs/phase-4-plan.md` describes the adapter work against the now-complete host and frontend, and names 4B as the next milestone.
+**Status:** Phase 1, Phase 2 (through milestone 2G), and Phase 3 are implemented. `apps/web-app` serves three real routes from a static build: `/overlay`, `/control`, and `/`. Stage 4A is implemented, builds, and is verified against the live client in `docs/testing-logs/2026-11-06-1.log`. Stages 4B–4E are implemented and verified against the real host; Stage 4F (live ATM10 verification) is blocked pending a live client launch. `docs/4f-verification-guide.md` documents the verification steps.
 
 **Date:** 2026-11-06
 **Toolchain:** Node `24.22.1`, npm `11.19.1`, JDK 21, NeoForge `21.1.250`
