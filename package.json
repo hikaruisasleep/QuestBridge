@@ -17,5 +17,9 @@
   "engines": {
     "node": "24.22.1",
     "npm": "11.19.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.4",
+    "postcss-selector-parser": "^7.1.7"
   }
 }
