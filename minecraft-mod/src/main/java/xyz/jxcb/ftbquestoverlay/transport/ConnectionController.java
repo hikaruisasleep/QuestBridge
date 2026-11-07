@@ -26,6 +26,15 @@ import xyz.jxcb.ftbquestoverlay.protocol.ProtocolJson;
  * <p>Coalescing: at most one handoff is pending. A newer capture replaces an
  * older pending one rather than queueing, so a burst of FTB events cannot build
  * an unbounded backlog of stale snapshots to serialize.</p>
+ *
+ * <p><b>The token is re-resolved on every connect attempt.</b> The controller
+ * takes a {@link TokenSupplier}, not a token value, and calls it inside
+ * {@link #connect()}. Resolving the credential once and freezing it meant a
+ * regenerated host token required restarting Minecraft, because the reconnect
+ * path — which is otherwise correct — kept presenting the old value
+ * ({@code docs/troubleshooting.md} section 2.1.2). A supplier makes the two
+ * behaviours consistent: reconnect re-reads everything, including the
+ * credential.</p>
  */
 public final class ConnectionController implements SnapshotSink {
     /** Reconnect delays in milliseconds: 1, 2, 4, 8, 16, 30 s, capped. */
@@ -37,8 +46,22 @@ public final class ConnectionController implements SnapshotSink {
     /** Protocol frame limit; the host rejects anything larger. */
     static final int MAX_MESSAGE_BYTES = 262_144;
 
+    /**
+     * Supplies the token for one connect attempt, re-read on every call.
+     *
+     * <p>Called on the transport thread, never the client thread, so an
+     * implementation may do file I/O. Returning {@code null} or a blank string
+     * means "no credential available"; the controller reports that and backs off
+     * rather than connecting unauthenticated, because the host would refuse it
+     * with a bare 401 and the reason would be lost.</p>
+     */
+    @FunctionalInterface
+    public interface TokenSupplier {
+        String token();
+    }
+
     private final String url;
-    private final String bearerToken;
+    private final TokenSupplier tokenSupplier;
     private final String sessionId;
     private final SnapshotDiffer.Versions versions;
     private final SnapshotDiffer differ = new SnapshotDiffer();
@@ -54,6 +77,41 @@ public final class ConnectionController implements SnapshotSink {
 
     private final AtomicLong backoffIndex = new AtomicLong();
 
+    /** Fingerprint of the last token used, so a change can be logged once. */
+    private volatile String lastTokenFingerprint;
+
+    /**
+     * Calls the supplier, tolerating a supplier that throws.
+     *
+     * <p>A supplier failure is reported and treated as "no token", because the
+     * alternative — letting an exception escape into the scheduler — would kill
+     * the reconnect loop silently and look exactly like a host that is down.</p>
+     */
+    private String resolveToken() {
+        String token;
+        try {
+            token = tokenSupplier.token();
+        } catch (RuntimeException exception) {
+            TransportLog.warn("[QuestBridge] token resolution failed", exception);
+            return null;
+        }
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+
+        // Log the change, never the value. A fingerprint is enough to tell "the
+        // same token" from "a new one", which is the only thing a reader needs.
+        String fingerprint = Integer.toHexString(token.hashCode());
+        String previous = lastTokenFingerprint;
+        if (previous == null) {
+            lastTokenFingerprint = fingerprint;
+        } else if (!previous.equals(fingerprint)) {
+            lastTokenFingerprint = fingerprint;
+            TransportLog.info("[QuestBridge] token changed; using the new value for this attempt");
+        }
+        return token;
+    }
+
     private volatile WebSocketConnection connection;
     private volatile long heartbeatIntervalMs = 5_000;
     private volatile boolean ready;
@@ -62,11 +120,24 @@ public final class ConnectionController implements SnapshotSink {
     private volatile int lastStatusHash;
 
     public ConnectionController(
-            String url, String bearerToken, String sessionId, SnapshotDiffer.Versions versions) {
+            String url,
+            TokenSupplier tokenSupplier,
+            String sessionId,
+            SnapshotDiffer.Versions versions) {
         this.url = url;
-        this.bearerToken = bearerToken;
+        this.tokenSupplier = tokenSupplier;
         this.sessionId = sessionId;
         this.versions = versions;
+    }
+
+    /**
+     * Convenience for callers holding a fixed token, such as the development
+     * harnesses. The mod itself uses the supplier form so the credential is
+     * re-read on reconnect.
+     */
+    public ConnectionController(
+            String url, String bearerToken, String sessionId, SnapshotDiffer.Versions versions) {
+        this(url, () -> bearerToken, sessionId, versions);
     }
 
     public void start() {
@@ -129,6 +200,17 @@ public final class ConnectionController implements SnapshotSink {
             return;
         }
 
+        // Re-resolved on every attempt, deliberately. A token that changed on
+        // the host is picked up on the next reconnect rather than needing a
+        // Minecraft restart (docs/troubleshooting.md section 2.1.2).
+        String token = resolveToken();
+        if (token == null) {
+            // No credential: do not attempt an unauthenticated connect, which
+            // the host would refuse with a 401 that says nothing about the cause.
+            scheduleReconnect("no minecraftToken available");
+            return;
+        }
+
         WebSocketConnection.Listener listener = new WebSocketConnection.Listener() {
             @Override
             public void onText(String text) {
@@ -143,7 +225,7 @@ public final class ConnectionController implements SnapshotSink {
 
         WebSocketConnection opened;
         try {
-            opened = WebSocketConnection.open(url, bearerToken, listener);
+            opened = WebSocketConnection.open(url, token, listener);
         } catch (RuntimeException exception) {
             handshakeFailures.incrementAndGet();
             String reason = exception instanceof WebSocketConnection.ConnectionException

@@ -17,6 +17,7 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 
 import xyz.jxcb.ftbquestoverlay.QuestBridge;
 import xyz.jxcb.ftbquestoverlay.QuestBridgeConfig;
+import xyz.jxcb.ftbquestoverlay.TokenDiscovery;
 import xyz.jxcb.ftbquestoverlay.adapter.ProbeReport;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestProgressProvider;
 import xyz.jxcb.ftbquestoverlay.adapter.QuestSnapshot;
@@ -49,8 +50,11 @@ public final class QuestBridgeClient {
     private final FtbQuestProgressProvider provider = new FtbQuestProgressProvider();
     private final String sessionId = java.util.UUID.randomUUID().toString();
 
-    /** Transport, or null when publishing is disabled or unconfigured. */
+    /** Transport, or null until {@link #startTransportOnce} runs and configures one. */
     private TransactionControllerHolder transportHolder = new TransactionControllerHolder();
+
+    /** Guards {@link #startTransportOnce}: two config events must not start two transports. */
+    private boolean transportStarted;
 
     private long sequence;
     private int ticksSinceProbe;
@@ -66,7 +70,10 @@ public final class QuestBridgeClient {
 
     public QuestBridgeClient() {
         provider.registerListeners();
-        startTransport();
+        // Transport is NOT started here. The config spec is not readable until
+        // NeoForge fires ModConfigEvent, and reading the token before then
+        // silently yields an empty string. See startTransportOnce() and
+        // docs/troubleshooting.md section 2.1.
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, this::onClientTick);
         // World and player transitions invalidate everything previously captured.
         NeoForge.EVENT_BUS.addListener(LevelEvent.Load.class, event -> invalidate("level loaded"));
@@ -77,21 +84,56 @@ public final class QuestBridgeClient {
                 ClientPlayerNetworkEvent.LoggingOut.class, event -> invalidate("logout"));
     }
 
-    private void startTransport() {
+    /**
+     * Starts the transport at most once, after the config spec is readable.
+     *
+     * <p>Called from {@code ModConfigEvent.Loading} and {@code .Reloading}. Both
+     * can fire, so this is guarded: a second transport would present two
+     * publishers to a host that accepts one and would be refused with HTTP
+     * 409.</p>
+     *
+     * <p>The token is <b>not</b> resolved here. A {@link ConnectionController.TokenSupplier}
+     * is passed instead, so each connect attempt re-reads it and a host whose
+     * token was regenerated is picked up on the next reconnect rather than
+     * needing a Minecraft restart ({@code docs/troubleshooting.md} section
+     * 2.1.2).</p>
+     *
+     * @param reason what triggered the start, for the log line
+     */
+    public void startTransportOnce(String reason) {
+        if (transportStarted) {
+            QuestBridge.LOGGER.debug(
+                    "[QuestBridge] transport already started; ignoring {} trigger", reason);
+            return;
+        }
+        transportStarted = true;
+
         if (!QuestBridgeConfig.enabled()) {
             QuestBridge.LOGGER.info("[QuestBridge] publishing disabled by configuration");
             return;
         }
 
-        String url = QuestBridgeConfig.resolveHostUrl();
-        String token = QuestBridgeConfig.resolveMinecraftToken();
-        if (token == null || token.isBlank()) {
+        // Resolve once, for the startup diagnostic only. The controller is given
+        // the supplier, not this value, so every connect attempt re-resolves.
+        // That is the whole of E2, and it is also why an absent token below is
+        // not fatal.
+        TokenDiscovery.Result resolved = QuestBridgeConfig.resolveMinecraftTokenResult();
+        if (!resolved.found()) {
+            // Do NOT give up here. The token is re-resolved on every attempt, so
+            // a host that starts later — writing its tokens.json on first run —
+            // is found by discovery on the next retry without the user touching
+            // anything. Returning early would freeze the answer taken at config
+            // load, which is the same class of mistake as the original defect
+            // (docs/troubleshooting.md section 2.1).
             QuestBridge.LOGGER.warn(
-                    "[QuestBridge] no minecraftToken configured; not publishing. "
+                    "[QuestBridge] no minecraftToken found yet ({}); will keep retrying. "
                             + "Set it in config/questbridge-client.toml, "
-                            + "-Dquestbridge.minecraftToken, or QUESTBRIDGE_MINECRAFT_TOKEN.");
-            return;
+                            + "-Dquestbridge.minecraftToken, or QUESTBRIDGE_MINECRAFT_TOKEN, "
+                            + "or start the host so its tokens.json exists.",
+                    resolved.source());
         }
+
+        String url = QuestBridgeConfig.resolveHostUrl();
 
         SnapshotDiffer.Versions versions = new SnapshotDiffer.Versions(
                 modVersion(),
@@ -100,11 +142,29 @@ public final class QuestBridgeClient {
                 modVersionOf("ftbquests"),
                 modVersionOf("ftbteams"));
 
-        ConnectionController controller =
-                new ConnectionController(url, token, sessionId, versions);
+        ConnectionController controller = new ConnectionController(
+                url,
+                QuestBridgeConfig::resolveMinecraftToken,
+                sessionId,
+                versions);
         transportHolder.controller = controller;
         controller.start();
-        QuestBridge.LOGGER.info("[QuestBridge] publishing to {}", url);
+        // The source is logged; the token never is. This line, or its absence,
+        // is the fastest way to tell a configured adapter from an idle one — the
+        // distinction that cost two Phase 5 sessions.
+        if (resolved.found()) {
+            QuestBridge.LOGGER.info(
+                    "[QuestBridge] publishing to {} (token from {}; {} trigger)",
+                    url,
+                    resolved.source(),
+                    reason);
+        } else {
+            QuestBridge.LOGGER.info(
+                    "[QuestBridge] transport started for {} without a token yet "
+                            + "({} trigger); retrying until one is found",
+                    url,
+                    reason);
+        }
     }
 
     /**
@@ -328,6 +388,27 @@ public final class QuestBridgeClient {
                 snapshot.quests().size(),
                 snapshot.unresolvedPinnedQuestIds().size(),
                 snapshot.capturedAt());
+
+        // Per-chapter values, which were previously not logged at all. The
+        // chapter catalog is where a chapter progress, completion, subtitle, or
+        // ordering defect would first show, and without these lines it was
+        // unobservable from logs: logSnapshot() printed the chapter *count* only,
+        // so the mapper's chapter output could not be verified without a
+        // dumpSnapshot file. See docs/troubleshooting.md section 4.1.
+        //
+        // These are `4B` lines, and section 4.2 is explicit that only `4B` lines
+        // are evidence about the published snapshot. The `4A` probe reports
+        // FTB's values, not the mapper's.
+        for (QuestSnapshot.Chapter chapter : snapshot.chapters()) {
+            QuestBridge.LOGGER.info(
+                    "[QuestBridge 4B] chapter id={} order={} title={} subtitle={} progress={} status={}",
+                    chapter.id(),
+                    chapter.order(),
+                    quote(chapter.title()),
+                    quote(chapter.subtitle()),
+                    chapter.progress(),
+                    chapter.status());
+        }
 
         for (QuestSnapshot.Quest quest : snapshot.quests()) {
             QuestBridge.LOGGER.info(
