@@ -166,9 +166,6 @@ A commit body must say:
   files that matter. Not a restatement of the subject.
 - **Why**, including the alternative rejected and the reason, when a decision was
   taken. This is the part that cannot be recovered from a diff.
-- **What was verified**, and by what command, when the change was tested. Say
-  so plainly when it was not.
-- **What remains open**, if anything does.
 
 Rules:
 
