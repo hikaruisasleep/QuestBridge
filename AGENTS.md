@@ -1622,6 +1622,13 @@ Keep the architecture compatible with:
 
 Do not implement these until the initial product is reliable.
 
+Features that protocol v1 provably cannot carry — because its objects are strict —
+are collected in `docs/protocol-v2-tracker.md`, with the evidence for each and
+whether the user requested it. Recording a feature there is not approval to build
+it: protocol v2 is not approved, and nothing in that document may be implemented
+on the strength of its presence there. Add to it when a request or a deferral
+would need a wire change; do not design v2 piecemeal.
+
 ---
 
 # FINAL PRODUCT PRINCIPLE

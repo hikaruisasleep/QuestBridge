@@ -310,7 +310,8 @@ and both are real rather than theoretical:
   value uses green.
 
 Moving this into `DisplayConfig` is the natural first change for a future
-protocol version.
+protocol version. It is tracked as **V2-1** in `docs/protocol-v2-tracker.md`,
+the only protocol-v2 item the user has explicitly requested.
 
 ### 4.2 UI colours must survive both keys
 

@@ -1258,7 +1258,7 @@ Verified on 2026-11-06. Passing Phase 1 does not establish FTB Quests compatibil
 
 ## 14. Open questions
 
-These are intentionally unresolved and must not be silently decided during implementation:
+These are intentionally unresolved and must not be silently decided during implementation. Items that would require a version change are tracked in `docs/protocol-v2-tracker.md`.
 
 1. **Transport authentication.** Token set, endpoint paths, and origin rules are specified in `docs/local-authentication.md`. The browser token is validated on the WebSocket upgrade, and the role it declares is enforced but not bound to the token (accepted risk R1); origin matching ignores the port (accepted risk R2). The protocol assumes an authenticated role.
 2. **WebSocket paths.** One `/ws` endpoint with a role hello is assumed; separate per-role paths are possible without changing payloads.
@@ -1276,4 +1276,5 @@ These are intentionally unresolved and must not be silently decided during imple
 - `docs/ftb-quests-integration.md` describes how the adapter reads FTB Quests and why progress values mean what they mean.
 - `docs/chapter-pinning.md` specifies chapter pin configuration, validation, persistence, and dashboard behavior.
 - `docs/proposals.md` holds the pending authentication decision.
+- `docs/protocol-v2-tracker.md` collects features that cannot be added to v1, and why.
 - `AGENTS.md` is the product contract; this document does not override it.
