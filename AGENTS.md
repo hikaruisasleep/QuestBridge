@@ -1,4 +1,5 @@
 # QuestBridge
+
 ## AGENTS.md
 
 **Project:** QuestBridge  
@@ -25,12 +26,12 @@ QuestBridge is growing faster than any one person's memory. It is four major
 parts, each with its own language, build, and failure modes, and they are
 developed by different conversations that do not remember each other:
 
-| # | Part | Lives in | Primary document |
-|---|---|---|---|
-| 1 | Minecraft mod (Java adapter) | `minecraft-mod/` | `docs/ftb-quests-integration.md` |
-| 2 | Transport layer (protocol, host, mock) | `packages/protocol`, `packages/host`, `packages/mock-publisher` | `docs/protocol.md` |
-| 3 | Display (the OBS overlay) | `apps/web-app/src/routes/overlay` | `docs/web-frontend.md` |
-| 4 | Control panel (the dashboard) | `apps/web-app/src/routes/control` | `docs/web-frontend.md`, `docs/chapter-pinning.md` |
+| #   | Part                                   | Lives in                                                        | Primary document                                  |
+| --- | -------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------- |
+| 1   | Minecraft mod (Java adapter)           | `minecraft-mod/`                                                | `docs/ftb-quests-integration.md`                  |
+| 2   | Transport layer (protocol, host, mock) | `packages/protocol`, `packages/host`, `packages/mock-publisher` | `docs/protocol.md`                                |
+| 3   | Display (the OBS overlay)              | `apps/web-app/src/routes/overlay`                               | `docs/web-frontend.md`                            |
+| 4   | Control panel (the dashboard)          | `apps/web-app/src/routes/control`                               | `docs/web-frontend.md`, `docs/chapter-pinning.md` |
 
 Four parts, one protocol contract between them, and no shared memory. The
 documents **are** the shared memory. Scope growth does not merely make
@@ -38,7 +39,7 @@ documentation useful; it makes it load-bearing. Past a certain size, an
 undocumented project is not a project — it is a series of unrelated incidents
 that happen to share a directory.
 
-**The failure mode this section exists to prevent is development hell:** work
+**The failure mode this section exists to prevent development hell:** work
 that is redone because nobody recorded it was done, decisions re-litigated
 because the reasoning was never written, defects fixed twice because the first
 fix was never noted, and features half-built because two conversations each
@@ -70,15 +71,24 @@ to work that was **not** done:
 Documentation is not a summary written after the fact. To count, a record must
 let a reader who was not present **act**:
 
-1. **What changed**, concretely — files, behaviour, wire format, or version.
-2. **Why**, including the alternatives rejected and the reason. A decision with
+1. **Why**, including the alternatives rejected and the reason. A decision with
    no recorded alternative is not a decision, it is a preference.
-3. **What was verified**, and how — the command run, the test passed, the log
+2. **What was verified**, and how — the command run, the test passed, the log
    line observed. Against what was merely assumed (`AGENTS.md` §17.2).
-4. **What it does not cover** — the boundary of the claim.
-5. **What remains open** — the loose ends, named rather than implied.
+3. **What it does not cover** — the boundary of the claim.
+4. **What remains open** — the loose ends, named rather than implied.
 
 A record missing any of these is a note, not documentation.
+
+**"What changed" is deliberately not on this list.** A file-by-file account of
+every edit is the commit message's job. Duplicating it in prose bloats documents
+until nobody reads them, and it duplicates a record Git already keeps exactly.
+Documentation carries what a diff cannot: the reasoning, the evidence, the
+boundary, and the open ends.
+
+That delegation is only safe because commit messages are required to carry a
+body — see §0.5.1. Do not read this section as licence to leave a change
+undescribed anywhere.
 
 ## 0.3 Suggestions and feature requests
 
@@ -105,23 +115,23 @@ project has lost track of requests before, and §0 exists because of it.
 Choosing the wrong file is how documents rot. Use this table rather than
 inventing a location:
 
-| Kind of information | Document |
-|---|---|
-| Project mission, requirements, rules for agents | `AGENTS.md` (this file) |
-| Component boundaries, data ownership, system shape | `docs/architecture.md` |
-| The wire contract between parts | `docs/protocol.md` |
-| What FTB Quests actually exposes, and its limits | `docs/ftb-quests-integration.md` |
-| Chapter pin rules and the dashboard's selection model | `docs/chapter-pinning.md` |
-| Local tokens, origins, and the security boundary | `docs/local-authentication.md` |
-| The frontend's routes, failure states, and motion rules | `docs/web-frontend.md` |
-| Build, test, and run commands | `docs/development.md` |
-| Version policy | `docs/versioning.md` |
-| Features v1 cannot carry | `docs/protocol-v2-tracker.md` |
-| Defects, traps, symptoms, workarounds | `docs/troubleshooting.md` |
-| Phase scope, milestones, acceptance criteria | `docs/phase-N-plan.md` |
-| How to run a live verification | `docs/phase-5-verification-guide.md` |
-| What a specific run actually did | `docs/testing-logs/<date>-<name>.md` |
-| A proposal awaiting a decision | `docs/proposals.md` |
+| Kind of information                                     | Document                             |
+| ------------------------------------------------------- | ------------------------------------ |
+| Project mission, requirements, rules for agents         | `AGENTS.md` (this file)              |
+| Component boundaries, data ownership, system shape      | `docs/architecture.md`               |
+| The wire contract between parts                         | `docs/protocol.md`                   |
+| What FTB Quests actually exposes, and its limits        | `docs/ftb-quests-integration.md`     |
+| Chapter pin rules and the dashboard's selection model   | `docs/chapter-pinning.md`            |
+| Local tokens, origins, and the security boundary        | `docs/local-authentication.md`       |
+| The frontend's routes, failure states, and motion rules | `docs/web-frontend.md`               |
+| Build, test, and run commands                           | `docs/development.md`                |
+| Version policy                                          | `docs/versioning.md`                 |
+| Features v1 cannot carry                                | `docs/protocol-v2-tracker.md`        |
+| Defects, traps, symptoms, workarounds                   | `docs/troubleshooting.md`            |
+| Phase scope, milestones, acceptance criteria            | `docs/phase-N-plan.md`               |
+| How to run a live verification                          | `docs/phase-5-verification-guide.md` |
+| What a specific run actually did                        | `docs/testing-logs/<date>-<name>.md` |
+| A proposal awaiting a decision                          | `docs/proposals.md`                  |
 
 **Session narrative and durable knowledge are different documents.** A run log
 records what happened once; a troubleshooting entry records what is true from
@@ -139,6 +149,38 @@ then on. A finding belongs in the latter, linked from the former
 - Anything that exists only in a conversation, a terminal scrollback, or an
   agent's context window.
 - A document that contradicts another and leaves the reader to guess which wins.
+
+### 0.5.1 Commit messages must carry a body
+
+Because §0.2 delegates "what changed" to the commit history, that history has to
+be worth delegating to. **Every commit message must include body text. A subject
+line on its own is not acceptable.**
+
+The subject is a label. The body is the record. A reader running
+`git log` or `git blame` six months from now sees only the message; if it is one
+line, they learn that something happened and nothing about what or why.
+
+A commit body must say:
+
+- **What changed**, in concrete terms — behaviour, wire format, version, or the
+  files that matter. Not a restatement of the subject.
+- **Why**, including the alternative rejected and the reason, when a decision was
+  taken. This is the part that cannot be recovered from a diff.
+- **What was verified**, and by what command, when the change was tested. Say
+  so plainly when it was not.
+- **What remains open**, if anything does.
+
+Rules:
+
+- A one-line commit is a defect, not a style choice.
+- `git commit -m "fix: thing"` with no body violates this section.
+- A body that only repeats the subject violates it too.
+- Do not rewrite history to repair an old message; write the next one properly
+  and record the correction in the relevant document if it mattered.
+
+This is the one place where a commit message **is** documentation. It does not
+replace the document entry — a commit body cannot be found by reading the docs —
+but the document entry no longer has to restate the diff, because this does.
 
 ## 0.6 The test
 
@@ -682,11 +724,7 @@ interface Chapter {
   subtitle?: string;
   order: number;
   progress: number | null;
-  status:
-    | "available"
-    | "locked"
-    | "completed"
-    | "unknown";
+  status: "available" | "locked" | "completed" | "unknown";
 }
 ```
 
@@ -752,12 +790,7 @@ interface Task {
 ## 7.5 Progress
 
 ```typescript
-type QuestStatus =
-  | "locked"
-  | "available"
-  | "in_progress"
-  | "completed"
-  | "unknown";
+type QuestStatus = "locked" | "available" | "in_progress" | "completed" | "unknown";
 
 interface QuestProgress {
   status: QuestStatus;
@@ -767,11 +800,7 @@ interface QuestProgress {
 }
 
 interface TaskProgress {
-  status:
-    | "incomplete"
-    | "in_progress"
-    | "completed"
-    | "unknown";
+  status: "incomplete" | "in_progress" | "completed" | "unknown";
 
   current?: number;
   target?: number;
@@ -1039,11 +1068,11 @@ Do not duplicate progression calculations in Svelte components.
 Create reusable selectors for:
 
 ```typescript
-getChapterCatalog()
-getPinnedChapters()
-getChapterProgress(chapterId)
-getManuallyPinnedQuests()
-getConnectionStatus()
+getChapterCatalog();
+getPinnedChapters();
+getChapterProgress(chapterId);
+getManuallyPinnedQuests();
+getConnectionStatus();
 ```
 
 ---
@@ -1251,13 +1280,7 @@ The overlay must:
 Use explicit connection states:
 
 ```typescript
-type ConnectionStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "synchronizing"
-  | "ready"
-  | "error";
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "synchronizing" | "ready" | "error";
 ```
 
 Handle:
@@ -1432,7 +1455,8 @@ Rules:
 
 ### Commit hygiene
 
-- Use an imperative commit subject and include a body explaining what and why when needed.
+- Use an imperative commit subject and **always include a body** explaining what
+  and why. A subject alone is a defect, not a style choice (`AGENTS.md` §0.5.1).
 - Do not commit generated build output, dependency caches, secrets, tokens, or local configuration.
 - Do not rewrite history or force-push unless the user explicitly requests it.
 
@@ -1481,10 +1505,10 @@ Rules:
 2. **Do not fix a defect the user has asked you only to document.** Record it,
    state the workaround, and wait. This is the user's standing preference:
    understand first, change later, in a deliberate step.
-3. **A finding is not a claim.** Mark it *verified* (observed on a real client
+3. **A finding is not a claim.** Mark it _verified_ (observed on a real client
    or in real tool output, with the command or log line that shows it) or
-   *suspected* (reasoned from code). Never blur the two.
-4. **Record the scope of what a finding does *not* prove.** A mapper-level
+   _suspected_ (reasoned from code). Never blur the two.
+4. **Record the scope of what a finding does _not_ prove.** A mapper-level
    observation does not prove the transport, the host, or the overlay. State
    the boundary explicitly.
 5. **When a defect is fixed, update its entry rather than deleting it** — note
@@ -1518,7 +1542,7 @@ are in `docs/phase-5-verification-guide.md`. Rules that follow from it:
 - **A disagreement between the user's observation and the agent's reading is a
   finding**, not an inconvenience. Record it per §17.2 before explaining it.
 - **Never claim a visual result from state data**, and never claim a check the
-  user did not actually exercise — that is *not observed*, not *pass*.
+  user did not actually exercise — that is _not observed_, not _pass_.
 
 ## 17.4 General behavioural preferences
 
@@ -1576,14 +1600,13 @@ Quests compatibility, and the closing rule below forbids marking the release
 complete while only mock mode works. A checked box is a claim, so checking one on
 mock evidence would contradict both.
 
-What *is* implemented and verified against the mock publisher and a scripted
+What _is_ implemented and verified against the mock publisher and a scripted
 protocol-v1 publisher — the monorepo build, host, frontend routes, chapter pinning,
 and chroma keying — is recorded in `docs/phase-2-plan.md` §17 and
 `docs/phase-3-plan.md` §14, which carry the precise evidence and its scope. Those
 records are separate from this checklist on purpose.
 
 Do not mark the release complete if only mock mode works.
-
 
 ---
 
