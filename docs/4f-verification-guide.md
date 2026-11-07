@@ -9,24 +9,26 @@ and the Prism instance still holds the Stage 4A jar.
 
 ## Prerequisites
 
-1. **Merge `feat/phase-4b-snapshot` onto `master`** — ensure commit `85b26bc`
-   is the head of `master`. This brings:
-   - The adapter code (`minecraft-mod/adapter`, `minecraft-mod/transport`, etc.)
-   - The versioning policy fix (`docs/versioning.md`, `docs/phase-4-plan.md` §3.4)
-   - The protocol fixture (`packages/protocol/fixtures/atm10-recorded-snapshot.json`)
-   - The `CapturePlan.java` and `DifferHarness.java` test harnesses
+1. **Verify branch and clean state** — before touching anything:
+   - You are on the `master` branch (`git branch` shows `* master`)
+   - Your working tree is clean (`git status` shows nothing uncommitted)
+   - Your local `master` is up-to-date with the remote (`git pull origin master`)
+   - The phase 4B–4E adapter code is already present and committed in the tree
 
 2. **Verify the build** — from the workspace root:
-   ```bash
+   ```powershell
+   $nodeDir = "$env:APPDATA\fnm\node-versions\v24.22.1\installation"
+   $env:Path = "$nodeDir;$env:Path"
    ./gradlew :minecraft-mod:build   # should exit 0
    npm test                          # all 534 tests should pass
    ```
 
-3. **Inspect the Prism instance** — the running instance should be at:
+3. **Inspect the Prism instance** — the instance mods directory:
    ```
    D:\Games\Minecraft\PrismLauncher\instances\All the Mods 10- To the Sky\minecraft\mods\
    ```
-   It must contain `questbridge-0pre.1.jar`. This file is **not** the correct one.
+   It must contain `questbridge-0pre.1.jar`. That file is **not** the correct one —
+   it needs to be replaced with `questbridge-0pre.2.jar`.
 
 4. **Download `questbridge-0pre.2.jar`** — it should be at:
    ```
@@ -93,26 +95,25 @@ logs once and stays idle.
    # Change to the QuestBridge workspace
    cd "D:\QuestBridge"
 
-   # Write the config file (create if missing)
+   # Create config directory if missing
    if (-not (Test-Path "config")) { New-Item -ItemType Directory -Path config }
-   Set-Content -Path config\questbridge-client.toml -Value "
+
+   # Write the config file
+   Set-Content -Path config\questbridge-client.toml -Value @"
    [client]
-   minecraft_token = \"<TOKEN>\"
-   "
-   # Replace <TOKEN> with the actual value you extracted
+   minecraft_token = "<TOKEN>"
+   "@
    ```
 
-   If the config already exists, just update the `minecraft_token` line.
+   Replace `<TOKEN>` with the actual value you extracted.
 
-   If you prefer the command-line route instead:
-
+   Alternatively, use the command-line flag (only works when starting the client
+   manually, not through Prism's normal launch flow):
    ```bash
    java -Dquestbridge.minecraftToken="<TOKEN>" -jar minecraft-mod\build\libs\questbridge-0pre.2.jar
    ```
 
-   Note: the `-D` flag only works when starting the client manually, not through
-   Prism's normal launch flow. For Prism, the `config/questbridge-client.toml`
-   approach is preferred.
+   For Prism, the `config/questbridge-client.toml` approach is preferred.
 
 ---
 
@@ -122,7 +123,9 @@ The host is a Node.js process that listens on `ws://127.0.0.1:8765/ws` by defaul
 
 **From the QuestBridge workspace:**
 
-```bash
+```powershell
+$nodeDir = "$env:APPDATA\fnm\node-versions\v24.22.1\installation"
+$env:Path = "$nodeDir;$env:Path"
 npm run host
 ```
 
@@ -197,8 +200,7 @@ If the overlay is blank, check:
 ## Step 6 — Run the verification checklist
 
 Once the overlay appears, the user (or agent) should confirm each item below.
-These map directly to the Definition of Done in `AGENTS.md` §18 and the Phase 4 plan
-§8:
+These map directly to the Definition of Done in `AGENTS.md` §18:
 
 | Checklist item | What to verify |
 |----------------|----------------|
@@ -223,7 +225,7 @@ These map directly to the Definition of Done in `AGENTS.md` §18 and the Phase 4
 | Client-only installation is verified | The jar in the Prism instance is `questbridge-0pre.2.jar` |
 | Single-player integration is tested | Load a single-player world, verify overlay works |
 | Multiplayer integration is tested | Connect to a multiplayer server, verify overlay works |
-| **Actual ATM10 TTS progression is verified** | This is the final item — the overlay reflects real FTB Quests data from the running game |
+| **Actual ATM10 TTS progression is verified** | The overlay reflects real FTB Quests data from the running game |
 
 If every item is checked, **the Phase 4 objective is complete**.
 
@@ -233,10 +235,7 @@ If every item is checked, **the Phase 4 objective is complete**.
 
 After all checks pass:
 
-1. **Update the documented version** in `docs/versioning.md` (if it's not already `0pre.2`):
-   ```markdown
-   Current documented version: `0pre.2`
-   ```
+1. **Update the documented version** in `docs/versioning.md` (confirm it's `0pre.2`).
 
 2. **Optionally update AGENTS.md** §18 boxes (these are claims; checking them
    requires the live run above).
@@ -278,7 +277,7 @@ log excerpts before proceeding.
 
 ## Post-Completion Checklist for the Agent
 
-After the user confirms everything works, do the following:
+After the user confirms everything works:
 
 - [ ] Verify `./gradlew build` → exit 0 on the merged master.
 - [ ] Verify `npm test` → all 534 tests pass.
