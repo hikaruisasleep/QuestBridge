@@ -1,7 +1,7 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposal C adopted with Phases 0, 1, 2, and 3 applied; Proposal D applied; Proposal B **adopted and simplified to two tokens on 2026-11-06**
-**Date:** 2026-11-06  
+**Status:** Proposal A approved and applied; Proposal C adopted with Phases 0, 1, 2, and 3 applied; Proposal D applied; Proposal B **adopted and simplified to two tokens on 2026-11-06**; Proposal E **adopted 2026-11-07 and implemented in `0pre.3`**
+**Date:** 2026-11-06 (Proposal E decision and §6.1 added 2026-11-07)
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.  
 **Phase 5 prerequisite:** The target pack is now installed locally as a Prism Launcher instance (ATM10SKY 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250). The Phase 5 exit criterion no longer depends on obtaining a pack installation; it depends on running the adapter against this one. See `docs/ftb-quests-integration.md` sections 1.1-1.3.  
 
@@ -10,7 +10,11 @@ Approved and applied so far:
 - NeoForge alignment: `21.1.265` → `21.1.250`.
 - Proposal A: the Java project was moved into `minecraft-mod/`.
 
-The remaining proposals are B–D.
+**All proposals A–E have been decided.** A, D, and E are applied; B and C are
+adopted, with B's normative design in `docs/local-authentication.md` and C's
+Phase 0 already applied. The per-proposal status is in §7; this line exists
+because it previously read "the remaining proposals are B–D", which was stale
+both in its range and in its implications.
 
 ---
 
@@ -414,9 +418,11 @@ Adopt. This is low-risk prerequisite work for any implementation phase.
 
 ## 6. Proposal E — Runtime token discovery and config-load ordering
 
-**Status:** Proposed 2026-11-07. **Not approved. Not implemented.** The user has
-explicitly asked that this be recorded rather than built, so the findings below
-are documented and the code is untouched.
+**Status:** **Adopted 2026-11-07** and implemented in `0pre.3`. All three parts —
+E1, E2, and discovery — were approved in one decision; see §6.1 for the decision
+record and the two points where the sketch was tightened during implementation.
+The text below is the proposal **as submitted**, kept unaltered so the reasoning
+that led to the decision survives. Read §6.1 for what was actually built.
 **Origin:** The first two live Phase 5 sessions. The adapter never published,
 because it read its configuration before NeoForge loaded it
 (`docs/troubleshooting.md` §2.1). Diagnosing that produced a second question:
@@ -580,8 +586,66 @@ Phase 5 has produced no transport evidence. Adopt **E2 and discovery together**
 second, since E2 alone has little value without a reason for the token to change,
 and discovery is the reason.
 
-The user has asked to hold implementation and record findings only. This proposal
-therefore remains a proposal.
+The user asked, at the time this proposal was written, that implementation be held
+and findings recorded only; that instruction was superseded on 2026-11-07 by the
+decision in §6.1. The paragraph is kept because the record of *why* nothing was
+built for two sessions is part of the history.
+
+### 6.1 Decision — 2026-11-07: adopted in full
+
+**Adopted as recommended, and implemented in the same session.** E1, E2, and
+runtime token discovery were approved together rather than in the proposed two
+steps, because Phase 5 cannot produce transport evidence until all three land and
+they share one rebuild, one jar swap, and one re-run.
+
+The decision is recorded here; the implementation plan and its verification are
+in `docs/phase-5-plan.md` §12.
+
+**What was built, against what the sketch proposed.** The sketch above is a
+sketch, not a design, and two points were settled during implementation:
+
+1. **The trigger is `ModConfigEvent.Loading`, with `Reloading` as well.** The
+   sketch proposed registering `Loading` and `Reloading`; both are wired. The
+   adapter starts transport from the callback rather than from the constructor,
+   which is the whole of E1.
+
+2. **Discovery is the *last* resort, not the first.** The sketch listed
+   precedence as "system property, then environment variable, then discovered
+   file, then the configured value", which leaves a hand-edited token in the
+   config file as the final answer. Implementation puts the **configured file
+   value ahead of discovery** instead. The reason is that a user who has
+   deliberately written a token into `config/questbridge-client.toml` is
+   expressing an intent, and silently overriding it with a different host's token
+   would be a worse failure than the tedium discovery exists to remove. Discovery
+   is the fallback when nothing is configured — which is the case the two blocked
+   Phase 5 sessions were actually in. Precedence is recorded normatively in
+   `docs/ftb-quests-integration.md` §11.1.
+
+   The rejected alternative is the sketched order. It is defensible — an
+   explicitly discovered token is more likely to be current than a stale
+   hand-copied one — but it makes the config file's `minecraftToken` field
+   un-honourable, and a configuration value that cannot be relied on is worse
+   than no configuration value.
+
+3. **Discovery reads the host's own token file, at the host's documented paths**,
+   mirroring `packages/host/src/paths.ts` including `QUESTBRIDGE_CONFIG_DIR`. The
+   security reasoning in the sketch holds and was re-examined: this is a
+   same-user, same-machine read of a file that was already readable by every
+   process running as this user. It does not add a trust boundary and does not
+   weaken `minecraftToken`. What it does change is stated plainly in
+   `docs/local-authentication.md` §2.3: **the credential becomes discoverable
+   without configuration, which is its purpose.**
+
+**Scope also adopted, because the same rebuild carries them anyway.** Two
+recorded defects were fixed in this build rather than deferred, since neither is
+separable from the jar being rebuilt:
+
+- `docs/troubleshooting.md` §4.1 — the mapper's chapter values were never logged.
+- `docs/troubleshooting.md` §4.4 and §4.5 — `phase5:watch` reported vacuous PASS
+  results and could not express "not observed". Tooling only; no version impact
+  of its own.
+
+Both are recorded as fixed, with evidence, in `docs/troubleshooting.md`.
 
 ---
 
@@ -593,7 +657,7 @@ therefore remains a proposal.
 | B | Cookie-after-token-redirect authentication with three roles | Adopt | Adopted, then simplified to two tokens (2026-11-06) |
 | C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
 | D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
-| E | Runtime token discovery and config-load ordering | Adopt E1, then E2 + discovery | **Proposed; not decided** |
+| E | Runtime token discovery and config-load ordering | Adopt E1, then E2 + discovery | **Adopted 2026-11-07 in full; implemented in `0pre.3`** |
 
 A decision can be:
 
@@ -602,4 +666,8 @@ A decision can be:
 - **Keep deferred** — leave the current state and revisit later.
 - **Reject** — do not apply.
 
-Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation. Proposal E is recorded but not decided; it awaits authorisation, and the user has asked that findings be documented before any fix.
+Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.
+
+**Proposal E was adopted on 2026-11-07, in full, and is implemented in `0pre.3`.** The decision and the three points where implementation tightened the sketch are in §6.1; the plan, the security restatement, and the verification obligations it creates are in `docs/phase-5-plan.md` §12, `docs/local-authentication.md` §2.3, and `docs/ftb-quests-integration.md` §11.1. **No proposal remains undecided.**
+
+The `0pre.3` build invalidates the session-1 and session-2 observations only in the sense that they describe `0pre.2`: the mapper behaviour they established was measured on code that this change does not touch, and `docs/phase-5-plan.md` §12.4 records precisely which of those findings remain valid and which must be re-taken.
