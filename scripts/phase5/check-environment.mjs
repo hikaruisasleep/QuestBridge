@@ -40,8 +40,15 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** The version the adapter currently builds as. Phase 5 does not bump it. */
-const EXPECTED_MOD_VERSION = "0pre.2";
+/**
+ * The version the adapter currently builds as.
+ *
+ * Updated for `0pre.3`, which the Proposal E fixes produced
+ * (`docs/proposals.md` section 6.1). A stale value here would make this check
+ * warn about the *correct* jar and stay quiet about the wrong one — the opposite
+ * of its job — so it moves with the mod version and with nothing else.
+ */
+const EXPECTED_MOD_VERSION = "0pre.3";
 
 /** Pack facts verified in `docs/ftb-quests-integration.md` §2. */
 const EXPECTED_CHAPTER_IDS = [
@@ -278,18 +285,37 @@ function checkInstance(instanceOption, hostConfig) {
 
   const clientConfig = join(minecraftDir, "config", "questbridge-client.toml");
   if (!existsSync(clientConfig)) {
-    fail(
+    // On 0pre.2 a missing config was fatal: the adapter had nowhere to read a
+    // token, and the load-order defect meant the file would not have worked even
+    // if it existed. On 0pre.3 the adapter discovers the host's own tokens.json,
+    // so this is a warning rather than a failure — the run can work without it.
+    warn(
       area,
       `no client config at ${clientConfig}`,
-      "Create it and set minecraftToken (docs/phase-5-verification-guide.md §3). Without it the adapter logs once and stays idle.",
+      "Not fatal on 0pre.3: the adapter discovers the host's tokens.json. " +
+        "Create it anyway to pin hostUrl (docs/phase-5-verification-guide.md §2.2b).",
     );
   } else {
     const text = readFileSync(clientConfig, "utf8");
     const match = /^\s*minecraftToken\s*=\s*"([^"]*)"/m.exec(text);
     if (match === null || match[1].trim() === "") {
-      fail(area, "client config has an empty minecraftToken", "Paste the host's minecraftToken into the client config.");
+      // An empty token is no longer a failure either, for the same reason: the
+      // adapter falls through to discovery. Say so, because the previous message
+      // told the user to paste a token and that instruction is now optional.
+      warn(
+        area,
+        "client config has an empty minecraftToken",
+        "Fine on 0pre.3 — the adapter will discover the host's token. Set it only to override discovery.",
+      );
     } else if (hostConfig.minecraftToken !== undefined && match[1] !== hostConfig.minecraftToken) {
-      fail(area, "client minecraftToken does not match the host's tokens.json", "The host will refuse the publisher with HTTP 401.");
+      // This one stays fatal. A configured-but-wrong token outranks discovery
+      // (docs/ftb-quests-integration.md §11.1), so it would be used and refused
+      // with a 401 — discovery would never get a chance to correct it.
+      fail(
+        area,
+        "client minecraftToken does not match the host's tokens.json",
+        "The host will refuse the publisher with HTTP 401. A configured token outranks discovery, so clear it to fall back to the discovered one.",
+      );
     } else {
       ok(area, "client minecraftToken matches the host");
     }
@@ -302,6 +328,17 @@ function checkInstance(instanceOption, hostConfig) {
     const enabled = /^\s*enabled\s*=\s*(\w+)/m.exec(text)?.[1];
     if (enabled === "false") {
       fail(area, "client config has enabled = false", "Publishing is off; the in-game probe still runs but nothing reaches the host.");
+    }
+
+    const discover = /^\s*discoverToken\s*=\s*(\w+)/m.exec(text)?.[1];
+    if (discover === "false" && (match === null || match[1].trim() === "")) {
+      // Discovery off and no configured token means the adapter has no path to a
+      // credential at all. This is the one combination that cannot publish.
+      fail(
+        area,
+        "discoverToken = false with no configured minecraftToken",
+        "The adapter has no credential in any source. Set minecraftToken, or remove discoverToken = false.",
+      );
     }
   }
 
