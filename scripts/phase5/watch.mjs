@@ -28,10 +28,21 @@
  * Exit codes:
  *   0  every requested assertion passed
  *   1  an assertion failed
- *   2  the observer could not run
+ *   2  the observer could not run, or a check was requested but never became testable
+ *
+ * A note on the third state. Each assertion reports `pass`, `fail`, or
+ * `not_observed`, and `not_observed` is what an unexercised check gets. This
+ * matters most for the absence assertions (`no-auto-pin`,
+ * `objectives-partition`): with no data, neither bad thing has been seen, so a
+ * naive implementation reports them as passing. They passed because *nothing was
+ * checked*, which is a claim the run cannot support
+ * (`docs/troubleshooting.md` section 4.4). Every assertion here therefore
+ * declares the precondition that makes it meaningful, and returns `not_observed`
+ * below it.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { WebSocket } from "ws";
 
@@ -363,35 +374,148 @@ function observe(ledger, state, context, resolvedEverSeen) {
 
 // ---- assertions ----------------------------------------------------------
 
+/**
+ * Result states. `notObserved` is deliberately distinct from `false`: a check
+ * that was never exercised is not a failure, and it is certainly not a pass.
+ */
+const NOT_OBSERVED = "not_observed";
+const PASS = "pass";
+const FAIL = "fail";
+
+/**
+ * The precondition that makes an assertion meaningful, checked before the
+ * assertion itself.
+ *
+ * `ready` is the load-bearing one. Without a publisher that reached `ready` with
+ * a non-empty catalog, every assertion about the *content* of the state is
+ * untestable: an absence assertion trivially holds, and a positive assertion
+ * trivially fails. Both answers would be wrong, and the absence case is the
+ * dangerous one because it reads as success.
+ */
+function hasData(ledger) {
+  return ledger.reported.ready && ledger.maxChapters > 0;
+}
+
+/**
+ * Every assertion is `{ precondition, check }`.
+ *
+ * `precondition` answers "was this check testable at all"; `check` answers "did
+ * the condition hold". A check whose precondition is unmet is reported as
+ * `not_observed` without ever consulting `check`, so an absence assertion cannot
+ * pass on a dead connection.
+ */
 const ASSERTIONS = {
-  ready: (ledger) => ledger.reported.ready,
-  "no-auto-pin": (ledger) => !ledger.reported.sawAutoPin,
-  "objectives-partition": (ledger) => !ledger.reported.sawPartitionViolation,
-  "chapter-mapping": (ledger) => ledger.expectedChaptersResolved.length === EXPECTED_CHAPTER_IDS.length,
-  "numeric-task": (ledger) => ledger.reported.sawNumericTask,
-  "null-or-complete": (ledger) =>
-    ledger.reported.sawCompletedChapter ||
-    ledger.reported.sawNullProgressChapter ||
-    ledger.reported.sawZeroProgressChapter,
-  "pin-change": (ledger) => ledger.reported.pinSetChanged,
-  "progress-change": (ledger) => ledger.reported.progressChanged,
-  reconnect: (ledger) => ledger.reported.reconnectAfterReady,
-  "world-change": (ledger) => ledger.reported.worldChanged,
-  "team-change": (ledger) => ledger.reported.teamChanged,
-  "after-pin-addition": (ledger) => ledger.reported.addedPinAppeared,
-  "after-completion": (ledger) => ledger.disappearedIds.size > 0,
-  "single-player": (ledger) => ledger.reported.sawIntegratedServer,
-  multiplayer: (ledger) => ledger.reported.sawRemoteServer,
+  ready: {
+    precondition: () => true,
+    check: (ledger) => ledger.reported.ready,
+  },
+  "no-auto-pin": {
+    // Requires observed objectives: "the automatic pin never appeared" is only
+    // meaningful once a manual pin set has actually been read.
+    precondition: hasData,
+    check: (ledger) => !ledger.reported.sawAutoPin,
+  },
+  "objectives-partition": {
+    // Requires observed objectives, for the same reason. With no objectives the
+    // partition cannot be violated, so a PASS would be vacuous.
+    precondition: hasData,
+    check: (ledger) => !ledger.reported.sawPartitionViolation,
+  },
+  "chapter-mapping": {
+    precondition: hasData,
+    check: (ledger) => ledger.expectedChaptersResolved.length === EXPECTED_CHAPTER_IDS.length,
+  },
+  "numeric-task": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.sawNumericTask,
+  },
+  "null-or-complete": {
+    precondition: hasData,
+    check: (ledger) =>
+      ledger.reported.sawCompletedChapter ||
+      ledger.reported.sawNullProgressChapter ||
+      ledger.reported.sawZeroProgressChapter,
+  },
+  "pin-change": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.pinSetChanged,
+  },
+  "progress-change": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.progressChanged,
+  },
+  reconnect: {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.reconnectAfterReady,
+  },
+  "world-change": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.worldChanged,
+  },
+  "team-change": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.teamChanged,
+  },
+  "after-pin-addition": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.addedPinAppeared,
+  },
+  "after-completion": {
+    precondition: hasData,
+    check: (ledger) => ledger.disappearedIds.size > 0,
+  },
+  "single-player": {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.sawIntegratedServer,
+  },
+  multiplayer: {
+    precondition: hasData,
+    check: (ledger) => ledger.reported.sawRemoteServer,
+  },
 };
+
+/** Human-readable precondition, used when reporting a `not_observed` result. */
+const PRECONDITION_TEXT = "a publisher reached ready with a non-empty chapter catalog";
 
 function evaluate(ledger, expected) {
   return expected.map((name) => {
-    const check = ASSERTIONS[name];
-    if (check === undefined) {
-      return { name, passed: false, error: `unknown check (known: ${Object.keys(ASSERTIONS).join(", ")})` };
+    const assertion = ASSERTIONS[name];
+    if (assertion === undefined) {
+      return {
+        name,
+        status: FAIL,
+        passed: false,
+        error: `unknown check (known: ${Object.keys(ASSERTIONS).join(", ")})`,
+      };
     }
-    return { name, passed: Boolean(check(ledger)) };
+
+    const testable = assertion.precondition(ledger);
+    if (!testable) {
+      return {
+        name,
+        status: NOT_OBSERVED,
+        passed: null,
+        reason: `not observed: requires ${PRECONDITION_TEXT}`,
+      };
+    }
+
+    const passed = Boolean(assertion.check(ledger));
+    return { name, status: passed ? PASS : FAIL, passed };
   });
+}
+
+/** Exit code for a set of evaluated checks. */
+function exitCodeFor(checks) {
+  if (checks.some((check) => check.status === FAIL)) {
+    return 1;
+  }
+  // Not observed is not a pass. A run whose checks never became testable must
+  // not exit 0, or a pipeline would read it as success (docs/troubleshooting.md
+  // section 4.5).
+  if (checks.some((check) => check.status === NOT_OBSERVED)) {
+    return 2;
+  }
+  return 0;
 }
 
 // ---- connection ----------------------------------------------------------
@@ -442,6 +566,14 @@ function main() {
       startedAt,
       finishedAt,
       assertions: checks,
+      // Explicit counts, so a reader of the JSON does not have to derive the
+      // third state from `passed: null` (docs/troubleshooting.md section 4.5).
+      conclusions: {
+        passed: checks.filter((check) => check.status === "pass").length,
+        failed: checks.filter((check) => check.status === "fail").length,
+        notObserved: checks.filter((check) => check.status === "not_observed").length,
+        exitCode: exitCodeFor(checks),
+      },
       observations: ledger.reported,
       maxChapters: ledger.maxChapters,
       maxObjectives: ledger.maxObjectives,
@@ -472,13 +604,15 @@ function main() {
     }
     finished = true;
     const checks = evaluate(ledger, options.expect);
-    const failed = checks.filter((check) => check.passed === false);
+    const failed = checks.filter((check) => check.status === FAIL);
+    const notObserved = checks.filter((check) => check.status === NOT_OBSERVED);
     const report = buildReport(new Date().toISOString());
 
     if (options.jsonOut !== undefined) {
       writeFileSync(options.jsonOut, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     }
 
+    const marker = { pass: "PASS", fail: "FAIL", not_observed: "n/obs" };
     const line = "─".repeat(72);
     process.stdout.write(`\n${line}\n`);
     process.stdout.write(`chapters seen (max):   ${ledger.maxChapters}\n`);
@@ -487,19 +621,39 @@ function main() {
       process.stdout.write("no assertions requested\n");
     } else {
       for (const check of checks) {
-        process.stdout.write(`  ${check.passed ? "PASS" : "FAIL"}  ${check.name}\n`);
+        process.stdout.write(`  ${marker[check.status]}  ${check.name}\n`);
+        if (check.reason !== undefined) {
+          process.stdout.write(`         ${check.reason}\n`);
+        }
+        if (check.error !== undefined) {
+          process.stdout.write(`         ${check.error}\n`);
+        }
       }
     }
     if (ledger.problems.length > 0) {
       process.stdout.write(`\nproblems:\n${ledger.problems.map((p) => `  - ${p}`).join("\n")}\n`);
     }
     process.stdout.write(`${line}\n`);
-    process.stdout.write(`${failed.length === 0 ? "ALL REQUESTED CHECKS PASSED" : `${failed.length} CHECK(S) FAILED`}\n`);
+
+    // Be explicit about the third state in the summary: a reader skimming the
+    // output must not read "no failures" as "verified".
+    const parts = [];
+    if (failed.length > 0) {
+      parts.push(`${failed.length} CHECK(S) FAILED`);
+    }
+    if (notObserved.length > 0) {
+      parts.push(`${notObserved.length} NOT OBSERVED (not a pass)`);
+    }
+    process.stdout.write(
+      `${parts.length === 0
+        ? "ALL REQUESTED CHECKS PASSED"
+        : parts.join("; ")}\n`,
+    );
     if (failed.length > 0) {
       process.stdout.write(`${describeFailure(ledger).join("\n")}\n`);
     }
 
-    process.exitCode = failed.length === 0 ? 0 : 1;
+    process.exitCode = exitCodeFor(checks);
     socket.close();
   };
 
@@ -592,11 +746,36 @@ function main() {
   });
 }
 
-try {
-  main();
-} catch (error) {
-  process.stderr.write(`watch failed: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 2;
+/**
+ * Run only when this file is the entry point.
+ *
+ * The guard exists so the assertion logic below can be imported and exercised
+ * directly by `watch-assertions.test.mjs`. Without it, importing the module would
+ * launch an observer and open a socket, which is why the tooling defect in
+ * `docs/troubleshooting.md` sections 4.4 and 4.5 previously had no regression
+ * test: there was no way to reach `evaluate()` without running the whole CLI.
+ */
+const isEntryPoint =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
+  try {
+    main();
+  } catch (error) {
+    process.stderr.write(`watch failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 2;
+  }
 }
 
-export { PHASE5_CHECKS };
+export {
+  PHASE5_CHECKS,
+  ASSERTIONS,
+  NOT_OBSERVED,
+  PASS,
+  FAIL,
+  createLedger,
+  evaluate,
+  exitCodeFor,
+  hasData,
+};
