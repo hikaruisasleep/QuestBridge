@@ -12,7 +12,12 @@
     "test": "npm run test -w @questbridge/protocol && npm run test -w @questbridge/mock-publisher && npm run test -w @questbridge/host && npm run test -w web-app",
     "collect": "node packages/mock-publisher/dist/collector.js",
     "mock": "node packages/mock-publisher/dist/index.js",
-    "host": "node packages/host/dist/index.js"
+    "host": "node packages/host/dist/index.js",
+    "phase5:check": "node scripts/phase5/check-environment.mjs",
+    "phase5:session": "node scripts/phase5/start-session.mjs",
+    "phase5:watch": "node scripts/phase5/watch.mjs",
+    "phase5:capture": "node scripts/phase5/read-capture.mjs",
+    "phase5:validate": "node scripts/validate-snapshot.mjs"
   },
   "engines": {
     "node": "24.22.1",
