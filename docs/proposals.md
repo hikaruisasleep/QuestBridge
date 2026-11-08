@@ -1,7 +1,7 @@
 # Re-submitted Proposals
 
-**Status:** Proposal A approved and applied; Proposal C adopted with Phases 0, 1, 2, and 3 applied; Proposal D applied; Proposal B **adopted and simplified to two tokens on 2026-11-06**; Proposal E **adopted 2026-11-07 and implemented in `0pre.3`**
-**Date:** 2026-11-06 (Proposal E decision and §6.1 added 2026-11-07)
+**Status:** Proposal A approved and applied; Proposal C adopted with Phases 0, 1, 2, and 3 applied; Proposal D applied; Proposal B **adopted and simplified to two tokens on 2026-11-06**; Proposal E **adopted 2026-11-07 and implemented in `0pre.3`**; Proposal F **requested 2026-11-08, not decided**; Proposal G **requested and approved 2026-11-08 as planned, undesigned** (§6.2)
+**Date:** 2026-11-06 (Proposal E decision and §6.1 added 2026-11-07; Proposals F and G added 2026-11-08)
 **Context:** These proposals were previously presented during reconnaissance and were deferred or rejected. They are re-submitted here for an explicit decision. Nothing in this document is approved or implemented unless stated.  
 **Phase 5 prerequisite:** The target pack is now installed locally as a Prism Launcher instance (ATM10SKY 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250). The Phase 5 exit criterion no longer depends on obtaining a pack installation; it depends on running the adapter against this one. See `docs/ftb-quests-integration.md` sections 1.1-1.3.  
 
@@ -14,7 +14,9 @@ Approved and applied so far:
 adopted, with B's normative design in `docs/local-authentication.md` and C's
 Phase 0 already applied. The per-proposal status is in §7; this line exists
 because it previously read "the remaining proposals are B–D", which was stale
-both in its range and in its implications.
+both in its range and in its implications. **F (added 2026-11-08) is a request awaiting a
+decision; G (added 2026-11-08) was requested and approved as planned work the same day**
+(§6.2).
 
 ---
 
@@ -649,6 +651,139 @@ Both are recorded as fixed, with evidence, in `docs/troubleshooting.md`.
 
 ---
 
+## 6.2 Requests F and G — recorded 2026-11-08
+
+**Status:** **F is a request, undecided and unscheduled. G is approved as planned work.**
+Neither is designed, scheduled to a slot, or implemented. They are numbered F and G so
+later work can cite them without colliding with A–E.
+
+`docs/documentation-policy.md` is explicit that *"a request is not an implementation
+decision"*; G crossed that line on 2026-11-08, when the user confirmed it is planned work
+rather than a suggestion. F has not crossed it.
+
+### 6.2.1 Request F — ephemeral reordering of pinned quests
+
+**Requested 2026-11-08**, by the user, after the Round 2 live run.
+
+**The request, restated by the user and confirmed in conversation:**
+
+> QuestBridge owns control only ephemerally: it should not *save* the state between
+> sessions, it does not have control over adding or removing entries, and each new
+> session must retrieve fresh state from FTB quests. This is not a replacement, this is
+> an addition.
+
+**Decomposed.** QuestBridge would own the **arrangement** of the objective list, never
+its **membership**:
+
+| Property | Rule |
+|---|---|
+| Add / remove an objective | **Never** QuestBridge's. FTB remains the only pinning interface. |
+| Persist the order | **Never.** No `config.json` field, no file, no `localStorage`. |
+| Starting order each session | FTB's pin set in the documented fallback order (`docs/protocol.md` §8.7). |
+| Lifetime of a reorder | One **game** session. |
+
+Lifetime, exactly as specified:
+
+- **Game restart** → order resets. **This is the only reset.**
+- **World change, then back to the same world** → order preserved.
+- **Host restart** → order preserved.
+- **Host closed *before* the game** → order must also be cleaned up.
+
+**Why it collides with an existing invariant, and why the framing resolves it.**
+`AGENTS.md` §2.3 says quest pins belong to FTB Quests and lists "a second quest-pinning
+interface" as a non-goal; `docs/protocol.md` §8.7 records that FTB exposes no pin order
+and that "the host preserves the received array order and never reorders objectives on
+its own". Request F is an *addition* rather than a replacement because it grants
+**arrangement without membership**: a user cannot create or destroy an objective from
+the dashboard, only reorder ones FTB already provided. **That distinction is
+load-bearing** — if a later implementation lets the dashboard add, remove, or resurrect
+a pin, §2.3 is violated and this request's justification fails with it.
+
+**The unresolved design question: where does an order live that outlives the host but
+not the game?**
+
+The order must survive a host restart, so it cannot live only in host memory. It must die
+with the game, so it cannot be persisted the way chapter pins are. So it is held outside
+the host, tied to a process whose existence the host does not control.
+
+Verified facts that make this awkward rather than impossible:
+
+- FTB exposes **no stable world identifier** (`docs/ftb-quests-integration.md` §3.4).
+- The adapter's `sessionId` is generated **once per client process** and reused across
+  WebSocket reconnects; a new process has a new ID (`docs/protocol.md` §7.2).
+- The host treats a new `sessionId` as a new publisher and replaces state on its first
+  snapshot.
+
+A game restart is therefore visible to the host as a new `sessionId` — but only if the
+host is running to see it. That is exactly the case the user's last clause singles out:
+a host closed before the game never observes the transition, so nothing triggers cleanup.
+Any design must answer:
+
+1. Who holds the order while the host is down?
+2. How does a host that restarts learn whether the game restarted since it last ran?
+3. How is the "host closed before the game" case cleaned up, when the only event that
+   could trigger cleanup is the one that cannot be observed?
+
+**Rejected readings, recorded so they are not reintroduced:**
+
+- *Persist the order in `config.json`* — contradicts "should not save the state between
+  sessions", and in effect makes it a second pinning interface.
+- *Have the adapter transmit an order* — that would make the order FTB's or the adapter's,
+  and the adapter must never write pins (`docs/ftb-quests-integration.md` §7).
+- *Treat a world change as a reset* — explicitly excluded by the user.
+- *Trust a wall-clock heuristic* — plausible, but it would have to be stated as the
+  mechanism rather than assumed; the user has not specified one.
+
+**Open work.** A decision on the storage/ownership question above, then a host (and
+possibly protocol) design, then tests for all four lifetime rules, including
+closed-before-the-game.
+
+**Version impact, if adopted.** Host and frontend source minimum; possibly a protocol
+change if the order reaches the frontend differently than today — under
+`docs/protocol.md` §4 a wire change needs v2.
+
+### 6.2.2 Proposal G — drag-and-drop feedback in the dashboard — **approved, planned**
+
+**Requested 2026-11-08** by the user, then **confirmed the same day as planned work,
+not a mere suggestion** (*"oh drag and drop is planned btw not just a request"*).
+Approved in principle; no design, schedule, or implementation exists yet.
+
+**Current behaviour.** `/control`'s chapter-pin list reorders via pointer events (Pointer
+Events plus a non-passive `touchmove` guard). Reordering is a discrete mutation
+round-trip to the host, and the list re-renders from the new positions.
+
+**The two gaps, precisely:**
+
+1. **No lifted block.** The dragged row is neither cloned nor following the pointer, and
+   has no picked-up or semi-transparent state.
+2. **No reflow transition.** Displaced rows snap. `docs/web-frontend.md` §3.5 already
+   requires reflow rather than snapping for the **overlay**'s objective list (Svelte's
+   `flip`), and `ObjectiveSection` implements it there. The dashboard list does not — so
+   this extends an existing requirement to a second surface rather than inventing one.
+
+**Answers given in conversation:**
+
+- **"Ignore reduced motion globally for now"** — no `prefers-reduced-motion` branch
+  anywhere, including `/control`, with a note that the question stays open for a future
+  update. This matches the existing global position rather than carving an exception.
+- **Own feel for `/control` is still open.** Whether the dashboard reuses the overlay's
+  motion tokens exactly or gets its own durations has not been decided.
+  `docs/phase-3-plan.md` §14.4's rule (no duration literals in components) applies either
+  way.
+
+**What "planned" does and does not mean here.** Approved as work to be done, so it is
+no longer awaiting a yes/no. It still has **no design, no scheduled slot, and no owner**,
+and it does not displace the Phase 5 items in `docs/phase-5-plan.md` §8 or the defects in
+`docs/troubleshooting.md` §4.8 — those are re-verification obligations with evidence
+outstanding, and this is new UI work. The natural first step is a short design pass on the
+two open questions above (drag ghost mechanics; motion tokens), not an implementation
+commit.
+
+**Version impact.** Frontend only. No protocol, host, or mod source change, so no mod
+version bump is implied (`docs/versioning.md` §3.5).
+
+---
+
 ## 7. Decisions requested
 
 | ID | Proposal | Recommendation | Decision |
@@ -658,6 +793,8 @@ Both are recorded as fixed, with evidence, in `docs/troubleshooting.md`.
 | C | Phased implementation order | Adopt | Adopted; Phase 0 applied |
 | D | Repository hygiene and exact FTB build dependencies | Adopt | Applied |
 | E | Runtime token discovery and config-load ordering | Adopt E1, then E2 + discovery | **Adopted 2026-11-07 in full; implemented in `0pre.3`** |
+| F | Ephemeral reordering of pinned quests (§6.2.1) | No recommendation — needs a storage/ownership design first | **Requested 2026-11-08; not decided** |
+| G | Drag-and-drop feedback in the dashboard (§6.2.2) | Frontend-only and low risk, but unscheduled | **Approved 2026-11-08 as planned work; undesigned** |
 
 A decision can be:
 
@@ -668,6 +805,11 @@ A decision can be:
 
 Proposal A has already been applied and `docs/architecture.md` reflects the new layout. Proposal C is adopted and Phase 0 is applied. Proposal D is applied: npm and Node are pinned and the exact FTB build dependencies are declared. Proposal B was adopted on 2026-11-06 and simplified to two tokens with no cookies; its normative design is `docs/local-authentication.md`, and its security section is now the implemented design rather than a recommendation.
 
-**Proposal E was adopted on 2026-11-07, in full, and is implemented in `0pre.3`.** The decision and the three points where implementation tightened the sketch are in §6.1; the plan, the security restatement, and the verification obligations it creates are in `docs/phase-5-plan.md` §12, `docs/local-authentication.md` §2.3, and `docs/ftb-quests-integration.md` §11.1. **No proposal remains undecided.**
+**Proposal E was adopted on 2026-11-07, in full, and is implemented in `0pre.3`.** The decision and the three points where implementation tightened the sketch are in §6.1; the plan, the security restatement, and the verification obligations it creates are in `docs/phase-5-plan.md` §12, `docs/local-authentication.md` §2.3, and `docs/ftb-quests-integration.md` §11.1.
+
+**F was requested on 2026-11-08 and is not decided; G was requested and then approved the
+same day as planned work.** Both are recorded in §6.2 with their open questions. F may not
+be implemented on the strength of its presence here (`AGENTS.md` §2.10); G is approved but
+still has no design and no schedule.
 
 The `0pre.3` build invalidates the session-1 and session-2 observations only in the sense that they describe `0pre.2`: the mapper behaviour they established was measured on code that this change does not touch, and `docs/phase-5-plan.md` §12.4 records precisely which of those findings remain valid and which must be re-taken.
