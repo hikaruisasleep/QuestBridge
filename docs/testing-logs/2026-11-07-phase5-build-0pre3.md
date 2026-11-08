@@ -64,8 +64,16 @@ diagnosed from the file.
 minecraft-mod$ ./gradlew clean build
 BUILD SUCCESSFUL
 
-build/libs/questbridge-0pre.3.jar   (99,470 bytes)
+build/libs/questbridge-0pre.3.jar   (99,579 bytes)
 ```
+
+**Correction (2026-11-07, later same day).** This figure was first recorded as
+99,470 bytes. A clean rebuild reproduced 99,579 exactly, and the artifact on disk
+was the same size, so 99,470 was a transcription error in this record and not a
+stale jar. Corrected here rather than silently, per `AGENTS.md` §17.4
+(correct your own mistakes openly). Jar size is not a stable identifier in any
+case — zip entries carry timestamps — so the version inside
+`META-INF/neoforge.mods.toml` remains the authoritative check.
 
 Version consistency, checked in the artifact rather than in the sources —
 `docs/versioning.md` §2 requires all four to agree:

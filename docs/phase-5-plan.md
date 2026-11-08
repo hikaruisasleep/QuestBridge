@@ -607,6 +607,11 @@ fires it.
 The next live run is the first that can produce transport evidence, and it has one
 extra check the previous runs could not perform:
 
+> **Round 2 is prepared.** `docs/phase-5-round-2-guide.md` carries the prepared
+> state, the three test phases (discovery, configured token, E2 regeneration), the
+> evidence-reading rules, and the claim boundary, so a fresh session can run it
+> without a transcript. No live run has used `0pre.3` yet.
+
 1. **Re-run Sequence A from the top** (§6), on a client that reaches
    `[QuestBridge] publishing to ws://…`. The absence of that line was the fastest
    signal of the old defect; its presence is the first check.
