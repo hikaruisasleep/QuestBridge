@@ -37,6 +37,7 @@ Read `docs/architecture.md` when changing component boundaries or data ownership
 | Live findings and known workarounds | `docs/troubleshooting.md`, relevant `docs/testing-logs/` entry |
 | Proposed product changes | `docs/proposals.md` |
 | Features requiring a future protocol version | `docs/protocol-v2-tracker.md` |
+| Dependency advisories / `npm audit` | `docs/dependency-advisories.md` — **do not "fix" them** |
 
 If a referenced document is missing, stale, or contradicts another source, report the gap and identify the conflict. Do not silently reconstruct an authoritative specification from memory or from this guide.
 

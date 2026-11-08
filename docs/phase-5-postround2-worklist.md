@@ -86,7 +86,7 @@ evidence.
 
 | Item | Note |
 |---|---|
-| 2 Dependabot vulnerabilities on `master` (1 moderate, 1 low) | Surfaced by the push of `108d6d9`. Not investigated. A dependency change is a source change with a version consequence, so it needs a decision rather than a drive-by fix |
+| 2 Dependabot vulnerabilities on `master` (1 moderate, 1 low) | **Not work — a standing prohibition.** See [dependency-advisories.md](dependency-advisories.md). The current state is the best available; a previous fix attempt produced more advisories and reverted a package to `0.0.x`. Do not run `npm audit fix` |
 
 ## 9. Not on this list, deliberately
 

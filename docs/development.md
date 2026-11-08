@@ -30,6 +30,14 @@ From the repository root:
 npm install
 ```
 
+> **Do not run `npm audit fix`, and do not change dependency versions to clear the
+> Dependabot advisories.** The current tree is the best available state, verified by
+> the Svelte developers and confirmed working by the full suite. A previous fix attempt
+> produced *more* advisories and reverted a package to `0.0.x`. The reasoning, the
+> evidence, and the two commits involved are in
+> [`docs/dependency-advisories.md`](dependency-advisories.md). Read that before touching
+> any dependency or reacting to an audit banner.
+
 The web-app scaffold uses Vitest browser mode. Install Chromium once per machine:
 
 ```text
