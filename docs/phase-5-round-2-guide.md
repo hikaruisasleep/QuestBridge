@@ -5,7 +5,18 @@ without re-deriving it from a conversation.
 **Date:** 2026-11-08
 **Branch:** `feat/proposal-e-runtime-token`
 **Mod:** `0pre.3`, installed in the Prism instance
-**Status:** prepared and verified; **no live run has happened yet**
+**Status:** prepared and verified; **a live run has now happened** (2026-11-08,
+single-player). Results, per-check verdicts, and their boundaries are in
+[docs/testing-logs/2026-11-08-phase5-round2-single-player.md](testing-logs/2026-11-08-phase5-round2-single-player.md).
+The guide below is retained unchanged as the procedure; where the run departed from
+it, the run log says so and §10 records it.
+
+> **Outcome in one line.** E1, discovery, and the per-attempt token resolution all
+> worked in a real client, and the adapter published to the host for the first time.
+> 13 plan checks passed; chapter-pin checks (A3, B4) were not exercised because no
+> chapter pins were set, by the user's decision (`docs/troubleshooting.md` §4.6); one
+> product defect was confirmed (§4.8 — a world-less client stays `ready`, so the
+> overlay never fades on the stale timer). No source changed, so `0pre.3` stands.
 
 This is written to be read instead of a transcript. Where it states a fact, the
 fact was checked on disk or by running a command; where it states an intention,
@@ -254,6 +265,48 @@ Artifacts from earlier attempts are preserved, not deleted:
 
 - `.questbridge/phase5/round2-overnight/` — an attempted start on 2026-11-07 that
   never reached a live run.
+- `.questbridge/phase5/live-a/` — the **first Phase 5 session** (2026-11-07
+  17:19–17:51), identified on 2026-11-08 from its `latest.log` baseline
+  (1,546,199 bytes, matching session 1) and its host log opening 3 minutes before the
+  client launched. Its `watch-a.json` is the pre-fix report showing the vacuous
+  `"passed": true` on `no-auto-pin` and `objectives-partition` with
+  `maxChapters: 0` — the live instance of `docs/troubleshooting.md` §4.4. Kept as
+  evidence.
 - `.questbridge/phase5/smoke/` — tooling smoke tests and message drafts.
+- `.questbridge/phase5/round2/` — **the 2026-11-08 run.** Its contents were cleared
+  before the run (the directory was kept), so `host.log`, `session.json` and
+  `capture.json` describe that run only. Note that a host restart inside the run
+  truncated the earlier part of `host.log`; the full timeline lives in the client
+  `latest.log` and in the run log.
+- `.questbridge/phase5/dump/snapshots.jsonl` — 10.1 MB, 1,178 snapshots from the run.
+  Not committed: it contains real world and team identifiers.
 
 All of `.questbridge/` is git-ignored. Nothing there is committed.
+
+---
+
+## 10. What the live run changed about this guide
+
+The procedure worked. These are the places it was wrong or incomplete, recorded so
+the next run does not repeat them.
+
+1. **§5's "pin chapters after the client connects" is right; `docs/phase-5-verification-guide.md`
+   §3's "pin before launching" is impossible.** The catalog does not exist until the
+   client publishes. With no pins set, all five configured pins render as
+   `Unresolved chapter <id>` before the first snapshot — correct
+   (`docs/protocol.md` §5.2 rule 3) but alarming (run log §6.3).
+2. **§4's readiness check is not a reliable statement about the environment.** It
+   reported 8765 free while a host was listening, because the checking shell could not
+   see that process. Confirm with a real request against `/health`.
+3. **A host must be started from a normal shell.** Started from a confined session, it
+   cannot write `config.json`, so chapter pins and every display setting are rejected
+   (`docs/troubleshooting.md` §8.4).
+4. **`-Dquestbridge.debug=true` produces ~430 KB of `latest.log` per half hour** and a
+   10 MB dump, because it logs a full 55-chapter snapshot every 2 s. Useful while
+   diagnosing; turn it off for a long run.
+5. **One watcher per host lifetime.** The watcher's ledger does not survive a host
+   restart, so its final report only describes the last segment
+   (`docs/troubleshooting.md` §8.2).
+6. **The dashboard can look permanently disconnected while it is still retrying.** It
+   reconnects on its own, but gives no indication that it is still trying; a "Not
+   connected" page is not proof of failure. Reload to distinguish the two (run log §6.2).

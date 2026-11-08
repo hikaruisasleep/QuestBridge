@@ -1,17 +1,29 @@
 # Phase 5 Plan — Real ATM10 TTS Integration
 
-**Status:** In progress. Sessions 1 and 2 (2026-11-07) loaded the adapter in a
-live client and verified mapper behaviour from logs — including
-completion-driven unpin removal — but the network path was never exercised,
-because of an adapter configuration defect. **That defect is now fixed.**
-Proposal E was adopted on 2026-11-07 and implemented in `0pre.3`, which also
-closes the §4.1 observability gap and the two `phase5:watch` defects. See §12.
-Sequences A–D have still not been run against a publishing client: the `0pre.3`
-jar exists and compiles, but no live run has used it. Every item in `AGENTS.md`
-§18 that requires a real client remains unchecked. See
-`docs/testing-logs/2026-11-07-phase5-session-1.md`,
-`docs/testing-logs/2026-11-07-phase5-session-2.md`, and
-`docs/troubleshooting.md` §2.1.
+**Status:** In progress. **Round 2 ran on 2026-11-08 and produced the first transport
+evidence the project has had**: `0pre.3` published to the real host, E1 and runtime
+token discovery were confirmed in a live client, and thirteen plan checks passed. The
+results are in
+[docs/testing-logs/2026-11-08-phase5-round2-single-player.md](testing-logs/2026-11-08-phase5-round2-single-player.md),
+and §8's tables now carry their verdicts.
+
+Before Round 2, sessions 1 and 2 (2026-11-07) loaded the adapter in a live client and
+verified mapper behaviour from logs — including completion-driven unpin removal — but
+the network path was never exercised, because of an adapter configuration defect.
+**That defect is fixed.** Proposal E was adopted on 2026-11-07 and implemented in
+`0pre.3`, which also closes the §4.1 observability gap and the two `phase5:watch`
+defects. See §12 and `docs/troubleshooting.md` §2.1.
+
+**Still not verified after Round 2:** the chapter-pin half of the data path (no pins
+were set — `docs/troubleshooting.md` §4.6), the **remote-server** case (`AGENTS.md` §7;
+Round 2 was single-player only), the heartbeat-stale timer, and a regenerated token in
+the client. One product defect was confirmed: a world-less client keeps the host at
+`ready`, so the overlay never fades (§4.8).
+
+> **Round 3 is prepared.** `docs/phase-5-round-3-guide.md` carries the obligations Round
+> 2 could not close, the pre-flight that Round 2 learned to do the hard way, the
+> re-verification matrix for work landing in between, and the evidence rules. No Round 3
+> live run has happened.
 
 **Decision taken (2026-11-07).** Publishing required a token the adapter could
 not read from its own config, so `/control` had no chapter catalog and chapters
@@ -42,13 +54,16 @@ precisely what carries over.
 |---|---|---|---|
 | [1](testing-logs/2026-11-07-phase5-session-1.md) | 2026-11-07 | single-player | Adapter loaded and read real data; publishing blocked by defect D1. Two defects recorded, none fixed. |
 | [2](testing-logs/2026-11-07-phase5-session-2.md) | 2026-11-07 | single-player | Same process, no restart. Mapper behaviour verified from logs; completion-driven unpin confirmed; chapter fields proved unobservable without a dump. |
+| [Round 2](testing-logs/2026-11-08-phase5-round2-single-player.md) | 2026-11-08 | single-player | **First run that reached the host.** `0pre.3` published; E1 and discovery confirmed live; 13 checks passed; world change, host-restart reconnect, crash disconnect and four cold-start orderings verified. Chapter pins not exercised (§4.6). One product defect confirmed (§4.8). |
+| Round 3 | — | — | **Prepared, not run.** `docs/phase-5-round-3-guide.md`. Obligations: chapter pins end to end, team change, quest reload, the heartbeat-stale timer, a regenerated token in the client, and the remote-server case required by `AGENTS.md` §7. |
 
-**No session 3 has been run.** The Proposal E fixes produced a `0pre.3` build and
-an offline verification record
-([2026-11-07-phase5-build-0pre3.md](testing-logs/2026-11-07-phase5-build-0pre3.md)),
-but launching the client against it is a live session that has not happened. That
-record is deliberately **not** listed as a session above, because it contains no
-client observation and calling it one would misrepresent what has been verified.
+**A live run has now used `0pre.3`.** The `0pre.3` build's offline verification record
+([2026-11-07-phase5-build-0pre3.md](testing-logs/2026-11-07-phase5-build-0pre3.md)) is
+still **not** listed as a session above, because it contains no client observation; the
+Round 2 entry is the client observation that supersedes its boundaries.
+Prior sessions that were attempted and abandoned remain in `.questbridge/` rather than
+being renumbered — `.questbridge/phase5/live-a/` was identified on 2026-11-08 as the
+first attempt of session 1 (see `docs/phase-5-round-2-guide.md` §9).
 
 A known, unfixed defect that stops a session is **not** a reason to renumber or
 restart a sequence: session 2 continued from the first incomplete check.
@@ -75,7 +90,8 @@ ATM10 TTS integration*, and its work is exactly:
 - the adapter's structural correctness under real data (was 4F),
 - the behavioural checks: pins, completion, reloads, world and team changes
   (also called out in 4F),
-- single-player and multiplayer operation,
+- single-player and remote-server operation (`AGENTS.md` §7: remote servers are in
+  scope; "multiplayer" is not a verification target),
 - the evidence trail that lets `AGENTS.md` §18 be checked honestly.
 
 4F and Phase 5 asked the same questions of the same system. Splitting them
@@ -211,7 +227,7 @@ Passed as `--expect ready,no-auto-pin,...`:
 | `after-pin-addition` | a pin added during the run became an objective |
 | `after-completion` | an objective disappeared (FTB unpins completed quests) |
 | `single-player` | the publisher reported an integrated server |
-| `multiplayer` | the publisher reported a remote server |
+| `multiplayer` | the publisher reported a remote server (the assertion name is `watch.mjs`'s identifier; `AGENTS.md` §7 calls this case a **remote server**, not multiplayer) |
 
 The ledger **accumulates**: a change that happens between two received states is
 still recorded. A live run is not a script, and the host coalesces updates, so
@@ -292,7 +308,7 @@ still necessary after 4B–4E.
 | The overlay renders X | A user observation in the run log, or a stored screenshot |
 | Pins update reactively | `watch` reports the pin change **and** user confirms the overlay changed |
 | The mapper extracted FTB values correctly | Capture dump value **and** user confirms it in the quest book |
-| Single/multiplayer works | `watch --expect single-player\|multiplayer` **and** a completed sequence in that mode |
+| Single-player and remote-server operation | `watch --expect single-player\|multiplayer` **and** a completed sequence in that mode (the `multiplayer` name denotes a remote server — `AGENTS.md` §7) |
 
 "I ran it and it seemed fine" is not evidence and is not recorded as a pass.
 
@@ -359,14 +375,21 @@ is synthesising state.
 | C5 | Stops and restarts the host while in-world | Client reconnects with backoff; overlay recovers without restarting Minecraft |
 | C6 | Quits the client entirely | `connection -> disconnected`; no stale progression presented as live |
 
-### Sequence D — Single-player and multiplayer
+### Sequence D — Integrated server and remote server
 
-Run twice: once in the integrated server, once on a remote server with the pack
-installed.
+Run twice: once on an **integrated (single-player) server**, once on a **remote server**
+with the pack installed.
+
+> **Vocabulary aligned with `AGENTS.md` §7 on 2026-11-08.** This sequence was called
+> "Single-player and multiplayer". "Multiplayer" is not in scope as a verification
+> target; remote servers are. What is being verified is that the same client-side
+> behaviour holds when the pack is hosted remotely, **not** multiplayer-specific
+> behaviour. The `multiplayer` assertion name in §4.2's table is retained as
+> `watch.mjs`'s literal identifier; it means "the publisher reported a remote server".
 
 | # | User does | Agent expects |
 |---|---|---|
-| D1 | Connects in the given mode | `single-player` or `multiplayer` respectively |
+| D1 | Connects in the given mode | `single-player` for an integrated server, `multiplayer` for a remote one (`watch.mjs`'s identifier) |
 | D2 | Repeats A6 and B1 | Identical behaviour in both modes |
 | D3 | — | No server-side mod was installed; the client state alone sufficed |
 
@@ -392,19 +415,19 @@ with recorded evidence may change.
 
 | Check | §18 item | Status |
 |---|---|---|
-| Adapter connects and publishes | Actual NeoForge integration compiles | not observed |
-| Chapter catalog and 5 IDs | Chapter catalog is received | not observed |
-| Chapter progress | Chapter progress is displayed | not observed |
-| Objectives from manual pins | Manual FTB Quests pins are received | not observed |
-| Auto pin excluded | Automatic pins are excluded | not observed |
-| Task counts and numeric progress | Task progress is displayed where available | not observed |
-| Completion removes the objective | Quest progress is displayed | not observed |
-| Lifecycle recovery | Reconnection restores current state | not observed |
-| Disconnect | Disconnects are represented accurately | not observed |
-| Single-player | Single-player integration is tested | not observed |
-| Multiplayer | Multiplayer integration is tested | not observed |
-| End to end | Actual ATM10 TTS progression is verified | not observed |
-| Jar installed | Client-only installation is verified | not observed |
+| Adapter connects and publishes | Actual NeoForge integration compiles | **pass** — first publisher ever received by a host |
+| Chapter catalog and 5 IDs | Chapter catalog is received | **pass** — 55 chapters, 5/5 expected IDs |
+| Chapter progress | Chapter progress is displayed | **not observed** — no chapter pins (§4.6) |
+| Objectives from manual pins | Manual FTB Quests pins are received | **pass** — additions and removals followed |
+| Auto pin excluded | Automatic pins are excluded | **pass** — ID `1` never seen in 1,178 snapshots |
+| Task counts and numeric progress | Task progress is displayed where available | **pass** — `current`/`target` on four pins |
+| Completion removes the objective | Quest progress is displayed | **pass** — and the user watched the row disappear |
+| Lifecycle recovery | Reconnection restores current state | **pass** — reconnect after host restart, world change, client restart |
+| Disconnect | Disconnects are represented accurately | **partial** — quit and crash correct; leaving the world does not disconnect at all (§4.8) |
+| Single-player | Single-player integration is tested | **pass** — `integrated=true` throughout |
+| Remote server | Remote-server (multiplayer) integration is tested | not observed |
+| End to end | Actual ATM10 TTS progression is verified | **partial** — quest/objective path verified; chapter path untested (§4.6) |
+| Jar installed | Client-only installation is verified | **pass** — `questbridge-0pre.3.jar` loaded; no server-side mod |
 
 **Added 2026-11-07 by §12**, because the Proposal E fixes create checks the
 previous runs could not perform. These are adapter-internal behaviours rather than
@@ -413,10 +436,10 @@ is a substitute for the rows above.
 
 | Check | §18 item | Status |
 |---|---|---|
-| Transport starts from the config-load event, not the constructor | (none — §12.6 item 3) | not observed |
-| The documented config path supplies the token (E1) | (none — §12.6 item 2) | not observed |
-| A regenerated token is picked up on reconnect (E2) | (none — §12.6 item 5) | not observed |
-| Mapper chapter values appear in `4B` logs (§4.1 fix) | Chapter progress is displayed | not observed |
+| Transport starts from the config-load event, not the constructor | (none — §12.6 item 3) | **pass** — `publishing to … (… config loaded trigger)` in three launches |
+| The documented config path supplies the token (E1) | (none — §12.6 item 2) | **supplanted** — the config token was blank, so discovery supplied it; the documented path was never exercised as the *source* |
+| A regenerated token is picked up on reconnect (E2) | (none — §12.6 item 5) | **not observed in a client** — six host restarts reconnected, but `tokens.json` was not regenerated; harness evidence only |
+| Mapper chapter values appear in `4B` logs (§4.1 fix) | Chapter progress is displayed | **pass** — `title`, `subtitle`, `order`, `progress`, `status` all populated |
 
 Items already proven without a client (build, host, mock, chapter pinning,
 chroma keying) are recorded in `docs/phase-2-plan.md` §17 and
@@ -428,6 +451,19 @@ mod version after the fact (§10), and a re-run of the affected sequence.
 
 **§12's offline results move none of the rows above.** They are recorded in
 §12.5 with their boundary, and nothing in them is a client observation.
+
+> **Amended 2026-11-08 — Round 2 was run.** The rows above now carry their Round 2
+> verdicts. Full evidence, and the boundary of every claim, is in
+> [2026-11-08-phase5-round2-single-player.md](testing-logs/2026-11-08-phase5-round2-single-player.md).
+> Three rows are deliberately **not** `pass`: chapter progress and end-to-end (no
+> chapter pins — `docs/troubleshooting.md` §4.6), and disconnection (a world-less
+> client never disconnects — §4.8). **The remote-server row was not attempted**; Round 2
+> was single-player only. No source changed during the run, so `0pre.3` stands.
+>
+> **Vocabulary aligned with `AGENTS.md` §7 the same day.** "Multiplayer" is not in scope
+> as a verification target; a **remote server** is. The row above and Sequence D were
+> renamed accordingly. The `multiplayer` assertion name in §4.2 is unchanged because it
+> is `watch.mjs`'s literal identifier.
 
 ---
 
@@ -607,10 +643,13 @@ fires it.
 The next live run is the first that can produce transport evidence, and it has one
 extra check the previous runs could not perform:
 
-> **Round 2 is prepared.** `docs/phase-5-round-2-guide.md` carries the prepared
-> state, the three test phases (discovery, configured token, E2 regeneration), the
-> evidence-reading rules, and the claim boundary, so a fresh session can run it
-> without a transcript. No live run has used `0pre.3` yet.
+> **Round 2 has been run (2026-11-08).** `docs/phase-5-round-2-guide.md` served as the
+> procedure and its §10 now records what the run changed about it. Items 1–6 below were
+> each exercised: the client reached `publishing to ws://…` (items 1 and 3), no token
+> was pre-set (item 2), chapter values were read from `4B` lines (item 4), the
+> `dumpSnapshot` file was produced and validated (item 6). **Item 5 — regenerating
+> `tokens.json` mid-session — was not performed**, so the live half of E2 remains
+> unverified; see the run log §2.3 and §8.
 
 1. **Re-run Sequence A from the top** (§6), on a client that reaches
    `[QuestBridge] publishing to ws://…`. The absence of that line was the fastest
