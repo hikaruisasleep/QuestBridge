@@ -14,7 +14,7 @@ This file contains project invariants and agent workflow. Detailed specification
 2. **Chapter pins belong to QuestBridge.** The dashboard lets the user select, order, and pin up to five discovered chapters. Never auto-select, auto-fill, or silently substitute chapters. Preserve unresolved chapter IDs.
 3. **Quest pins belong to FTB Quests.** The objective list uses the player's manually pinned quests only. Do not add a second quest-pinning interface. Exclude automatic pins unless a future, explicitly approved feature changes this rule.
 4. **Progress belongs to FTB Quests.** Prefer native progress calculations. Never invent progress; unavailable values are `null`, not zero. Preserve optional-task semantics.
-5. **Client-only integration.** Read synchronized in-memory data from the Minecraft client. Support multiplayer and single-player. Do not require a server mod, server filesystem access, Pterodactyl, SFTP, cloud services, accounts, or a remote database.
+5. **Client-only integration.** Read synchronized in-memory data from the Minecraft client. Support both an integrated (single-player) server and a remote server the player connects to. Remote servers are in scope; *multiplayer as a verification target is not* (see §7). Do not require a server mod, server filesystem access, Pterodactyl, SFTP, cloud services, accounts, or a remote database.
 6. **Keep boundaries intact.** The Java adapter reads FTB state and publishes normalized data. The host owns local configuration, protocol validation, and state distribution. Svelte renders the UI. The frontend must not parse FTB data or recalculate progression; the host must not depend on Minecraft libraries.
 7. **Keep the overlay minimal and chroma-keyable.** Use the dashboard-selected solid green or blue key background; no UI colour may fall within the active key colour family. No external fonts, textures, or decorative assets.
 8. **Local-only host.** Bind to `127.0.0.1`, never `0.0.0.0`. Preserve the accepted authentication risks documented in `docs/local-authentication.md`; changing them requires an explicit product decision.
@@ -129,7 +129,25 @@ Update the canonical entry instead of appending another copy. When changing a re
 
 ## 7. Definition of done
 
-The release is not complete until the monorepo and host work, mock mode works, the dashboard persists up to five chapter pins, the overlay renders chapter and manual quest progress, and the client-only NeoForge integration is built and verified in both single-player and multiplayer against the actual ATM10 TTS instance. Automatic pins must be excluded, reconnect behavior must be verified, and OBS chroma keying must work. Keep the detailed checklist and evidence in the active phase plan; mock-only success is not release completion.
+The release is not complete until the monorepo and host work, mock mode works, the dashboard persists up to five chapter pins, the overlay renders chapter and manual quest progress, and the client-only NeoForge integration is built and verified **against the actual ATM10 TTS instance, in single-player and on a remote server**. Automatic pins must be excluded, reconnect behavior must be verified, and OBS chroma keying must work. Keep the detailed checklist and evidence in the active phase plan; mock-only success is not release completion.
+
+> **"Multiplayer" is not in scope; remote servers are. Decided 2026-11-08.**
+> This section previously required verification "in both single-player and
+> multiplayer". The word carried assumptions the product does not have: it suggests
+> multiplayer *features* (other players' progression, team-relative behaviour, a
+> server-side component) that QuestBridge deliberately does not build. What the
+> product actually must do is work when the player is connected to a **remote
+> server** that has the pack installed, exactly as it works on an integrated server —
+> reading the same synchronized client state, with **no server-side mod and no server
+> filesystem access** (invariant 5).
+>
+> So the obligation is: the same behaviour on an integrated server and on a remote
+> server. It is **not**: multiplayer-specific behaviour, team semantics beyond what
+> FTB syncs, or any interoperability with other players' clients.
+>
+> Verification of the remote-server case is still outstanding — it was not run in
+> Round 2 (2026-11-08), which was single-player only. It is a release obligation, not
+> a deferred item.
 
 ## Product principle
 
