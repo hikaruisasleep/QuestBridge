@@ -796,27 +796,38 @@ QuestBridge should compile against the exact installed FTB Quests release and de
 
 Already established by inspection and client logs: the five chapter IDs and their titles exist in the pack data (section 2), the title and description accessors are documented from the FTB source and jars (section 4.3), and the client-side access pattern is loadable in this pack (section 1.3).
 
-Stage 4A has now verified the startup/readiness path, all five chapter resolutions and titles, one real manual pin, and real task progress in the live client. The remaining items require the network adapter and are the subject of Phase 5, sequenced in `docs/phase-5-plan.md` §6 with per-item evidence rules in §5.4:
+**Round 2 (2026-11-08) was the first live run that reached the host, and it moved most of
+this list from "unverified" to "verified in a real client".** Each tick below names the
+evidence; the full transcript is
+[2026-11-08-phase5-round2-single-player.md](testing-logs/2026-11-08-phase5-round2-single-player.md).
+A box stays unticked when the run did not exercise it, even where the code is believed
+correct — `[ ]` here means **not observed**, not "broken".
+
+Verified 2026-11-08 in a single-player session on ATM10 TTS 2.3.1 with mod `0pre.3`:
 
 - [x] Data unavailable during client startup.
 - [x] Data becomes ready after quest and team synchronization.
 - [x] All five ATM10 TTS chapters resolve by ID.
 - [x] Chapter titles come from FTB, not hardcoded strings.
-- [ ] Chapter progress matches the FTB quest book.
-- [ ] Chapter completion uses `TeamData.isCompleted(chapter)`, not `progress == 100`.
-- [ ] Optional quests are excluded from chapter progress.
-- [ ] Manual pins appear in the overlay.
-- [ ] Automatic pin ID `1` is excluded.
-- [ ] A completed quest is removed from the pin set by FTB, and the overlay reflects that removal rather than fabricating a retained objective.
-- [ ] Task current/target progress matches FTB.
-- [ ] Pin changes appear automatically within the reconciliation interval.
-- [ ] Quest completion appears automatically.
-- [ ] The adapter reads in-memory client state; it does not parse or forward FTB packet bytes.
-- [ ] Quest reload triggers a fresh snapshot.
-- [ ] World change triggers a fresh snapshot.
-- [ ] Team change triggers a fresh snapshot.
-- [ ] Single-player works.
-- [ ] Multiplayer works without a server-side mod.
-- [ ] Disconnect and reconnect restore correct state.
-- [ ] Unresolved pinned quest IDs are reported safely.
-- [ ] Unresolved chapter IDs remain in configuration.
+- [ ] Chapter progress matches the FTB quest book — **not observed:** no chapter pins were configured (§4.6 of `docs/troubleshooting.md`). Chapter `4B` values *were* published and moved correctly (40→42, 3→7), but never compared against the quest book.
+- [ ] Chapter completion uses `TeamData.isCompleted(chapter)`, not `progress == 100` — **not observed:** no chapter reached `completed`; no pin, so B4 was not exercised.
+- [ ] Optional quests are excluded from chapter progress — **not verified by comparison.** A pinned optional quest (`Copper Chest`, `optional=true`) was reported, but its exclusion from the chapter percentage was not isolated and measured.
+- [x] Manual pins appear in the overlay. — additions at 4→5, 5→6, 6→5, all within the 2 s reconciliation window, **and the user confirmed the overlay rows changed.**
+- [x] Automatic pin ID `1` is excluded. — `read-capture`: `automatic pin id 1 seen: false` across 1,178 snapshots.
+- [x] A completed quest is removed from the pin set by FTB, and the overlay reflects that removal rather than fabricating a retained objective. — the check the project flagged as most likely to expose a fabricated objective; confirmed from the client log, the host (`-[70C2B568FA46337F]`), **and the user watching the overlay go 6 rows → 5.**
+- [x] Task current/target progress matches FTB. — `current=0 target=1` published on four pinned `ftbquests:item` tasks. *Boundary:* advancing a counter to `1/1` on a pinned quest was never captured, because FTB unpins on completion and the state lasted under one reconciliation interval.
+- [x] Pin changes appear automatically within the reconciliation interval. — measured; every change landed within ~2 s.
+- [x] Quest completion appears automatically. — same evidence as the unpin row above.
+- [x] The adapter reads in-memory client state; it does not parse or forward FTB packet bytes. — true by inspection of the code; the live run adds that the published values track FTB's own state change for change.
+- [ ] Quest reload triggers a fresh snapshot — **not observed:** the quest-data reload (C3) was not attempted.
+- [x] World change triggers a fresh snapshot. — `New World` → `hi deepseek` at 17:40:03, fresh catalog, no mixing; per-world pins correctly reset to zero.
+- [ ] Team change triggers a fresh snapshot — **not observed:** no team change was attempted.
+- [x] Single-player works.
+- [ ] Multiplayer works without a server-side mod — **not observed:** Sequence D was not run in multiplayer. **This alone keeps `AGENTS.md` §7 from being met.**
+- [x] Disconnect and reconnect restore correct state. — host restart, world change, client restart and a hard kill all recovered with a fresh snapshot. *Boundary:* a world-less client does **not** disconnect at all (`docs/troubleshooting.md` §4.8), so "disconnects are represented accurately" holds for socket loss but not for leaving a world.
+- [x] Unresolved pinned quest IDs are reported safely. — every snapshot reported `unresolved=0` when all pins resolved; the partition held throughout.
+- [x] Unresolved chapter IDs remain in configuration. — the five persisted chapter IDs survived every host restart and rendered as `Unresolved chapter` while no catalog had arrived, without being deleted or substituted.
+
+**What this checklist does not establish.** Multiplayer; the chapter-pin half of the data
+path; the heartbeat-stale timer (a kill closes the socket, so the 20 s/30 s path never
+ran); a regenerated `tokens.json` reaching the client. See the run log §8.

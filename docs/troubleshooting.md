@@ -4,7 +4,7 @@
 marked **verified** was observed on a real client with the real host; entries
 marked **suspected** are reasoned from code and logs but not confirmed.
 **Date:** 2026-11-07 (§2.1, §2.1.2, §4.1, §4.4, and §4.5 updated the same day with
-their fixes)
+their fixes; §4.6, §4.7, and §4.8 added 2026-11-08)
 **Applies to:** ATM10 TTS 2.3.1, Minecraft 1.21.1, NeoForge 21.1.250, mod
 `0pre.2` for the original observations and `0pre.3` for the fixes noted below,
 host as of `packages/host` milestone 2G.
@@ -531,6 +531,184 @@ with `maxChapters: 0` as not observed.
 > Verified by the same 17-check regression test as §4.4, which asserts the
 > tri-state and the exit-code precedence directly.
 
+### 4.6 No chapter pins are configured, and they cannot be set before a client connects — expected, point of interest
+
+**Recorded 2026-11-08**, during Round 2 preparation, at the user's instruction:
+not a defect, and deliberately **not** acted on in Round 2. The user's decision was
+to leave chapter pins alone for now and record the point here.
+
+**Observed.** The host's `config.json` carries
+`"pinnedChapters": []` — zero pins — even after the host has run several times.
+`check-environment` reports no failures and one warning for it
+(`no chapter pins configured -> Phase 5's overlay checks need up to five pins set
+in /control`), and that warning is correct rather than noise.
+
+**Why it is a point of interest rather than a slip.** The two runbooks disagree
+about the order of operations, for a structural reason:
+
+| Document | Says | Reality |
+|---|---|---|
+| `docs/phase-5-verification-guide.md` §3 | Pin up to five chapters **before** launching Minecraft | Impossible on a first run: `/control` lists chapters only once a catalog has arrived, and the catalog comes from the client |
+| `docs/phase-5-round-2-guide.md` §5 | Pin chapters **after** the client connects | Correct, and the guide says why |
+
+The host never seeds, auto-selects, or fills chapter pins
+(`AGENTS.md` §2.1, `docs/chapter-pinning.md` §1, §8.5), so an empty pin
+configuration is the honest default and not a missing step that something should
+have performed.
+
+**Consequence for a run.** Until a pin is set:
+
+- the overlay's major-progression section is empty — correct, not a blank frame;
+- `chapter`-side checks in `docs/phase-5-plan.md` §6 (A3's five pinned chapters,
+  B4's chapter completion) cannot be exercised, so they are recorded as
+  **not observed**, never as passed;
+- the chapter-pin half of the end-to-end data path stays untested, which is the
+  same gap sessions 1 and 2 had (`docs/testing-logs/2026-11-07-phase5-session-1.md`
+  §5 item 4).
+
+**How to settle it** (when the user chooses to): open the dashboard URL once the
+client has published, pin up to five chapters from the catalog, and let the run
+continue. No source change is involved.
+
+**Status:** recorded, open, by the user's decision — not a defect and not
+scheduled.
+
+### 4.7 The dashboard preview never fades, so it disagrees with `/overlay` — verified, deliberate
+
+**Observed 2026-11-08**, Round 2, by the user. Reported verbatim: *"while the
+/overlay endpoint fades out gracefully, the preview still shows the list of
+pinned chapters and quests, even after a page reload"*.
+
+**Not a defect in the code — it is implemented on purpose.** `OverlayView` is
+shared by `/overlay` and by the dashboard preview, and it suppresses the fade for
+the preview in two places:
+
+```svelte
+/* OverlayView.svelte */
+/** Dashboard preview: shows setup hints and is never faded. */
+preview?: boolean;
+
+data-faded={disconnected && !preview}
+```
+
+```css
+.overlay[data-faded='true'] .stack { opacity: 0; }
+.overlay[data-faded='false'] .stack { opacity: 1; }
+```
+
+The intent is recorded in the component test `overlay-states.svelte.test.ts`:
+*"The preview is a design tool, not a live graphic; fading it would make the
+dashboard look broken whenever Minecraft is closed."* Three test cases depend on
+it, including `never fades in the dashboard preview`.
+
+**Why the reload does not change it.** The preview renders from the host's
+normalised state, not from the Minecraft connection. After the client dies the
+host keeps `status: disconnected`, `stale: true`, and the retained catalog and
+objectives. A reload re-reads exactly that retained state, so it redraws the same
+rows. The preview is faithfully showing *what the host holds*, which is the
+correct input for a configuration surface.
+
+**Why the name matters — the monitor analogy.** The user's framing, recorded
+because it is the reason this is not a minor cosmetic discrepancy:
+
+> "In studio control rooms, the name 'monitor' carries an implicit expectation: it
+> is a window that honestly displays the program for, well, *monitoring*. If the
+> preview monitor and the program output is desynced it can no longer be called a
+> preview monitor."
+
+A program monitor and a preview monitor are two windows onto one signal path; their
+entire worth is the guarantee that what is seen in one is what is going out on the
+other. A preview that can disagree with program has not become a *weaker* preview —
+it has stopped being one. It is a schematic, an editor, or last-known-good state,
+and each of those is a legitimate thing that is not a monitor. The label is the
+problem, because it invites exactly the trust the behaviour can break.
+
+**A distinction that sharpens this rather than weakening it.** The preview is
+*supposed* to differ from `/overlay` in some ways: setup hints appear only in the
+preview, and the key-colour frame is drawn for previewing. Those differences are
+visible — the preview is showing its own scaffolding, and a user can see that it is
+doing so. The fade is different in kind: it is the one case where the preview shows
+*program content* that the program is not showing, with no cue that anything
+differs. That is not a variation; it is a contradiction.
+
+**The statement the finding supports.** Not "the preview has a known limitation" but
+closer to: *the dashboard presents a view as a preview monitor which, in its most
+operationally important state, does not function as one.*
+
+**The two positions, stated without choosing between them.** They are **not equally
+balanced**, and the entry does not pretend otherwise: they are measured in
+different currencies.
+
+1. **Preview as literal truth** — the same fade, so what is configured against is
+   what OBS renders. The identity of a preview monitor is preserved.
+2. **Preview as configuration surface** — the present behaviour, with the
+   disconnection accepted as a scoped divergence between preview and stream. The
+   cost avoided (configuration columns going blank while Minecraft is not running)
+   is measured in convenience during setup; the cost accepted is measured in trust
+   during a broadcast.
+
+**Status:** recorded, open. The user has asked that this be pondered in depth
+later and has explicitly **declined any fix for now**; no change has been made and
+no change should be made without that discussion. Any future decision should also
+update `docs/web-frontend.md` §1 and §3.4, which currently describe the preview as
+live but say nothing about this exception.
+
+### 4.8 A world-less client stays `ready`, so the overlay keeps showing objectives — verified, partial, expected to fade
+
+**Observed 2026-11-08**, Round 2, by the user, in two steps: the behaviour itself
+during a world exit, and then the expectation when asked to evaluate it.
+
+**Expected behaviour, as stated by the user:**
+
+> "The overlay *should* fade out according to the configured stale timer even if the
+> host was ready. A list displaying gameplay objectives while no gameplay is
+> happening is a distracting screen clutter."
+
+Recorded as the requirement for any fix. It is a product statement, not an
+inference from the code.
+
+**What happened.** The user left the world to the main menu with the client still
+running (`docs/phase5` Round 2, sequence C1), and sat there.
+
+| Time | Event | Source |
+|---|---|---|
+| 17:22:28 | adapter logs `not ready: No world loaded (phase=UNAVAILABLE, level=null)` | client `latest.log` |
+| 10:22:28 → 10:29:19 | host state stays `status: ready`, `stale: false` for **11 minutes** | `watch.mjs` ledger, `state.snapshot` |
+| throughout | overlay shows all objectives; user confirmed "the list of quests stay and does not fade away" | user observation |
+
+The adapter was correct, and the protocol had the means to say so: `minecraft.status`
+carries `phase: unavailable` in v1 (`docs/protocol.md` §9.3), and that section maps
+`unavailable` to host status `connected`. The host did not move to a state that
+would start the stale timer, so the overlay — whose fade keys on `disconnected`
+only — had no reason to fade. **The overlay was correct for what it was told; the
+status chain above it lost the information.**
+
+**Why this is not the same as `docs/web-frontend.md` §3.4.** That section makes a
+stale state invisible on purpose, to avoid flicker from a slow update while gameplay
+continues. A world-less client is the opposite case: no gameplay is happening at
+all, indefinitely. It is precisely the condition the stale timer exists to detect,
+and the loosened 20 s / 30 s thresholds were sized against a *breathing* publisher,
+not an absent one.
+
+**Why this is not `§4.7` either.** §4.7 is a frontend presentation decision about the
+dashboard preview, and it is about a view that is never meant to be the program.
+This entry is about the program output itself being wrong. Merging the two would
+blur both: one can be settled by relabelling or accepting a divergence, the other
+cannot.
+
+**Status:** recorded, **not fixed**. A fix changes source (the host's mapping of
+`unavailable`, and/or what drives the overlay fade), so it falls under
+`docs/versioning.md` §3.5 and needs an explicit decision — either a versioned fix or
+a proposal in `docs/proposals.md` in the form Proposal E took. No source has been
+changed.
+
+**What a fix must not break.** The fade must still not pulse on ordinary
+`synchronizing` or on a slow heartbeat, which is the case §3.4 protects. Whatever
+distinguishes "no gameplay" from "gameplay continuing, update slow" has to be
+available to the host, and `phase: unavailable` is currently collapsed into
+`connected` — so the question to settle is whether `unavailable` deserves its own
+host state, and whether that is a v1-compatible change or a v2 item.
+
 ---
 
 ## 5. What the sessions established
@@ -584,8 +762,16 @@ cross-reference five entries to find out what still applies.
 | §2.2 BOM truncates the client config | Configuration trap | Operator fix (already applied) | Still applies; the trap is in NightConfig, not our code |
 | §4.1 mapper chapter values not logged | Observability gap | Source change → version bump | **Fixed in `0pre.3`** |
 | §4.3 55 chapters vs 54 files | Suspected, unexplained | Unknown; needs a dump to settle | **Still open** |
+| §4.6 no chapter pins configured | Expected behaviour, not a defect | None; a user step, not code | **Open by decision** (left alone for Round 2) |
+| §4.7 preview does not fade while `/overlay` does | Deliberate behaviour | Unknown; a product decision, not a bug fix | **Open by decision** — ponder later, fix not requested |
+| §4.8 world-less client stays `ready`, overlay never fades | Defect (product) | Source change → version bump | **Recorded, not fixed** — expected to fade on the stale timer |
 | §4.4 `phase5:watch` vacuous PASS | Tool defect | Tooling only, no version bump | **Fixed** |
 | §4.5 watch cannot express "not observed" | Tool defect | Tooling only, no version bump | **Fixed** |
+| §7.1 a persistence failure reports `invalid_request` | Error-code gap | Source change → version bump | **Recorded, not fixed** (found via an environment incident) |
+| §8.1 `read-capture` counts duplicates across snapshots | Tool defect | Tooling only, no version bump | **Recorded, not fixed** |
+| §8.2 `watch` cannot span a host restart | Tool defect | Tooling only, no version bump | **Recorded, not fixed** |
+| §8.3 `check-environment` exits 1 while printing READY | Tool UX | Tooling only, no version bump | **Recorded, not fixed** |
+| §8.4 a confined host cannot write `config.json` | Environment | None; start the host normally | **Recorded; not a product defect** |
 
 §4.3 is the only entry in this table that is both unresolved and unexplained. It
 has not been re-examined since it was recorded, and the `0pre.3` change does not
@@ -627,3 +813,130 @@ log line demonstrates it.
 
 This is required, not optional: `AGENTS.md` §17.2 makes recording a finding part
 of the session that found it.
+
+---
+
+## 7. Persistence and error codes
+
+### 7.1 A write failure is reported as `invalid_request` — verified
+
+**Observed 2026-11-08**, Round 2. A browser mutation the host could not persist was
+rejected like this:
+
+```text
+ERROR failed to write configuration file: C:\Users\LENOVO\AppData\Roaming\QuestBridge\config.json
+ERROR failed to persist chapter pin configuration: Could not write configuration file: …
+WARN  rejected browser chapter.pin: invalid_request Could not persist the chapter pin configuration
+```
+
+and, for display settings, identically:
+
+```text
+WARN  rejected browser config.update: invalid_request Could not persist the display configuration
+```
+
+**Why it matters.** `invalid_request` means "semantically invalid request"
+(`docs/protocol.md` §10.4) — the protocol's code for a caller's mistake. A full disk, a
+permissions problem, or a read-only mount is not the caller's mistake and cannot be
+fixed by changing the request. The host also has **no code for a persistence failure**
+in §10.4, so there is nothing more accurate to use.
+
+**What was done right.** The host refused to apply a mutation it could not persist, and
+the dashboard surfaced the message rather than silently failing. The behaviour is
+correct; only the attribution is wrong.
+
+**This was first misattributed to the product.** The rejection was caused by the host
+running inside an agent confined session that could not write outside its workspace —
+the user's own machine could write the file normally, and the same mutations succeeded
+once the host ran unconfined. It is recorded as a **real error-code gap discovered by
+an environment incident**, not as a defect that occurred in normal use.
+
+**Status:** recorded, not fixed. A fix changes source (a new error code, which under
+`docs/protocol.md` §4 is not an additive change because error codes are enumerated), so
+it needs a decision and takes a version (`docs/versioning.md` §3.5).
+
+---
+
+## 8. Tooling defects found by Round 2
+
+Both are tooling only: no version impact (`docs/versioning.md` §3.5). Recorded because
+each makes a *report* wrong, which is the class of defect §4.4 and §4.5 were about.
+
+### 8.1 `read-capture` counts chapter-ID duplicates across snapshots — verified
+
+**Symptom.** A valid dump from a clean run fails one check:
+
+```text
+snapshot messages: 1178 (of 1178 lines)
+  FAIL  unique-chapter-ids — 64735 duplicate id(s)
+```
+
+**Cause.** `scripts/phase5/read-capture.mjs` accumulates chapter IDs into a single
+`Set` for the whole file:
+
+```js
+for (const snapshot of snapshots) {
+  for (const chapter of snapshot.payload.chapters ?? []) {
+    if (allIds.has(chapter.id)) { duplicateIds += 1; }
+    allIds.add(chapter.id);
+```
+
+A dump repeated every 2 s therefore re-counts the same catalog on every write. The
+number is exactly `1178 × 55 − 55 = 64,735`.
+
+**Measured independently:** 55 distinct IDs across the entire dump (the correct
+catalog size), and **zero** duplicates within any single snapshot. The invariant the
+host enforces (`docs/protocol.md` §10.3) is per snapshot, and it holds.
+
+**Why it matters.** The check is the one that would catch a genuinely duplicated
+catalog — a plausible mapper defect. Reporting a false failure on a healthy run is how
+a real failure gets waved through later.
+
+**Fix direction:** move `allIds` inside the per-snapshot loop. **Not fixed.**
+
+### 8.2 `watch` cannot span a host restart — verified
+
+**Symptom.** After a deliberate host restart mid-run, the final report claimed:
+
+```text
+  FAIL  reconnect
+  FAIL  world-change
+  FAIL  single-player
+4 CHECK(S) FAILED
+```
+
+All four had demonstrably happened: the client reconnected to a new host, the world
+changed from `New World` to `hi deepseek`, and every snapshot carried
+`integrated=true`.
+
+**Cause.** The watcher's ledger is in its own memory and its connection dies with the
+host, so everything accumulated before the restart is discarded. `reconnect` in
+particular can never pass *through* a restart — the event it measures is the one that
+destroys its history.
+
+**Why it matters.** A `watch.json` from a session that outlived one host reads like a
+verdict on the whole run. It is only a verdict on the segment after the last restart.
+
+**Interim reading rule (until fixed):** when a run spans a host restart, read the
+watcher report only as evidence for the final segment, and take earlier events from the
+client log and the host log. Run one watcher per host lifetime. **Not fixed.**
+
+### 8.3 `check-environment` exits 1 while printing `READY` — verified
+
+`READY — 0 failure(s), 3 warning(s)` was printed with **exit code 1**. The documented
+contract (`scripts/phase5/check-environment.mjs` header) is `0` ready, `1` ready with
+warnings, `2` not ready — so the behaviour matches the code, but a caller that checks
+"non-zero means not ready" will conclude the opposite of what was printed. Low severity;
+recorded because it was nearly misread during this run. **Not fixed.**
+
+### 8.4 A host inside a confined session cannot write `config.json` — environment
+
+Recorded so the symptom is not mistaken for a product defect again (§7.1). A host
+started from an agent's confined session could not create files in the host config
+directory even though Windows permissions were `FullControl` for that user and the same
+write succeeded unconfined. Chapter pins and all five display settings failed; the host
+refused them correctly. This is a limitation of *where the host was started*, not of the
+host.
+
+**Practical rule:** run the host for a live session from a normal shell. Confirm with a
+real write before testing anything that persists.
